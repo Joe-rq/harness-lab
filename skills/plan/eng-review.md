@@ -1,86 +1,93 @@
-# Skill: /plan-eng-review
+---
+name: plan-eng-review
+description: Technical architecture and engineering review. Use when designing technical solutions, assessing implementation approaches, or before coding complex features. Triggers on phrases like "engineering review", "technical design", "architecture review", " feasibility check", or when evaluating technical risks and solution options.
+---
 
-## 🎯 目标
-从技术角度审查需求，确保方案可行。
+# /plan-eng-review
 
-## 📋 执行清单（80项检查）
+Technical perspective review to ensure solution feasibility.
 
-### 架构层面
-- [ ] 读取 context/tech/架构设计.md
-- [ ] 评估对现有架构的影响
-- [ ] 识别新增/修改的模块
-- [ ] 检查是否符合分层架构（Types→Config→Repo→Service→UI）
+## 80-Point Engineering Checklist
 
-### 数据层面
-- [ ] 评估数据模型变更
-- [ ] 检查数据库迁移需求
-- [ ] 评估数据一致性要求
-- [ ] 检查敏感数据处理
+### Architecture (Points 1-20)
+- [ ] Read context/tech/architecture.md
+- [ ] Assess impact on existing architecture
+- [ ] Verify layer compliance (Types→Config→Repo→Service→UI)
+- [ ] Check dependency directions
+- [ ] Identify new/modified modules
 
-### 接口层面
-- [ ] 设计 API 接口
-- [ ] 评估接口兼容性
-- [ ] 检查权限控制
-- [ ] 定义接口契约
+### Data (Points 21-35)
+- [ ] Evaluate data model changes
+- [ ] Plan database migrations
+- [ ] Assess data consistency requirements
+- [ ] Check sensitive data handling
 
-### 性能层面
-- [ ] 评估性能影响
-- [ ] 识别潜在瓶颈
-- [ ] 设计缓存策略
-- [ ] 评估并发处理
+### APIs (Points 36-45)
+- [ ] Design API interfaces
+- [ ] Check backward compatibility
+- [ ] Verify permission controls
+- [ ] Define API contracts
 
-### 安全层面
-- [ ] 检查安全漏洞
-- [ ] 评估权限控制
-- [ ] 检查敏感信息保护
-- [ ] 评估合规要求
+### Performance (Points 46-55)
+- [ ] Assess performance impact
+- [ ] Identify bottlenecks
+- [ ] Design caching strategy
+- [ ] Evaluate concurrency needs
 
-### 运维层面
-- [ ] 评估部署影响
-- [ ] 检查监控需求
-- [ ] 评估日志记录
-- [ ] 设计回滚方案
+### Security (Points 56-65)
+- [ ] Check input validation
+- [ ] Assess injection risks
+- [ ] Verify XSS protection
+- [ ] Check sensitive info exposure
 
-## 📝 输出模板
+### Operations (Points 66-80)
+- [ ] Assess deployment impact
+- [ ] Plan monitoring needs
+- [ ] Design logging strategy
+- [ ] Define rollback plan
+
+## Output Template
 
 ```markdown
-## ENG Review: [需求名称]
+## ENG Review: [Requirement Name]
 
-### 架构影响
-- 影响模块：
-- 架构图：[附架构图或链接]
-- 数据流：[附数据流图]
+### Architecture Impact
+- Affected modules:
+- Architecture diagram: [link]
+- Data flow: [link]
 
-### 技术方案
-#### 方案概述
-简要描述技术方案
+### Technical Solution
+**Overview**: Brief description
 
-#### 关键决策
-1. 决策 1：选择 A 而非 B 的原因
-2. 决策 2：...
+**Key Decisions**:
+1. Decision 1: Chose A over B because...
+2. Decision 2: ...
 
-### 风险评估
-| 风险 | 概率 | 影响 | 缓解方案 |
-|-----|------|------|---------|
-| 风险1 | 高/中/低 | 高/中/低 | 方案 |
+### Risk Matrix
+| Risk | Probability | Impact | Mitigation |
+|-----|-------------|--------|------------|
+| Risk 1 | High/Med/Low | High/Med/Low | Solution |
 
-### 工作量估算
-- 开发：X 天
-- 测试：Y 天
-- 文档：Z 天
+### Effort Estimate
+- Development: X days
+- Testing: Y days
+- Documentation: Z days
 
-### 检查清单确认
-- [ ] 架构合规
-- [ ] 接口设计完成
-- [ ] 测试策略明确
-- [ ] 部署方案就绪
+### Checklist Results
+- [ ] Architecture compliant
+- [ ] API design complete
+- [ ] Test strategy defined
+- [ ] Deployment plan ready
 
-### 建议
-- 建议 proceed / 建议调整方案 / 建议拆分
-- 理由
+### Recommendation
+- [ ] Proceed as designed
+- [ ] Revise and re-review
+- [ ] Split into smaller tasks
 ```
 
-## ⚠️ 红线
-- 不要在没有架构图的情况下 proceed
-- 不要忽视性能和安全评估
-- 不要低估工作量
+## Stop Conditions
+
+Do NOT proceed if:
+- No architecture diagram provided
+- Performance/security risks unaddressed
+- Effort significantly underestimated

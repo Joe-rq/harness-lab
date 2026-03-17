@@ -1,76 +1,82 @@
-# Skill: /review
+---
+name: review
+description: Code quality and standards review. Use when reviewing code changes, pull requests, or ensuring implementation quality. Triggers on phrases like "code review", "review this PR", "check this code", "quality review", or when verifying code meets standards and best practices.
+---
 
-## 🎯 目标
-进行代码审查，确保质量和规范。
+# /review
 
-## 📋 执行清单
+Code quality, standards, and correctness review.
 
-### 1. 架构合规性
-- [ ] 检查分层架构（Types→Config→Repo→Service→UI）
-- [ ] 检查依赖方向
-- [ ] 检查模块边界
+## Review Checklist
 
-### 2. 代码质量
-- [ ] 检查代码可读性
-- [ ] 检查命名规范
-- [ ] 检查注释完整性
-- [ ] 检查复杂度
+### Architecture Compliance
+- [ ] Follows layer architecture (Types→Config→Repo→Service→UI)
+- [ ] Dependency direction correct
+- [ ] Module boundaries respected
+- [ ] No circular dependencies
 
-### 3. 功能正确性
-- [ ] 检查业务逻辑
-- [ ] 检查边界条件
-- [ ] 检查错误处理
-- [ ] 检查并发安全
+### Code Quality
+- [ ] Readable and maintainable
+- [ ] Naming follows conventions
+- [ ] Comments where needed
+- [ ] Complexity reasonable
 
-### 4. 测试覆盖
-- [ ] 检查单元测试
-- [ ] 检查集成测试
-- [ ] 检查边界测试
-- [ ] 检查异常测试
+### Functional Correctness
+- [ ] Business logic correct
+- [ ] Edge cases handled
+- [ ] Error handling complete
+- [ ] Concurrency safe (if applicable)
 
-### 5. 安全审查
-- [ ] 检查输入验证
-- [ ] 检查 SQL 注入
-- [ ] 检查 XSS
-- [ ] 检查敏感信息泄露
+### Test Coverage
+- [ ] Unit tests present
+- [ ] Integration tests present
+- [ ] Edge cases tested
+- [ ] Error paths tested
 
-### 6. 性能检查
-- [ ] 检查算法复杂度
-- [ ] 检查资源使用
-- [ ] 检查缓存使用
-- [ ] 检查数据库查询
+### Security
+- [ ] Input validated
+- [ ] No SQL injection risks
+- [ ] No XSS vulnerabilities
+- [ ] No sensitive data leaks
 
-## 📝 输出模板
+### Performance
+- [ ] Algorithm complexity acceptable
+- [ ] Resource usage reasonable
+- [ ] Caching used appropriately
+- [ ] Database queries optimized
+
+## Output Template
 
 ```markdown
-## Code Review: [PR/变更]
+## Code Review: [PR/Change]
 
-### 审查结果
-- [ ] 通过
-- [ ] 需要修改
-- [ ] 需要讨论
+### Result
+- [ ] Approved
+- [ ] Changes requested
+- [ ] Needs discussion
 
-### 发现的问题
+### Critical Issues (Must Fix)
+1. Issue → Suggested fix
 
-#### 严重（必须修复）
-1. 问题描述 → 建议方案
+### Medium Issues (Should Fix)
+1. Issue → Suggested fix
 
-#### 中等（建议修复）
-1. 问题描述 → 建议方案
+### Minor Issues (Optional)
+1. Issue → Suggested fix
 
-#### 轻微（可选）
-1. 问题描述 → 建议方案
+### Positive Notes
+- Well done aspects
 
-### 正面反馈
-- 做得好的地方
-
-### 行动项
-- [ ] 修复问题 1
-- [ ] 修复问题 2
-- [ ] 更新文档
+### Action Items
+- [ ] Fix issue 1
+- [ ] Fix issue 2
+- [ ] Update docs
 ```
 
-## ⚠️ 红线
-- 不通过 Linter 的代码不能合并
-- 没有测试的代码不能合并
-- 架构违规必须修复
+## Stop Conditions
+
+Do NOT approve if:
+- Linter errors present
+- No tests for new code
+- Architecture violations
+- Security vulnerabilities

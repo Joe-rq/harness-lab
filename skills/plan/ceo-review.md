@@ -1,66 +1,58 @@
-# Skill: /plan-ceo-review
+---
+name: plan-ceo-review
+description: Product and business review for requirements. Use when starting a new requirement or feature to ensure value alignment, scope clarity, and risk assessment. Triggers on phrases like "review this requirement", "product review", "CEO review", "business value check", or when assessing user value and business goals before implementation.
+---
 
-## 🎯 目标
-从产品和业务角度审查需求，确保价值对齐。
+# /plan-ceo-review
 
-## 📋 执行清单
+Product and business perspective review for requirements.
 
-### 1. 需求理解
-- [ ] 读取 requirements/INDEX.md 了解需求背景
-- [ ] 读取 context/business/ 相关业务文档
-- [ ] 确认用户价值和业务目标
+## Execution Checklist
 
-### 2. 价值评估
-- [ ] 评估需求的用户价值
-- [ ] 评估技术可行性
-- [ ] 评估资源投入和优先级
+- [ ] Read requirements/INDEX.md for context
+- [ ] Read context/business/ for domain knowledge
+- [ ] Confirm user value and business goals
+- [ ] Define scope boundaries (include/exclude)
+- [ ] Identify key dependencies and blockers
+- [ ] Assess risks with mitigation plans
+- [ ] Document go/no-go recommendation
 
-### 3. 范围界定
-- [ ] 明确需求边界（包含/不包含）
-- [ ] 识别关键依赖和阻塞点
-- [ ] 定义验收标准
-
-### 4. 输出产物
-- [ ] 需求价值评估报告
-- [ ] 范围确认文档
-- [ ] 风险点提示
-
-## 📝 输出模板
+## Output Template
 
 ```markdown
-## CEO Review: [需求名称]
+## CEO Review: [Requirement Name]
 
-### 用户价值
-- 解决什么问题
-- 目标用户是谁
-- 预期效果
+### User Value
+- Problem being solved
+- Target users
+- Expected impact
 
-### 业务目标
-- 对齐的产品战略
-- 关键指标影响
+### Business Goals
+- Strategic alignment
+- Key metrics affected
 
-### 范围确认
-**包含**：
-- 功能 A
-- 功能 B
+### Scope
+**Includes**: Feature A, Feature B
+**Excludes**: Feature C (reason)
 
-**不包含**：
-- 功能 C（原因）
+### Acceptance Criteria
+1. Criterion 1
+2. Criterion 2
 
-### 验收标准
-1. 标准 1
-2. 标准 2
+### Risks
+| Risk | Probability | Impact | Mitigation |
+|-----|-------------|--------|------------|
+| Risk 1 | High/Med/Low | High/Med/Low | Solution |
 
-### 风险提示
-- 风险 1：描述 + 缓解方案
-- 风险 2：描述 + 缓解方案
-
-### 决策建议
-- 建议 proceed / 建议暂缓 / 建议调整范围
-- 理由
+### Recommendation
+- [ ] Proceed - Reason
+- [ ] Pivot - Reason  
+- [ ] Defer - Reason
 ```
 
-## ⚠️ 红线
-- 不要在没有明确价值的情况下 proceed
-- 不要忽视关键依赖风险
-- 范围变更必须重新 Review
+## Stop Conditions
+
+Do NOT proceed if:
+- User value is unclear
+- Critical dependencies unresolved
+- Scope boundaries undefined

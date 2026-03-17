@@ -1,69 +1,78 @@
-# Skill: /ship
+---
+name: ship
+description: Release engineering and deployment. Use when deploying to production, releasing features, or completing the delivery pipeline. Triggers on phrases like "ship this", "deploy to prod", "release feature", "go live", or when finalizing code delivery to production.
+---
 
-## 🎯 目标
-完成发布工程，安全上线。
+# /ship
 
-## 📋 执行清单
+Release engineering and safe deployment.
 
-### 1. 发布前检查
-- [ ] 所有测试通过
-- [ ] 代码审查通过
-- [ ] 文档已更新
-- [ ] 变更日志已更新
+## Pre-Release Checklist
 
-### 2. 构建
-- [ ] 执行构建
-- [ ] 验证构建产物
-- [ ] 检查构建日志
+- [ ] All tests passing
+- [ ] Code review approved
+- [ ] Documentation updated
+- [ ] Changelog updated
 
-### 3. 测试环境验证
-- [ ] 部署到测试环境
-- [ ] 进行冒烟测试
-- [ ] 验证关键功能
+## Build
+- [ ] Execute build process
+- [ ] Verify build artifacts
+- [ ] Check build logs
 
-### 4. 生产发布
-- [ ] 执行发布计划
-- [ ] 监控发布过程
-- [ ] 验证发布成功
+## Staging Verification
+- [ ] Deploy to staging
+- [ ] Run smoke tests
+- [ ] Verify critical functions
 
-### 5. 发布后检查
-- [ ] 监控系统指标
-- [ ] 检查错误率
-- [ ] 验证用户反馈
+## Production Release
+- [ ] Execute release plan
+- [ ] Monitor deployment
+- [ ] Verify success
 
-## 📝 输出模板
+## Post-Release
+- [ ] Monitor metrics
+- [ ] Check error rates
+- [ ] Verify user feedback
+- [ ] Confirm rollback ready
+
+## Output Template
 
 ```markdown
-## Ship Report: [版本/功能]
+## Ship Report: [Version/Feature]
 
-### 发布信息
-- 版本：
-- 时间：
-- 发布人：
+### Release Info
+- Version:
+- Date:
+- Release manager:
 
-### 变更内容
-- 功能 1
-- 功能 2
-- 修复 1
+### Changes
+- Feature 1
+- Feature 2
+- Fix 1
 
-### 发布检查
-- [ ] 测试通过
-- [ ] 审查通过
-- [ ] 文档更新
+### Pre-Release Check
+- [ ] Tests pass
+- [ ] Review approved
+- [ ] Docs updated
 
-### 发布结果
-- 状态：✅ 成功 / ❌ 失败 / ⚠️ 部分成功
-- 问题：如有
+### Result
+- Status: ✅ Success / ❌ Failed / ⚠️ Partial
+- Issues: [if any]
 
-### 监控数据
-- 错误率：
-- 性能指标：
+### Metrics
+- Error rate:
+- Performance:
 
-### 回滚方案
-- 如有问题，执行：
+### Rollback Plan
+If issues detected:
+1. Step 1
+2. Step 2
 ```
 
-## ⚠️ 红线
-- 没有回滚方案不能发布
-- 发布必须有人值守
-- 监控异常必须立即响应
+## Stop Conditions
+
+Do NOT ship if:
+- No rollback plan
+- Tests failing
+- No monitoring in place
+- Unattended deployment

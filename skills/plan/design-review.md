@@ -1,70 +1,90 @@
-# Skill: /plan-design-review
+---
+name: plan-design-review
+description: UI/UX design system compliance review. Use when implementing user interfaces, creating new components, or ensuring visual consistency. Triggers on phrases like "design review", "UI check", "design system", "component review", or when working with visual interfaces and user experience.
+---
 
-## 🎯 目标
-从设计规范角度审查，确保符合设计系统。
+# /plan-design-review
 
-## 📋 执行清单（80项设计检查）
+Design system compliance and UX quality review.
 
-### 视觉规范
-- [ ] 检查颜色使用（是否符合设计系统）
-- [ ] 检查字体规范
-- [ ] 检查间距系统
-- [ ] 检查图标使用
+## 80-Point Design Checklist
 
-### 交互规范
-- [ ] 检查交互模式
-- [ ] 检查状态反馈
-- [ ] 检查错误处理
-- [ ] 检查加载状态
+### Visual Standards (Points 1-20)
+- [ ] Colors follow design system
+- [ ] Typography matches specs
+- [ ] Spacing uses design tokens
+- [ ] Icons from approved library
 
-### 组件使用
-- [ ] 是否使用标准组件
-- [ ] 是否需要新组件
-- [ ] 组件命名规范
-- [ ] 组件文档更新
+### Interaction Standards (Points 21-40)
+- [ ] Interaction patterns consistent
+- [ ] State feedback provided
+- [ ] Error handling designed
+- [ ] Loading states defined
 
-### 响应式设计
-- [ ] 移动端适配
-- [ ] 平板适配
-- [ ] 断点选择
-- [ ] 布局策略
+### Components (Points 41-55)
+- [ ] Uses standard components
+- [ ] New components justified
+- [ ] Component naming follows convention
+- [ ] Component docs updated
 
-### 可访问性
-- [ ] 颜色对比度
-- [ ] 键盘导航
-- [ ] 屏幕阅读器支持
-- [ ] 语义化 HTML
+### Responsive Design (Points 56-65)
+- [ ] Mobile layout tested
+- [ ] Tablet layout tested
+- [ ] Breakpoints appropriate
+- [ ] Layout strategy defined
 
-## 📝 输出模板
+### Accessibility (Points 66-80)
+- [ ] Color contrast sufficient
+- [ ] Keyboard navigation works
+- [ ] Screen reader compatible
+- [ ] Semantic HTML used
+
+## AI Slop Detection
+
+Watch for these AI generation issues:
+- [ ] Fake/non-existent references
+- [ ] Inconsistent visual styles
+- [ ] Overly complex designs
+- [ ] Poor UX patterns
+
+## Output Template
 
 ```markdown
-## Design Review: [需求名称]
+## Design Review: [Requirement Name]
 
-### 设计规范检查
-| 检查项 | 状态 | 备注 |
-|-------|------|------|
-| 颜色规范 | ✅/❌ | |
-| 字体规范 | ✅/❌ | |
-| 组件使用 | ✅/❌ | |
-| 响应式 | ✅/❌ | |
-| 可访问性 | ✅/❌ | |
+### Standards Check
+| Check | Status | Notes |
+|-------|--------|-------|
+| Color | ✅/❌ | |
+| Typography | ✅/❌ | |
+| Components | ✅/❌ | |
+| Responsive | ✅/❌ | |
+| Accessibility | ✅/❌ | |
 
-### 设计要点
-- 关键设计决策
-- 参考的设计模式
-- 特殊处理说明
+### Design Decisions
+- Key choices made
+- Reference patterns used
+- Special handling noted
 
-### 问题列表
-1. 问题描述 → 建议方案
-2. ...
+### Issues Found
 
-### 建议
-- 建议 proceed / 建议修改设计
+**Critical (Must Fix)**:
+1. Issue → Solution
+
+**Medium (Should Fix)**:
+1. Issue → Solution
+
+**Minor (Optional)**:
+1. Issue → Solution
+
+### Recommendation
+- [ ] Proceed
+- [ ] Revise design
 ```
 
-## ⚠️ AI Slop 检测
-检查以下 AI 生成内容常见问题：
-- 虚假/不存在的引用
-- 不一致的视觉风格
-- 过度复杂的设计
-- 忽视用户体验
+## Stop Conditions
+
+Do NOT proceed if:
+- Critical accessibility issues
+- Major design system violations
+- UX patterns harm usability

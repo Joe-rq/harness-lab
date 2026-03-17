@@ -1,61 +1,72 @@
-# Skill: /qa
+---
+name: qa
+description: Quality assurance and functional verification. Use when testing implementations, verifying features work correctly, or validating requirements are met. Triggers on phrases like "test this", "QA check", "verify feature", "quality assurance", or when confirming functionality before release.
+---
 
-## 🎯 目标
-进行质量验证，确保功能正确。
+# /qa
 
-## 📋 执行清单
+Functional verification and quality assurance.
 
-### 1. 功能验证
-- [ ] 按照需求文档验证功能
-- [ ] 验证正常流程
-- [ ] 验证异常流程
-- [ ] 验证边界条件
+## QA Checklist
 
-### 2. 浏览器测试（如适用）
-- [ ] 启动应用
-- [ ] 操作 UI 流程
-- [ ] 截图对比
-- [ ] 验证响应
+### Functional Verification
+- [ ] Test against requirements document
+- [ ] Verify happy path works
+- [ ] Test error scenarios
+- [ ] Check boundary conditions
+- [ ] Validate data handling
 
-### 3. 日志检查
-- [ ] 检查错误日志
-- [ ] 检查性能日志
-- [ ] 验证关键日志输出
+### Browser Testing (if UI)
+- [ ] Start application
+- [ ] Navigate through UI flows
+- [ ] Capture screenshots
+- [ ] Verify visual rendering
+- [ ] Check responsive behavior
 
-### 4. 回归测试
-- [ ] 运行全量测试
-- [ ] 检查是否有回归
-- [ ] 验证核心流程
+### Log Verification
+- [ ] Check for error logs
+- [ ] Review performance logs
+- [ ] Verify key log outputs
+- [ ] Check warning messages
 
-## 📝 输出模板
+### Regression Testing
+- [ ] Run full test suite
+- [ ] Check for regressions
+- [ ] Verify core workflows
+- [ ] Test integration points
+
+## Output Template
 
 ```markdown
-## QA Report: [需求/功能]
+## QA Report: [Feature/Requirement]
 
-### 测试环境
-- 分支：
-- 版本：
-- 环境：
+### Test Environment
+- Branch:
+- Version:
+- Environment:
 
-### 功能验证
-| 测试项 | 状态 | 备注 |
-|-------|------|------|
-| 功能 A | ✅/❌ | |
-| 功能 B | ✅/❌ | |
+### Functional Tests
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Test 1 | ✅/❌ | |
+| Test 2 | ✅/❌ | |
 
-### 浏览器验证
-- 截图：[附截图]
-- 结果：✅/❌
+### Browser Verification
+- Screenshot: [link]
+- Result: ✅/❌
 
-### 问题列表
-1. 问题描述 → 严重程度 → 建议
+### Issues Found
+1. Issue → Severity → Recommendation
 
-### 结论
-- [ ] 通过，可以发布
-- [ ] 需要修复后重新验证
+### Conclusion
+- [ ] Pass - Ready for release
+- [ ] Fail - Requires fixes
 ```
 
-## ⚠️ 红线
-- 不验证通过不能标记完成
-- 不能只听信"看起来没问题"
-- 异常场景必须测试
+## Stop Conditions
+
+Do NOT pass if:
+- Tests not executed
+- Critical functionality broken
+- Requirements not met
+- "Looks good" without verification
