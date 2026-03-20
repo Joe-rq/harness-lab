@@ -16,7 +16,7 @@
 
 ## 最近完成 REQ
 
-- 无
+- `REQ-2026-900-example-status-filter.md`（公开示例，演示完整链路）
 
 ## 目录约定
 
