@@ -33,7 +33,8 @@
 
 ### 新建
 - 在 `requirements/in-progress/` 创建 `REQ-YYYY-NNN-*.md`
-- 在 `docs/plans/` 创建对应 `REQ-YYYY-NNN-design.md`
+- 中大改动在 `docs/plans/` 创建对应 `REQ-YYYY-NNN-design.md`
+- 小改动可把设计摘要直接写在 REQ 文件中
 
 ### 推进
 - 设计、实现、评审、验证都围绕同一个 REQ 编号展开

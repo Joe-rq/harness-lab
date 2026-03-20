@@ -69,7 +69,8 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 
 ### 2. 创建或继续 REQ
 - 新需求进入 `requirements/in-progress/`
-- 设计稿进入 `docs/plans/`
+- 中大改动的设计稿进入 `docs/plans/`
+- 小改动可把设计摘要直接写进 REQ
 - 变更完成后补 `requirements/reports/` 下的 review / QA / ship 报告
 - 完成后移入 `requirements/completed/`
 

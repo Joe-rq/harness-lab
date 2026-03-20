@@ -25,3 +25,14 @@
 - 验证链路变化时更新 `testing-strategy.md`
 - 环境变量新增或变更时更新 `env-contract.md`
 - 发布流程变化时更新 `deployment-runbook.md`
+
+## 模板说明
+
+本模板仓库已预置：
+- `architecture.md`
+- `tech-stack.md`
+- `testing-strategy.md`
+- `env-contract.md`
+- `deployment-runbook.md`
+
+接入新项目时，不要保留占位内容；应在第一次接入时替换成目标项目的真实事实。

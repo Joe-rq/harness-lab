@@ -5,8 +5,10 @@ Last updated: 2026-03-20
 Summary:
 - No active requirement yet.
 - Start from requirements/INDEX.md before opening additional docs.
+- Template hardening in progress: align onboarding, tech stubs, and command-binding guidance.
 
 Next steps:
+- Finish tightening template onboarding and documentation consistency.
 - Create or resume a REQ.
 - Update this file whenever scope, phase, or blockers change.
 
