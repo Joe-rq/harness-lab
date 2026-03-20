@@ -1,72 +1,74 @@
 ---
 name: qa
-description: Quality assurance and functional verification. Use when testing implementations, verifying features work correctly, or validating requirements are met. Triggers on phrases like "test this", "QA check", "verify feature", "quality assurance", or when confirming functionality before release.
+description: Requirement-oriented QA and verification. Use when validating features, regression risk, or release readiness.
 ---
 
 # /qa
 
-Functional verification and quality assurance.
+输出目标：生成一份与 REQ 绑定的 QA 报告，记录真实执行过的验证动作、结果和阻塞项。
 
-## QA Checklist
+## 输入
 
-### Functional Verification
-- [ ] Test against requirements document
-- [ ] Verify happy path works
-- [ ] Test error scenarios
-- [ ] Check boundary conditions
-- [ ] Validate data handling
+开始 QA 前，至少确认：
+- 当前 REQ 文件
+- 对应设计稿
+- 相关 code review 结论
+- 项目的测试策略和环境约束
 
-### Browser Testing (if UI)
-- [ ] Start application
-- [ ] Navigate through UI flows
-- [ ] Capture screenshots
-- [ ] Verify visual rendering
-- [ ] Check responsive behavior
+## QA 重点
 
-### Log Verification
-- [ ] Check for error logs
-- [ ] Review performance logs
-- [ ] Verify key log outputs
-- [ ] Check warning messages
+### Requirement Validation
+- [ ] 验收标准逐条核对
+- [ ] Happy path 验证
+- [ ] Error path 和边界条件验证
 
-### Regression Testing
-- [ ] Run full test suite
-- [ ] Check for regressions
-- [ ] Verify core workflows
-- [ ] Test integration points
+### Regression
+- [ ] 关键回归路径验证
+- [ ] 关键集成点验证
 
-## Output Template
+### Environment
+- [ ] 记录测试环境和前置条件
+- [ ] 记录需要的环境变量、测试数据或依赖服务
+
+## 报告落盘
+
+报告应保存到：
+- `requirements/reports/REQ-YYYY-NNN-qa.md`
+
+## 报告最低内容
 
 ```markdown
-## QA Report: [Feature/Requirement]
+# QA Report: REQ-YYYY-NNN
 
-### Test Environment
-- Branch:
-- Version:
-- Environment:
+## Scope
+- REQ:
+- Design:
+- Build / branch:
 
-### Functional Tests
-| Test Case | Status | Notes |
-|-----------|--------|-------|
-| Test 1 | ✅/❌ | |
-| Test 2 | ✅/❌ | |
+## Environment
+- OS / runtime:
+- Required env:
+- Test data:
 
-### Browser Verification
-- Screenshot: [link]
-- Result: ✅/❌
+## Commands Run
+| Command | Result | Notes |
+|---------|--------|-------|
+| `...` | Pass / Fail | |
 
-### Issues Found
-1. Issue → Severity → Recommendation
+## Manual Verification
+| Scenario | Result | Evidence |
+|----------|--------|----------|
+| ... | Pass / Fail | log / screenshot / note |
 
-### Conclusion
-- [ ] Pass - Ready for release
-- [ ] Fail - Requires fixes
+## Issues
+1. 问题、严重级别、建议
+
+## Conclusion
+- Pass / Fail / Blocked
 ```
 
-## Stop Conditions
+## 约束
 
-Do NOT pass if:
-- Tests not executed
-- Critical functionality broken
-- Requirements not met
-- "Looks good" without verification
+- 没有真实执行命令或操作时，不能写 Pass
+- 如果只做了静态阅读，没有做 QA，就明确写未执行
+- QA 结论要能回溯到具体命令、日志、界面操作或输出结果

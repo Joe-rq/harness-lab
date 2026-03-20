@@ -1,17 +1,19 @@
 {
   "name": "harness-lab",
-  "version": "1.0.0",
-  "description": "Harness Engineering 实践框架",
+  "version": "1.1.0",
+  "description": "AI 项目的研发治理层模板",
   "scripts": {
-    "lint": "echo '添加你的 lint 命令'",
-    "test": "echo '添加你的 test 命令'",
-    "build": "echo '添加你的 build 命令'"
+    "lint": "node -e \"console.error('Bind a real lint command for the target project before using Harness Lab.'); process.exit(1)\"",
+    "test": "node -e \"console.error('Bind a real test command for the target project before using Harness Lab.'); process.exit(1)\"",
+    "build": "node -e \"console.error('Bind a real build command for the target project before using Harness Lab.'); process.exit(1)\"",
+    "verify": "node -e \"console.error('Bind a real verify command, or document the equivalent validation chain, before using Harness Lab.'); process.exit(1)\""
   },
   "keywords": [
     "harness-engineering",
     "ai",
     "agent",
-    "claude-code"
+    "governance",
+    "workflow"
   ],
   "author": "",
   "license": "MIT"

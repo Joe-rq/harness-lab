@@ -1,93 +1,79 @@
 ---
 name: plan-eng-review
-description: Technical architecture and engineering review. Use when designing technical solutions, assessing implementation approaches, or before coding complex features. Triggers on phrases like "engineering review", "technical design", "architecture review", " feasibility check", or when evaluating technical risks and solution options.
+description: Technical design and feasibility review for a requirement before or during implementation.
 ---
 
 # /plan-eng-review
 
-Technical perspective review to ensure solution feasibility.
+输出目标：围绕当前 REQ 给出工程方案评审，并把结论沉淀到对应设计稿中。
 
-## 80-Point Engineering Checklist
+## 输入
 
-### Architecture (Points 1-20)
-- [ ] Read context/tech/architecture.md
-- [ ] Assess impact on existing architecture
-- [ ] Verify layer compliance (Types→Config→Repo→Service→UI)
-- [ ] Check dependency directions
-- [ ] Identify new/modified modules
+开始前至少确认：
+- 当前 REQ 文件
+- 对应设计稿或待补设计稿
+- 相关技术 context 索引和文档
+- 目标仓库自己的架构说明
 
-### Data (Points 21-35)
-- [ ] Evaluate data model changes
-- [ ] Plan database migrations
-- [ ] Assess data consistency requirements
-- [ ] Check sensitive data handling
+## 审查重点
 
-### APIs (Points 36-45)
-- [ ] Design API interfaces
-- [ ] Check backward compatibility
-- [ ] Verify permission controls
-- [ ] Define API contracts
+### Architecture
+- [ ] 是否符合目标仓库自己的架构边界
+- [ ] 依赖方向是否正确
+- [ ] 改动点和影响范围是否明确
 
-### Performance (Points 46-55)
-- [ ] Assess performance impact
-- [ ] Identify bottlenecks
-- [ ] Design caching strategy
-- [ ] Evaluate concurrency needs
+### Data and Contracts
+- [ ] 数据结构或存储变化是否说明清楚
+- [ ] API / schema / contract 是否定义清楚
+- [ ] 敏感数据和权限边界是否考虑到
 
-### Security (Points 56-65)
-- [ ] Check input validation
-- [ ] Assess injection risks
-- [ ] Verify XSS protection
-- [ ] Check sensitive info exposure
+### Verification
+- [ ] 测试与验证链路是否明确
+- [ ] 环境前提和配置约束是否明确
+- [ ] 回滚和发布影响是否明确
 
-### Operations (Points 66-80)
-- [ ] Assess deployment impact
-- [ ] Plan monitoring needs
-- [ ] Design logging strategy
-- [ ] Define rollback plan
+## 输出建议
 
-## Output Template
+优先把结论写入：
+- `docs/plans/REQ-YYYY-NNN-design.md`
+
+必要时同步更新：
+- `context/tech/architecture.md`
+- `context/tech/testing-strategy.md`
+- `context/tech/env-contract.md`
+- `context/tech/deployment-runbook.md`
+
+## 输出最低内容
 
 ```markdown
-## ENG Review: [Requirement Name]
+## Engineering Review
 
 ### Architecture Impact
-- Affected modules:
-- Architecture diagram: [link]
-- Data flow: [link]
+- 影响模块：
+- 依赖方向：
+- 需要新增或修改的边界：
 
-### Technical Solution
-**Overview**: Brief description
+### Technical Decisions
+1. 决策：
+   原因：
+   备选方案：
 
-**Key Decisions**:
-1. Decision 1: Chose A over B because...
-2. Decision 2: ...
+### Validation Plan
+- Commands:
+- Manual checks:
+- Environment requirements:
 
-### Risk Matrix
-| Risk | Probability | Impact | Mitigation |
-|-----|-------------|--------|------------|
-| Risk 1 | High/Med/Low | High/Med/Low | Solution |
-
-### Effort Estimate
-- Development: X days
-- Testing: Y days
-- Documentation: Z days
-
-### Checklist Results
-- [ ] Architecture compliant
-- [ ] API design complete
-- [ ] Test strategy defined
-- [ ] Deployment plan ready
+### Risks
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| ... | ... | ... |
 
 ### Recommendation
-- [ ] Proceed as designed
-- [ ] Revise and re-review
-- [ ] Split into smaller tasks
+- Proceed / Revise / Split
 ```
 
-## Stop Conditions
+## 约束
 
-Do NOT proceed if:
-- No architecture diagram provided
-- Performance/security risks unaddressed
-- Effort significantly underestimated
+- 不要用预设的固定分层去硬套目标仓库
+- 如果目标仓库没有架构文档，先补最小边界说明
+- 没有验证计划时，不要把方案写成 ready

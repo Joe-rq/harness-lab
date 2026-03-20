@@ -1,58 +1,63 @@
 ---
 name: plan-ceo-review
-description: Product and business review for requirements. Use when starting a new requirement or feature to ensure value alignment, scope clarity, and risk assessment. Triggers on phrases like "review this requirement", "product review", "CEO review", "business value check", or when assessing user value and business goals before implementation.
+description: Product and business review for a requirement before implementation starts.
 ---
 
 # /plan-ceo-review
 
-Product and business perspective review for requirements.
+输出目标：围绕当前 REQ 做一次产品和业务审查，并把结论沉淀到对应设计稿或需求文档中。
 
-## Execution Checklist
+## 输入
 
-- [ ] Read requirements/INDEX.md for context
-- [ ] Read context/business/ for domain knowledge
-- [ ] Confirm user value and business goals
-- [ ] Define scope boundaries (include/exclude)
-- [ ] Identify key dependencies and blockers
-- [ ] Assess risks with mitigation plans
-- [ ] Document go/no-go recommendation
+开始前至少确认：
+- 当前 REQ 文件
+- `requirements/INDEX.md`
+- 相关业务 context 索引和文档
 
-## Output Template
+## 审查重点
+
+- [ ] 用户价值是否清楚
+- [ ] 目标用户和使用场景是否明确
+- [ ] 范围与非目标是否分清
+- [ ] 验收标准是否可验证
+- [ ] 关键依赖、约束和风险是否列出
+
+## 输出建议
+
+优先把结论写入：
+- `docs/plans/REQ-YYYY-NNN-design.md`
+
+必要时同步更新：
+- 当前 REQ 的目标、非目标、验收标准
+
+## 输出最低内容
 
 ```markdown
-## CEO Review: [Requirement Name]
+## Product Review
 
 ### User Value
-- Problem being solved
-- Target users
-- Expected impact
-
-### Business Goals
-- Strategic alignment
-- Key metrics affected
+- 解决的问题：
+- 目标用户：
+- 预期收益：
 
 ### Scope
-**Includes**: Feature A, Feature B
-**Excludes**: Feature C (reason)
+- Includes:
+- Excludes:
 
-### Acceptance Criteria
-1. Criterion 1
-2. Criterion 2
+### Acceptance
+- [ ] 标准 1
+- [ ] 标准 2
 
-### Risks
-| Risk | Probability | Impact | Mitigation |
-|-----|-------------|--------|------------|
-| Risk 1 | High/Med/Low | High/Med/Low | Solution |
+### Risks and Dependencies
+- 风险：
+- 依赖：
 
 ### Recommendation
-- [ ] Proceed - Reason
-- [ ] Pivot - Reason  
-- [ ] Defer - Reason
+- Proceed / Revise / Defer
 ```
 
-## Stop Conditions
+## 约束
 
-Do NOT proceed if:
-- User value is unclear
-- Critical dependencies unresolved
-- Scope boundaries undefined
+- 不要在用户价值不清楚时直接进入实现
+- 不要把“想法”写成“已承诺范围”
+- 输出应服务于后续设计和实现，而不是停留在聊天结论

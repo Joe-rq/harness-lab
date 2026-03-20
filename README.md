@@ -1,148 +1,106 @@
 # Harness Lab
 
-> 完整的 Harness Engineering 实践框架
-> 基于 OpenAI Harness + gstack + 腾讯技术工程实践
+> AI 项目的研发治理层模板
+> 不替代业务框架；用于把需求、设计、实现、验证、发布和经验沉淀收进同一套协议
 
-## 🎯 这是什么
+## 这是什么
 
-Harness Lab 是一个**可直接使用的 AI 工程化框架**，提供：
+Harness Lab 适合内嵌到已有仓库，负责提供一套稳定的协作机制：
+- 固定需求流转和交付物
+- 让人和 agent 都能按同一套入口接手工作
+- 把 review / QA / ship 从口头流程变成仓库内证据链
+- 把经验复用下来，减少跨会话和跨阶段的上下文损耗
 
-✅ **结构化知识系统** - context/ 目录沉淀业务、技术、经验
-✅ **多 Agent 协作** - Subagent 工作流，状态文件传递
-✅ **技能层封装** - 规划/审查/验证/发布全流程 Skill
-✅ **复合工程机制** - 知识复利，边际成本递减
+## 这不是什么
 
-## 🚀 快速开始
+- 不是 Web / App / Backend 的业务框架
+- 不强行替换目标项目的目录结构、架构分层或运行时
+- 不预设 lint / test / build 的具体命令；这些必须由接入项目自己绑定
 
-### 1. 初始化
+## 核心目录
 
-```bash
-# 克隆仓库
-git clone <repo-url> harness-lab
-cd harness-lab
-
-# 用 Claude Code 打开
-claude
-```
-
-### 2. 配置项目
-
-在 Claude Code 中执行：
-
-```
-# 1. 读取项目地图
-请读取 AGENTS.md 了解项目结构和核心原则
-
-# 2. 配置业务背景
-请帮我填写 context/business/business-overview.md
-
-# 3. 配置技术规范
-请帮我填写 context/tech/architecture.md
-```
-
-### 3. 开始需求研发
-
-```
-# 创建新需求
-请创建新需求：实现用户登录功能
-
-# 或使用 Skill
-/plan-ceo-review
-/plan-eng-review
-```
-
-## 📁 目录结构
-
-```
+```text
 .
-├── AGENTS.md           # 项目地图（必读）
-├── CLAUDE.md           # Claude Code 快速入口
-├── README.md           # 本文件
-├── context/            # 知识沉淀
-│   ├── tech/          # 技术规范
-│   ├── business/      # 业务背景
-│   ├── experience/    # 历史经验
-│   └── session/       # 会话上下文
-├── docs/               # 详细文档
-│   ├── architecture/  # 架构设计
-│   ├── plans/         # 执行计划
-│   └── specs/         # 产品规格
-├── requirements/       # 需求管理
-│   ├── INDEX.md       # 需求总览
-│   ├── in-progress/   # 进行中
-│   └── completed/     # 已完成
-├── skills/             # Skill 定义
-│   ├── plan/          # 规划类
-│   ├── review/        # 审查类
-│   ├── qa/            # 验证类
-│   └── ship/          # 发布类
-└── .claude/            # Claude 配置
-    └── progress.txt   # 跨会话进度
+├── AGENTS.md                 # 主入口：治理规则和目录地图
+├── CLAUDE.md                 # 会话入口：默认读取顺序
+├── context/                  # 业务 / 技术 / 经验索引与知识沉淀
+├── docs/plans/               # 与 REQ 对应的设计和实施方案
+├── docs/specs/               # 长期有效的产品 / API / 运行规范
+├── requirements/             # REQ 状态中心
+│   ├── INDEX.md              # 当前活跃 REQ 与状态总览
+│   ├── REQ_TEMPLATE.md       # REQ 模板
+│   ├── in-progress/          # 进行中的需求
+│   ├── completed/            # 已完成需求
+│   └── reports/              # code review / QA / ship 报告
+├── skills/                   # 通用治理技能
+└── .claude/progress.txt      # 跨会话进度交接
 ```
 
-## 🎨 核心理念
+## 默认工作方式
 
-### 1. 人类掌舵，智能体执行
-- 人设定目标和验收标准
-- Agent 自主完成具体任务
-- 关键决策点人介入确认
+1. 先看索引，不要一上来读完整个仓库。
+2. 先确认当前活跃 REQ，再决定读哪些 context 和代码。
+3. 需求、设计、实现、评审、验证、发布都要落盘到仓库。
+4. 验证结论只有在命令或实际操作真的执行后才成立。
+5. 每次完成重要工作后，更新 `.claude/progress.txt` 和必要的经验文档。
 
-### 2. 用约束换自主
-- 明确的规范让 Agent 更可靠
-- 架构约束编码成 Linter 规则
-- 审查清单标准化
+## 快速开始
 
-### 3. 知识复利
-- 第 1 次：45 分钟建立知识库
-- 第 2 次：15 分钟复用
-- 第 N 次：3 分钟一键完成
+### 1. 接入到目标项目
 
-### 4. 结构化的状态传递
-- Subagent 独立上下文
-- 通过文件传递状态
-- 避免上下文累积爆炸
+把以下目录和文件引入目标项目：
+- `AGENTS.md`
+- `CLAUDE.md`
+- `context/`
+- `requirements/`
+- `skills/`
+- `.claude/progress.txt`
 
-## 🛠️ 可用技能
+### 2. 绑定真实命令
 
-### 规划类
-- `/plan-ceo-review` - 产品掌舵审查
-- `/plan-eng-review` - 工程方案审查（80项检查）
-- `/plan-design-review` - 设计规范审查（80项检查）
+在目标项目的 `package.json` 或等价入口里绑定真实命令，例如：
+- `lint`
+- `test`
+- `build`
+- `verify`
 
-### 审查类
-- `/review` - 代码审查
+如果命令不存在，先补说明或脚本，再启动治理流程。
 
-### 验证类
-- `/qa` - 质量验证
+### 3. 会话启动顺序
 
-### 发布类
-- `/ship` - 发布工程
+在 Claude / Codex 中按顺序读取：
+1. `AGENTS.md`
+2. `requirements/INDEX.md`
+3. `.claude/progress.txt`
+4. 相关 `context/*/README.md`
+5. 当前 REQ、设计稿、报告和必要代码
 
-## 📖 使用文档
+### 4. 开始一个真实 REQ
 
-- [核心理念](docs/core-concepts.md)
-- [快速上手指南](docs/quick-start.md)
-- [Skill 使用手册](docs/skills.md)
-- [最佳实践](docs/best-practices.md)
+- 先在 `requirements/in-progress/` 创建需求文件
+- 在 `docs/plans/` 创建对应设计稿
+- 实现后把 review / QA / ship 结果落到 `requirements/reports/`
+- 完成后移入 `requirements/completed/`
 
-## 🤝 贡献
+## 适用场景
 
-欢迎贡献新的 Skill 和改进建议！
+适合：
+- 持续迭代的产品仓库
+- 多人或多 agent 协作的项目
+- 需要跨会话延续上下文的项目
+- 需要设计、实现、验证、发布、复盘闭环的项目
 
-1. Fork 本仓库
-2. 创建特性分支
-3. 提交 Pull Request
+不适合：
+- 一次性脚本
+- 半天内结束的临时 demo
+- 不需要长期知识沉淀的实验仓库
 
-## 📄 许可证
+## 成功标准
 
-MIT License
-
-## 🙏 致谢
-
-- [OpenAI Harness Engineering](https://openai.com/index/harness-engineering/)
-- [gstack](https://github.com/garrytan/gstack)
-- [腾讯技术工程](https://mp.weixin.qq.com/s/CXx-0ar1EBf14vgQHHjU7A)
-
----
-
-**开始你的 Harness 工程化之旅吧！** 🚀
+接入后，仓库应该具备这些特征：
+- 当前活跃 REQ 明确可见
+- 每个重要需求有对应设计稿
+- review / QA / ship 有固定落盘位置
+- 验证命令真实可执行
+- 新会话能用索引快速恢复上下文
+- 已完成工作会沉淀成可复用经验

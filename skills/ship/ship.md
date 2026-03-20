@@ -1,78 +1,67 @@
 ---
 name: ship
-description: Release engineering and deployment. Use when deploying to production, releasing features, or completing the delivery pipeline. Triggers on phrases like "ship this", "deploy to prod", "release feature", "go live", or when finalizing code delivery to production.
+description: Release engineering and delivery readiness. Use when a change is being prepared for release or handoff.
 ---
 
 # /ship
 
-Release engineering and safe deployment.
+输出目标：生成一份与 REQ 绑定的发布报告，记录发布条件、实际执行动作、结果和回滚方式。
 
-## Pre-Release Checklist
+## 输入
 
-- [ ] All tests passing
-- [ ] Code review approved
-- [ ] Documentation updated
-- [ ] Changelog updated
+开始发布前，至少确认：
+- 当前 REQ 文件
+- 对应设计稿
+- 最新 code review 与 QA 结论
+- 项目的 deployment runbook
 
-## Build
-- [ ] Execute build process
-- [ ] Verify build artifacts
-- [ ] Check build logs
+## 发布前检查
+- [ ] 阻塞性评审问题已关闭或明确接受风险
+- [ ] QA 已完成或明确记录未完成原因
+- [ ] 文档和配置已同步
+- [ ] 回滚方案明确
 
-## Staging Verification
-- [ ] Deploy to staging
-- [ ] Run smoke tests
-- [ ] Verify critical functions
+## 报告落盘
 
-## Production Release
-- [ ] Execute release plan
-- [ ] Monitor deployment
-- [ ] Verify success
+报告应保存到：
+- `requirements/reports/REQ-YYYY-NNN-ship.md`
 
-## Post-Release
-- [ ] Monitor metrics
-- [ ] Check error rates
-- [ ] Verify user feedback
-- [ ] Confirm rollback ready
-
-## Output Template
+## 报告最低内容
 
 ```markdown
-## Ship Report: [Version/Feature]
+# Ship Report: REQ-YYYY-NNN
 
-### Release Info
-- Version:
-- Date:
-- Release manager:
+## Scope
+- REQ:
+- Release target:
+- Operator:
 
-### Changes
-- Feature 1
-- Feature 2
-- Fix 1
+## Preconditions
+- Review:
+- QA:
+- Config / docs updated:
 
-### Pre-Release Check
-- [ ] Tests pass
-- [ ] Review approved
-- [ ] Docs updated
+## Commands and Actions
+| Step | Result | Evidence |
+|------|--------|----------|
+| Build | Pass / Fail | |
+| Deploy | Pass / Fail | |
+| Smoke | Pass / Fail | |
 
-### Result
-- Status: ✅ Success / ❌ Failed / ⚠️ Partial
-- Issues: [if any]
+## Risks
+- 风险和接受方式
 
-### Metrics
-- Error rate:
-- Performance:
+## Rollback
+- 回滚入口：
+- 回滚步骤：
+- 回滚后验证：
 
-### Rollback Plan
-If issues detected:
-1. Step 1
-2. Step 2
+## Conclusion
+- Shipped / Blocked / Partial
 ```
 
-## Stop Conditions
+## 约束
 
-Do NOT ship if:
-- No rollback plan
-- Tests failing
-- No monitoring in place
-- Unattended deployment
+- 没有发布动作时，不要伪造 ship 结果
+- 如果只是“准备可发布”，要明确写清楚不是已发布
+- 没有回滚方式时，不要给出可发布结论

@@ -1,90 +1,69 @@
 ---
 name: plan-design-review
-description: UI/UX design system compliance review. Use when implementing user interfaces, creating new components, or ensuring visual consistency. Triggers on phrases like "design review", "UI check", "design system", "component review", or when working with visual interfaces and user experience.
+description: UI/UX and interaction review for requirements that include user-facing experience.
 ---
 
 # /plan-design-review
 
-Design system compliance and UX quality review.
+输出目标：围绕当前 REQ 的界面、交互和可用性给出设计评审，并把结论沉淀到设计稿中。
 
-## 80-Point Design Checklist
+## 输入
 
-### Visual Standards (Points 1-20)
-- [ ] Colors follow design system
-- [ ] Typography matches specs
-- [ ] Spacing uses design tokens
-- [ ] Icons from approved library
+开始前至少确认：
+- 当前 REQ 文件
+- 对应设计稿
+- 相关产品或设计规范
+- 目标仓库已有的设计系统约束
 
-### Interaction Standards (Points 21-40)
-- [ ] Interaction patterns consistent
-- [ ] State feedback provided
-- [ ] Error handling designed
-- [ ] Loading states defined
+## 审查重点
 
-### Components (Points 41-55)
-- [ ] Uses standard components
-- [ ] New components justified
-- [ ] Component naming follows convention
-- [ ] Component docs updated
+### Interface
+- [ ] 关键信息层级是否清楚
+- [ ] 状态、错误、空态和加载态是否定义
+- [ ] 交互路径是否与用户目标一致
 
-### Responsive Design (Points 56-65)
-- [ ] Mobile layout tested
-- [ ] Tablet layout tested
-- [ ] Breakpoints appropriate
-- [ ] Layout strategy defined
+### Consistency
+- [ ] 是否遵循目标仓库已有设计系统
+- [ ] 是否复用已有组件和模式
+- [ ] 是否避免风格漂移或 AI 生成痕迹
 
-### Accessibility (Points 66-80)
-- [ ] Color contrast sufficient
-- [ ] Keyboard navigation works
-- [ ] Screen reader compatible
-- [ ] Semantic HTML used
+### Accessibility and Responsiveness
+- [ ] 可访问性要求是否覆盖
+- [ ] 不同尺寸设备的布局是否考虑
 
-## AI Slop Detection
+## 输出建议
 
-Watch for these AI generation issues:
-- [ ] Fake/non-existent references
-- [ ] Inconsistent visual styles
-- [ ] Overly complex designs
-- [ ] Poor UX patterns
+优先把结论写入：
+- `docs/plans/REQ-YYYY-NNN-design.md`
 
-## Output Template
+## 输出最低内容
 
 ```markdown
-## Design Review: [Requirement Name]
+## Design Review
+
+### User Flow
+- 主路径：
+- 关键状态：
 
 ### Standards Check
-| Check | Status | Notes |
-|-------|--------|-------|
-| Color | ✅/❌ | |
-| Typography | ✅/❌ | |
-| Components | ✅/❌ | |
-| Responsive | ✅/❌ | |
-| Accessibility | ✅/❌ | |
+| Area | Status | Notes |
+|------|--------|-------|
+| Visual | Pass / Fail | |
+| Interaction | Pass / Fail | |
+| Accessibility | Pass / Fail | |
+| Responsive | Pass / Fail | |
 
-### Design Decisions
-- Key choices made
-- Reference patterns used
-- Special handling noted
-
-### Issues Found
-
-**Critical (Must Fix)**:
-1. Issue → Solution
-
-**Medium (Should Fix)**:
-1. Issue → Solution
-
-**Minor (Optional)**:
-1. Issue → Solution
+### Issues
+- High:
+- Medium:
+- Low:
 
 ### Recommendation
-- [ ] Proceed
-- [ ] Revise design
+- Proceed / Revise
 ```
 
-## Stop Conditions
+## 约束
 
-Do NOT proceed if:
-- Critical accessibility issues
-- Major design system violations
-- UX patterns harm usability
+- 没有真实用户路径时，不要只审美术细节
+- 不要引入与目标仓库明显不一致的设计语言
+- 存在严重可访问性或可用性问题时，不要给 Proceed 结论

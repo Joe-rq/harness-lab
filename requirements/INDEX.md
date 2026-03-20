@@ -1,69 +1,58 @@
-# 需求状态总览
+# Requirements Index
 
-> 本项目所有需求的状态追踪
-> 更新规则：每个需求状态变更时同步更新
+> 本文件是仓库内需求状态的单一事实源。
+> 任何 REQ 的创建、切换、完成、搁置，都要同步更新这里。
 
-## 📊 统计
+## 读取顺序
 
-| 状态 | 数量 |
-|-----|------|
-| 🟡 待处理 | 0 |
-| 🔵 进行中 | 0 |
-| 🟢 已完成 | 0 |
-| 🔴 已搁置 | 0 |
+1. 查看当前活跃 REQ
+2. 查看 `.claude/progress.txt`
+3. 打开对应的 `requirements/in-progress/` 或 `requirements/completed/` 文件
+4. 按需打开 `docs/plans/` 和 `requirements/reports/` 中的关联文档
 
-## 🟡 待处理
+## 当前活跃 REQ
 
-暂无
+- 无
 
-## 🔵 进行中
+## 最近完成 REQ
 
-暂无
+- 无
 
-## 🟢 已完成
+## 目录约定
 
-暂无
+- `requirements/REQ_TEMPLATE.md`
+  新建 REQ 时复制此模板。
+- `requirements/in-progress/`
+  正在推进的需求。
+- `requirements/completed/`
+  已完成需求。
+- `requirements/reports/`
+  `code-review`、`qa`、`ship` 等执行报告。
 
-## 🔴 已搁置
+## 生命周期约定
 
-暂无
+### 新建
+- 在 `requirements/in-progress/` 创建 `REQ-YYYY-NNN-*.md`
+- 在 `docs/plans/` 创建对应 `REQ-YYYY-NNN-design.md`
 
----
+### 推进
+- 设计、实现、评审、验证都围绕同一个 REQ 编号展开
+- 相关报告落到 `requirements/reports/`
 
-## 📝 需求模板
+### 完成
+- 将 REQ 文件移入 `requirements/completed/`
+- 更新“当前活跃 REQ”和“最近完成 REQ”
+- 如有复用价值，补 `context/experience/` 经验文档
 
-创建新需求时，在 requirements/in-progress/ 下创建文件：
+### 搁置
+- 在 REQ 文件中写明原因、恢复条件和下一步
+- 在本索引里标明搁置状态
 
-```markdown
-# REQ-XXX: [需求标题]
+## 报告约定
 
-## 状态
-进行中（当前阶段）
+建议至少有这些报告：
+- `REQ-YYYY-NNN-code-review.md`
+- `REQ-YYYY-NNN-qa.md`
+- `REQ-YYYY-NNN-ship.md`
 
-## 背景
-需求背景说明
-
-## 目标
-- 目标 1
-- 目标 2
-
-## 验收标准
-1. 标准 1
-2. 标准 2
-
-## 关联文档
-- 技术方案：docs/plans/REQ-XXX-design.md
-- 实现记录：requirements/in-progress/REQ-XXX-log.md
-
-## 时间线
-- 创建日期：YYYY-MM-DD
-- 预计完成：YYYY-MM-DD
-```
-
-## 🔄 状态流转
-
-```
-待处理 → 进行中 → 已完成
-   ↓        ↓
-已搁置 ← 已暂停
-```
+如果某类报告不适用，也要在 REQ 中明确说明原因，而不是默认省略。
