@@ -13,8 +13,19 @@
     "ai",
     "agent",
     "governance",
-    "workflow"
+    "workflow",
+    "template",
+    "ai-engineering",
+    "collaboration"
   ],
-  "author": "",
-  "license": "MIT"
+  "author": "Harness Lab contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Joe-rq/harness-lab.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Joe-rq/harness-lab/issues"
+  },
+  "homepage": "https://github.com/Joe-rq/harness-lab#readme"
 }
