@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-002-req-lifecycle-cli-mvp.md`（真实整改：REQ lifecycle CLI MVP）
 - `REQ-2026-001-template-hardening.md`（真实整改：模板自举、入口修复、示例补齐）
 
 ## 公开示例

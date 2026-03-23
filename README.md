@@ -114,6 +114,21 @@ AI agent / Codex 完整路径：
 - 实现后把 review / QA / ship 结果落到 `requirements/reports/`
 - 完成后移入 `requirements/completed/`
 
+如果你已经接入了本仓库附带的 CLI MVP，也可以直接用命令推进单活跃 REQ 流程：
+
+```bash
+npm run req:create -- --title "REQ lifecycle CLI MVP"
+npm run req:start -- --id REQ-2026-002
+npm run req:block -- --id REQ-2026-002 --reason "等待依赖" --condition "依赖恢复" --next "恢复实现"
+npm run req:complete -- --id REQ-2026-002
+```
+
+说明：
+- `req:create` 会自动分配真实 REQ 编号（默认忽略 `900+` 的公开示例号段）
+- `req:create` 会同时生成 REQ 文件和设计稿
+- `req:start / req:block / req:complete` 会同步更新 REQ、`requirements/INDEX.md` 和 `.claude/progress.txt`
+- 如果标题无法安全转换为 ASCII 文件名，请显式传 `--slug your-file-slug`
+
 ### 5. 参考公开示例
 
 仓库内附带一套脱敏示例，演示从 REQ 到报告落盘的完整链路：

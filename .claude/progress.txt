@@ -3,13 +3,13 @@ Current phase: idle
 Last updated: 2026-03-23
 
 Summary:
+- Completed REQ-2026-002 REQ lifecycle CLI MVP with real create / start / block / complete validation.
 - Completed REQ-2026-001 template hardening for the repository itself.
 - Added a real template-side governance check via `npm run check:governance`.
 - Added skills navigation, a business overview stub, and a suspended REQ example.
 
 Next steps:
-- Decide whether to take on P2 items: terminology guide, CI handoff note, and context maintenance guidance.
-- Create or resume the next REQ before additional template changes.
+- Decide whether the next REQ should target CI governance guard, multi-tool adapter, or hooks automation.
 - Update this file whenever scope, phase, or blockers change.
 
 Open questions:

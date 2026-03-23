@@ -39,6 +39,7 @@ const requiredFiles = [
   'package.json',
   '.claude/settings.local.json',
   '.claude/progress.txt',
+  'scripts/req-cli.mjs',
   'skills/README.md',
   'context/business/README.md',
   'context/business/product-overview.md',
@@ -73,6 +74,7 @@ requireText('README.md', [
   '人类维护者最短路径',
   'AI agent / Codex 完整路径',
   'REQ-2026-901-suspended-example.md',
+  'npm run req:create',
 ]);
 
 requireText('CLAUDE.md', ['npm run check:governance']);
@@ -93,6 +95,20 @@ requireText('.claude/settings.local.json', ['node scripts/check-governance.mjs']
 const packageJson = JSON.parse(read('package.json'));
 if (packageJson.scripts?.['check:governance'] !== 'node scripts/check-governance.mjs') {
   errors.push('package.json must expose "check:governance": "node scripts/check-governance.mjs"');
+}
+
+const reqScripts = {
+  req: 'node scripts/req-cli.mjs',
+  'req:create': 'node scripts/req-cli.mjs create',
+  'req:start': 'node scripts/req-cli.mjs start',
+  'req:block': 'node scripts/req-cli.mjs block',
+  'req:complete': 'node scripts/req-cli.mjs complete',
+};
+
+for (const [name, expected] of Object.entries(reqScripts)) {
+  if (packageJson.scripts?.[name] !== expected) {
+    errors.push(`package.json must expose "${name}": "${expected}"`);
+  }
 }
 
 const indexText = read('requirements/INDEX.md');
