@@ -3,17 +3,17 @@ Current phase: idle
 Last updated: 2026-03-23
 
 Summary:
+- Completed REQ-2026-006 structured docs impact output MVP with stable JSON output for agent / CI consumers.
 - Completed REQ-2026-005 docs impact planning and completion gate MVP with agent-visible obligations and req:complete blocking.
 - Completed REQ-2026-004 diff-aware doc sync MVP with changed-files-based docs sync enforcement.
 - Completed REQ-2026-003 docs quality gate MVP with real `docs:verify` and governance integration.
 - Completed REQ-2026-002 REQ lifecycle CLI MVP with real create / start / block / complete validation.
-- Completed REQ-2026-001 template hardening for the repository itself.
-- Added agent-facing `npm run docs:impact` and wired docs drift checks into `npm run req:complete`.
+- Added `npm run docs:impact:json` as a stable machine-readable contract on top of the existing drift-control flow.
 
 Next steps:
 - Decide whether the next REQ should target CI governance guard, multi-tool adapter, or hooks automation.
 - If drift-control expands, keep `scripts/docs-sync-rules.json`, `README.md`, and `CONTRIBUTING.md` in sync.
-- Consider a future structured `docs:impact` output for direct agent / CI consumption.
+- If machine consumers start to depend heavily on impact JSON, consider adding a schema file or contract tests.
 - Update this file whenever scope, phase, or blockers change.
 
 Open questions:

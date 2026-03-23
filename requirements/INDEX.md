@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-006-structured-docs-impact-output-mvp.md`（真实整改：Structured docs impact output MVP）
 - `REQ-2026-005-docs-impact-and-complete-gate-mvp.md`（真实整改：Docs impact planning and completion gate MVP）
 - `REQ-2026-004-diff-aware-doc-sync-mvp.md`（真实整改：Diff-aware doc sync MVP）
 - `REQ-2026-003-docs-quality-gate-mvp.md`（真实整改：Docs quality gate MVP）

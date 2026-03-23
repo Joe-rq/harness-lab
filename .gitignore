@@ -31,6 +31,7 @@ context/session/*.md
 !context/session/README.md
 .claude/.docs-verify-status
 .claude/.docs-impact-status
+.claude/.docs-impact-json-status
 .claude/.check-governance-status
 .claude/.req-complete-status
 

@@ -25,6 +25,7 @@ export function parseDocsVerifyArgs(argv) {
   const options = {
     diffAware: true,
     impactOnly: false,
+    format: 'text',
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -49,7 +50,24 @@ export function parseDocsVerifyArgs(argv) {
       continue;
     }
 
+    if (arg === '--format') {
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) {
+        throw new Error('--format requires a value');
+      }
+      if (!['text', 'json'].includes(value)) {
+        throw new Error(`Unsupported format: ${value}`);
+      }
+      options.format = value;
+      index += 1;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  if (!options.impactOnly && options.format !== 'text') {
+    throw new Error('--format is only supported together with --impact-only');
   }
 
   return options;
@@ -343,6 +361,26 @@ function printImpactReport(impact) {
   }
 }
 
+function buildImpactPayload(impact) {
+  return {
+    schema_version: 1,
+    skipped: impact.skipped,
+    reason: impact.reason,
+    changed_files: impact.changedFiles,
+    evaluated_rules: impact.evaluatedRules,
+    missing_rules: impact.findings.filter((finding) => finding.status === 'missing').length,
+    findings: impact.findings.map((finding) => ({
+      id: finding.id,
+      description: finding.description,
+      status: finding.status,
+      triggered_files: finding.triggeredFiles,
+      satisfied_by: finding.satisfiedBy,
+      missing_docs: finding.missing,
+    })),
+    errors: impact.errors,
+  };
+}
+
 export function verifyDocs(root = process.cwd(), options = {}) {
   const errors = [];
   const markdownFiles = [];
@@ -400,7 +438,11 @@ if (isMainModule) {
 
   if (options.impactOnly) {
     const impact = analyzeDocsImpact(process.cwd(), options);
-    printImpactReport(impact);
+    if (options.format === 'json') {
+      console.log(JSON.stringify(buildImpactPayload(impact), null, 2));
+    } else {
+      printImpactReport(impact);
+    }
     process.exit(impact.errors.length > 0 ? 1 : 0);
   }
 

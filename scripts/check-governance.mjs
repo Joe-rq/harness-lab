@@ -9,6 +9,8 @@ const expectedDocsVerifyScript =
   'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-verify-status && node scripts/docs-verify.mjs --status-file .claude/.docs-verify-status';
 const expectedDocsImpactScript =
   'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-status --impact-only';
+const expectedDocsImpactJsonScript =
+  'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-json-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-json-status --impact-only --format json';
 const expectedGovernanceScript =
   'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.check-governance-status && node scripts/check-governance.mjs --status-file .claude/.check-governance-status';
 const expectedReqCompleteScript =
@@ -89,6 +91,7 @@ if (experienceDocs.length === 0) {
 
 requireText('README.md', [
   'npm run docs:impact',
+  'npm run docs:impact:json',
   'npm run docs:verify',
   'npm run check:governance',
   'diff-aware',
@@ -101,6 +104,7 @@ requireText('CONTRIBUTING.md', [
   'Files To Update Together',
   'scripts/docs-sync-rules.json',
   'npm run docs:impact',
+  'npm run docs:impact:json',
   'npm run docs:verify',
 ]);
 
@@ -125,6 +129,9 @@ if (packageJson.scripts?.['check:governance'] !== expectedGovernanceScript) {
 }
 if (packageJson.scripts?.['docs:impact'] !== expectedDocsImpactScript) {
   errors.push('package.json must expose the git-status-backed docs:impact command');
+}
+if (packageJson.scripts?.['docs:impact:json'] !== expectedDocsImpactJsonScript) {
+  errors.push('package.json must expose the git-status-backed docs:impact:json command');
 }
 if (packageJson.scripts?.['docs:verify'] !== expectedDocsVerifyScript) {
   errors.push('package.json must expose the git-status-backed docs:verify command');

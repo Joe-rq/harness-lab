@@ -57,7 +57,7 @@ Thanks for improving Harness Lab.
 - 执行协议：
   `skills/**`
 
-`npm run docs:impact` 会先把当前 git status 里的文档义务直接列出来，`npm run docs:verify` 再对这些联动关系做最小自动检查。
+`npm run docs:impact` 会先把当前 git status 里的文档义务直接列出来，`npm run docs:impact:json` 会输出同一份结果的结构化 JSON，`npm run docs:verify` 再对这些联动关系做最小自动检查。
 如果你新增了新的脚本入口或新的同步约束，请同时更新 `scripts/docs-sync-rules.json`，不要只改文档或只改脚本。
 
 ## Pull Request Checklist
@@ -67,5 +67,6 @@ Thanks for improving Harness Lab.
 - [ ] 相关入口文档已同步
 - [ ] 相关模板或示例已同步
 - [ ] 已运行 `npm run docs:impact`
+- [ ] 需要机器消费时，已验证 `npm run docs:impact:json`
 - [ ] 已运行 `npm run docs:verify`
 - [ ] 如有破坏性变化，已在 PR 描述中说明
