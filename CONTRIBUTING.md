@@ -57,10 +57,15 @@ Thanks for improving Harness Lab.
 - 执行协议：
   `skills/**`
 
+`npm run docs:impact` 会先把当前 git status 里的文档义务直接列出来，`npm run docs:verify` 再对这些联动关系做最小自动检查。
+如果你新增了新的脚本入口或新的同步约束，请同时更新 `scripts/docs-sync-rules.json`，不要只改文档或只改脚本。
+
 ## Pull Request Checklist
 
 - [ ] 改动仍然符合“治理层模板”定位
 - [ ] 没有把业务项目特化假设硬编码进模板
 - [ ] 相关入口文档已同步
 - [ ] 相关模板或示例已同步
+- [ ] 已运行 `npm run docs:impact`
+- [ ] 已运行 `npm run docs:verify`
 - [ ] 如有破坏性变化，已在 PR 描述中说明

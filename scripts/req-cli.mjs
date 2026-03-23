@@ -7,6 +7,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
+import { analyzeDocsImpact } from './docs-verify.mjs';
 
 const root = process.cwd();
 const today = new Date().toISOString().slice(0, 10);
@@ -503,6 +504,25 @@ function completeCommand(options) {
     fail(`REQ must be in requirements/in-progress before complete: ${req.relPath}`);
   }
 
+  const docsGateDisabled = options['no-docs-gate'] === true;
+  if (!docsGateDisabled && options['status-file']) {
+    const docsImpact = analyzeDocsImpact(root, {
+      diffAware: true,
+      statusFile: options['status-file'],
+    });
+
+    const missingFindings = docsImpact.findings.filter((finding) => finding.status === 'missing');
+    if (missingFindings.length > 0) {
+      console.error(`Cannot complete ${reqId} because docs drift obligations are still open:`);
+      for (const finding of missingFindings) {
+        console.error(`- ${finding.id}: triggered by ${finding.triggeredFiles.join(', ')}`);
+        console.error(`  missing docs: ${finding.missing.join(', ')}`);
+      }
+      console.error('Run `npm run docs:impact` to inspect the current document obligations before completing the REQ.');
+      process.exit(1);
+    }
+  }
+
   const completedPath = `requirements/completed/${req.fileName}`;
   if (existsSync(toFullPath(completedPath))) {
     fail(`Completed REQ already exists: ${completedPath}`);
@@ -529,7 +549,7 @@ function printHelp() {
   console.log('  create --title "Title" [--slug ascii-slug] [--year 2026]');
   console.log('  start --id REQ-2026-002 [--phase implementation]');
   console.log('  block --id REQ-2026-002 --reason "..." --condition "..." --next "..." [--phase implementation]');
-  console.log('  complete --id REQ-2026-002 [--phase qa]');
+  console.log('  complete --id REQ-2026-002 [--phase qa] [--status-file .claude/.req-complete-status] [--no-docs-gate]');
 }
 
 const { command, options } = parseArgs(process.argv.slice(2));

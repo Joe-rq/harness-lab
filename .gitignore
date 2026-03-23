@@ -29,6 +29,10 @@ temp/
 # 会话级上下文（不提交到 Git）
 context/session/*.md
 !context/session/README.md
+.claude/.docs-verify-status
+.claude/.docs-impact-status
+.claude/.check-governance-status
+.claude/.req-complete-status
 
 # 但在必要时可以保留某些会话记录
 # 如需保留，手动添加到 git

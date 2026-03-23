@@ -1,8 +1,24 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { parseDocsVerifyArgs, verifyDocs } from './docs-verify.mjs';
 
 const root = process.cwd();
 const errors = [];
+let docsVerifyOptions = {};
+const expectedDocsVerifyScript =
+  'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-verify-status && node scripts/docs-verify.mjs --status-file .claude/.docs-verify-status';
+const expectedDocsImpactScript =
+  'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-status --impact-only';
+const expectedGovernanceScript =
+  'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.check-governance-status && node scripts/check-governance.mjs --status-file .claude/.check-governance-status';
+const expectedReqCompleteScript =
+  'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.req-complete-status && node scripts/req-cli.mjs complete --status-file .claude/.req-complete-status';
+
+try {
+  docsVerifyOptions = parseDocsVerifyArgs(process.argv.slice(2));
+} catch (error) {
+  errors.push(error.message);
+}
 
 function read(relPath) {
   const fullPath = path.join(root, relPath);
@@ -39,6 +55,8 @@ const requiredFiles = [
   'package.json',
   '.claude/settings.local.json',
   '.claude/progress.txt',
+  'scripts/docs-sync-rules.json',
+  'scripts/docs-verify.mjs',
   'scripts/req-cli.mjs',
   'skills/README.md',
   'context/business/README.md',
@@ -70,11 +88,20 @@ if (experienceDocs.length === 0) {
 }
 
 requireText('README.md', [
+  'npm run docs:impact',
+  'npm run docs:verify',
   'npm run check:governance',
+  'diff-aware',
   '人类维护者最短路径',
   'AI agent / Codex 完整路径',
   'REQ-2026-901-suspended-example.md',
   'npm run req:create',
+]);
+requireText('CONTRIBUTING.md', [
+  'Files To Update Together',
+  'scripts/docs-sync-rules.json',
+  'npm run docs:impact',
+  'npm run docs:verify',
 ]);
 
 requireText('CLAUDE.md', ['npm run check:governance']);
@@ -93,8 +120,14 @@ requireText('skills/README.md', [
 requireText('.claude/settings.local.json', ['node scripts/check-governance.mjs']);
 
 const packageJson = JSON.parse(read('package.json'));
-if (packageJson.scripts?.['check:governance'] !== 'node scripts/check-governance.mjs') {
-  errors.push('package.json must expose "check:governance": "node scripts/check-governance.mjs"');
+if (packageJson.scripts?.['check:governance'] !== expectedGovernanceScript) {
+  errors.push('package.json must expose the git-status-backed check:governance command');
+}
+if (packageJson.scripts?.['docs:impact'] !== expectedDocsImpactScript) {
+  errors.push('package.json must expose the git-status-backed docs:impact command');
+}
+if (packageJson.scripts?.['docs:verify'] !== expectedDocsVerifyScript) {
+  errors.push('package.json must expose the git-status-backed docs:verify command');
 }
 
 const reqScripts = {
@@ -102,13 +135,15 @@ const reqScripts = {
   'req:create': 'node scripts/req-cli.mjs create',
   'req:start': 'node scripts/req-cli.mjs start',
   'req:block': 'node scripts/req-cli.mjs block',
-  'req:complete': 'node scripts/req-cli.mjs complete',
 };
 
 for (const [name, expected] of Object.entries(reqScripts)) {
   if (packageJson.scripts?.[name] !== expected) {
     errors.push(`package.json must expose "${name}": "${expected}"`);
   }
+}
+if (packageJson.scripts?.['req:complete'] !== expectedReqCompleteScript) {
+  errors.push('package.json must expose the git-status-backed req:complete command');
 }
 
 const indexText = read('requirements/INDEX.md');
@@ -146,7 +181,17 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
+const docsVerify = verifyDocs(root, docsVerifyOptions);
+if (docsVerify.errors.length > 0) {
+  console.error('Governance check failed because docs:verify failed:');
+  for (const error of docsVerify.errors) {
+    console.error(`- ${error}`);
+  }
+  process.exit(1);
+}
+
 console.log('Governance check passed.');
 console.log('- Required files are present.');
 console.log('- README and CLAUDE entry points are aligned.');
 console.log('- requirements/INDEX.md and .claude/progress.txt are consistent.');
+console.log('- docs:verify passed.');
