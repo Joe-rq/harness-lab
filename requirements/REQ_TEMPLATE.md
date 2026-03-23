@@ -30,12 +30,17 @@
 ## 报告链接
 - Code Review：`requirements/reports/REQ-YYYY-NNN-code-review.md`
 - QA：`requirements/reports/REQ-YYYY-NNN-qa.md`
-- Ship：`requirements/reports/REQ-YYYY-NNN-ship.md`
+- Ship：`requirements/reports/REQ-YYYY-NNN-ship.md`（需要发布时填写；否则在 REQ 中说明不适用）
 
 ## 验证计划
 - 计划执行的命令：
 - 需要的环境：
 - 需要的人工验证：
+
+## 阻塞 / 搁置说明（可选）
+- 原因：
+- 恢复条件：
+- 下一步：
 
 ## 风险与回滚
 - 风险：

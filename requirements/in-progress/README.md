@@ -1,6 +1,7 @@
 # In Progress
 
 放置所有正在推进的 REQ 文件。
+`blocked / suspended` 的 REQ 也保留在这里，但要在文件内写明恢复条件和下一步。
 
 命名建议：
 - `REQ-YYYY-NNN-brief-title.md`

@@ -41,6 +41,7 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 │   ├── completed/
 │   └── reports/
 ├── skills/
+│   ├── README.md
 │   ├── plan/
 │   ├── review/
 │   ├── qa/
@@ -69,6 +70,7 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 
 ### 2. 创建或继续 REQ
 - 新需求进入 `requirements/in-progress/`
+- `blocked / suspended` 的 REQ 仍保留在 `requirements/in-progress/`，并在 REQ 与索引里写明恢复条件
 - 中大改动的设计稿进入 `docs/plans/`
 - 小改动可把设计摘要直接写进 REQ
 - 变更完成后补 `requirements/reports/` 下的 review / QA / ship 报告

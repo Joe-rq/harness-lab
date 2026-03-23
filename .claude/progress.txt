@@ -1,15 +1,15 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-03-20
+Last updated: 2026-03-23
 
 Summary:
-- No active requirement yet.
-- Start from requirements/INDEX.md before opening additional docs.
-- Template hardening in progress: align onboarding, tech stubs, and command-binding guidance.
+- Completed REQ-2026-001 template hardening for the repository itself.
+- Added a real template-side governance check via `npm run check:governance`.
+- Added skills navigation, a business overview stub, and a suspended REQ example.
 
 Next steps:
-- Finish tightening template onboarding and documentation consistency.
-- Create or resume a REQ.
+- Decide whether to take on P2 items: terminology guide, CI handoff note, and context maintenance guidance.
+- Create or resume the next REQ before additional template changes.
 - Update this file whenever scope, phase, or blockers change.
 
 Open questions:

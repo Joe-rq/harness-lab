@@ -14,9 +14,18 @@
 
 - 无
 
+## 当前搁置 REQ
+
+- 无
+
 ## 最近完成 REQ
 
-- `REQ-2026-900-example-status-filter.md`（公开示例，演示完整链路）
+- `REQ-2026-001-template-hardening.md`（真实整改：模板自举、入口修复、示例补齐）
+
+## 公开示例
+
+- `REQ-2026-900-example-status-filter.md`（完整链路示例）
+- `REQ-2026-901-suspended-example.md`（blocked / suspended 示例）
 
 ## 目录约定
 
@@ -47,6 +56,7 @@
 
 ### 搁置
 - 在 REQ 文件中写明原因、恢复条件和下一步
+- `blocked / suspended` 的 REQ 仍保留在 `requirements/in-progress/`
 - 在本索引里标明搁置状态
 
 ## 报告约定

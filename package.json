@@ -3,10 +3,11 @@
   "version": "1.1.0",
   "description": "AI 项目的研发治理层模板",
   "scripts": {
-    "lint": "node -e \"console.error('Bind a real lint command for the target project before using Harness Lab.'); process.exit(1)\"",
-    "test": "node -e \"console.error('Bind a real test command for the target project before using Harness Lab.'); process.exit(1)\"",
-    "build": "node -e \"console.error('Bind a real build command for the target project before using Harness Lab.'); process.exit(1)\"",
-    "verify": "node -e \"console.error('Bind a real verify command, or document the equivalent validation chain, before using Harness Lab.'); process.exit(1)\""
+    "check:governance": "node scripts/check-governance.mjs",
+    "lint": "node -e \"console.error('Harness Lab keeps lint as a template guard. Bind a real lint command in the target project; see README.md -> 快速开始 -> 绑定真实命令.'); process.exit(1)\"",
+    "test": "node -e \"console.error('Harness Lab keeps test as a template guard. Bind a real test command in the target project; see README.md -> 快速开始 -> 绑定真实命令.'); process.exit(1)\"",
+    "build": "node -e \"console.error('Harness Lab keeps build as a template guard. Bind a real build command in the target project; see README.md -> 快速开始 -> 绑定真实命令.'); process.exit(1)\"",
+    "verify": "node -e \"console.error('Harness Lab keeps verify as a template guard. In this repository, run npm run check:governance; in a target project, bind a real verify chain as documented in README.md.'); process.exit(1)\""
   },
   "keywords": [
     "harness-engineering",
