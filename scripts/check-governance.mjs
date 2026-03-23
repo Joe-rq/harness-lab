@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
@@ -42,7 +42,7 @@ const requiredFiles = [
   'skills/README.md',
   'context/business/README.md',
   'context/business/product-overview.md',
-  'context/experience/2026-03-23-template-dogfooding.md',
+  'context/experience/README.md',
   'docs/plans/REQ-2026-001-design.md',
   'docs/plans/REQ-2026-900-design.md',
   'requirements/INDEX.md',
@@ -59,6 +59,13 @@ const requiredFiles = [
 
 for (const relPath of requiredFiles) {
   requireFile(relPath);
+}
+
+const experienceDocs = readdirSync(path.join(root, 'context/experience'))
+  .filter((name) => name.endsWith('.md') && name !== 'README.md');
+
+if (experienceDocs.length === 0) {
+  errors.push('context/experience must contain at least one experience document besides README.md');
 }
 
 requireText('README.md', [

@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node scripts/check-governance.mjs)"
+      "Bash(node scripts/check-governance.mjs)",
+      "mcp__MiniMax__web_search"
     ]
   }
 }
