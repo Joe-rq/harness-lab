@@ -9,7 +9,7 @@
 |------|------|----------|-------------|
 | `plan/ceo-review.md` | design | 做需求前的产品 / 业务审查 | `docs/plans/REQ-YYYY-NNN-design.md` |
 | `plan/design-review.md` | design | 有界面、交互或体验变化时做设计评审 | `docs/plans/REQ-YYYY-NNN-design.md` |
-| `plan/eng-review.md` | design / implementation | 做技术方案、边界和验证链路评审 | `docs/plans/REQ-YYYY-NNN-design.md` |
+| `plan/eng-review.md` | design / implementation | 做技术方案、边界、`Scope Control` 和验证链路评审 | `docs/plans/REQ-YYYY-NNN-design.md` |
 | `review/code-review.md` | review | 评审正确性、回归风险、架构和测试缺口 | `requirements/reports/REQ-YYYY-NNN-code-review.md` |
 | `qa/qa.md` | qa | 逐条核对验收标准、回归和环境前提 | `requirements/reports/REQ-YYYY-NNN-qa.md` |
 | `ship/ship.md` | ship | 准备发布、记录 smoke 和回滚方案 | `requirements/reports/REQ-YYYY-NNN-ship.md` |

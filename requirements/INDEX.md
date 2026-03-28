@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-007-scope-control-lightweight-upgrade.md`（真实整改：Scope control lightweight upgrade）
 - `REQ-2026-006-structured-docs-impact-output-mvp.md`（真实整改：Structured docs impact output MVP）
 - `REQ-2026-005-docs-impact-and-complete-gate-mvp.md`（真实整改：Docs impact planning and completion gate MVP）
 - `REQ-2026-004-diff-aware-doc-sync-mvp.md`（真实整改：Diff-aware doc sync MVP）
@@ -49,6 +50,7 @@
 - 在 `requirements/in-progress/` 创建 `REQ-YYYY-NNN-*.md`
 - 中大改动在 `docs/plans/` 创建对应 `REQ-YYYY-NNN-design.md`
 - 小改动可把设计摘要直接写在 REQ 文件中
+- 如果任务需要明确 agent / 协作者的行为边界，可在 REQ 的“范围”下补 `Scope Control`
 
 ### 推进
 - 设计、实现、评审、验证都围绕同一个 REQ 编号展开

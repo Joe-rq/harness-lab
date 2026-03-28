@@ -122,6 +122,7 @@ AI agent / Codex 完整路径：
 - 先在 `requirements/in-progress/` 创建需求文件
 - 中大改动在 `docs/plans/` 创建对应设计稿
 - 小改动可以把设计摘要直接写进 REQ，而不是强制拆单独设计稿
+- 如果本次任务需要明确 agent 或协作者“能做什么 / 不能做什么”，可在 REQ 的“范围”下填写可选的 `Scope Control`
 - 实现后把 review / QA / ship 结果落到 `requirements/reports/`
 - 完成后移入 `requirements/completed/`
 

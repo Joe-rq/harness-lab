@@ -1,8 +1,9 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-03-23
+Last updated: 2026-03-28
 
 Summary:
+- Completed REQ-2026-007 scope control lightweight upgrade with optional Scope Control in the REQ template, CLI-generated skeleton, and engineering review guidance.
 - Completed REQ-2026-006 structured docs impact output MVP with stable JSON output for agent / CI consumers.
 - Completed REQ-2026-005 docs impact planning and completion gate MVP with agent-visible obligations and req:complete blocking.
 - Completed REQ-2026-004 diff-aware doc sync MVP with changed-files-based docs sync enforcement.

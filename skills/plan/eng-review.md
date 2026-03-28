@@ -21,6 +21,7 @@ description: Technical design and feasibility review for a requirement before or
 - [ ] 是否符合目标仓库自己的架构边界
 - [ ] 依赖方向是否正确
 - [ ] 改动点和影响范围是否明确
+- [ ] REQ 如声明了 `Scope Control`，其允许 / 禁止项是否足够清楚且与方案一致
 
 ### Data and Contracts
 - [ ] 数据结构或存储变化是否说明清楚
@@ -31,6 +32,7 @@ description: Technical design and feasibility review for a requirement before or
 - [ ] 测试与验证链路是否明确
 - [ ] 环境前提和配置约束是否明确
 - [ ] 回滚和发布影响是否明确
+- [ ] REQ 如声明了边界条件，验证计划是否覆盖这些限制
 
 ## 输出建议
 
@@ -52,6 +54,12 @@ description: Technical design and feasibility review for a requirement before or
 - 影响模块：
 - 依赖方向：
 - 需要新增或修改的边界：
+
+### Scope Control Review
+- 是否声明：
+- 允许项是否明确：
+- 禁止项是否明确：
+- 边界条件是否可执行：
 
 ### Technical Decisions
 1. 决策：
