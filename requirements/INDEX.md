@@ -12,7 +12,7 @@
 
 ## 当前活跃 REQ
 
-- 无
+- `REQ-2026-008-governance-enforcement-mechanisms.md`（真实整改：Governance enforcement mechanisms）
 
 ## 当前搁置 REQ
 
