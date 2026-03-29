@@ -34,6 +34,8 @@ context/session/*.md
 .claude/.docs-impact-json-status
 .claude/.check-governance-status
 .claude/.req-complete-status
+.claude/settings.local.json
+.claude/.req-exempt
 
 # 但在必要时可以保留某些会话记录
 # 如需保留，手动添加到 git
