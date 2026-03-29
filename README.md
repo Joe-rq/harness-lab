@@ -45,9 +45,14 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 
 复制以下文件到目标项目：
 
-```
-AGENTS.md, CLAUDE.md, context/, docs/, requirements/, skills/, .claude/
-```
+- `AGENTS.md`
+- `CLAUDE.md`
+- `context/`
+- `docs/`
+- `requirements/`
+- `scripts/`
+- `skills/`
+- `.claude/`
 
 ### 接入后配置
 
@@ -81,7 +86,7 @@ AGENTS.md, CLAUDE.md, context/, docs/, requirements/, skills/, .claude/
 └── .claude/progress.txt   # 跨会话进度
 ```
 
-## 工作方式
+## 默认工作方式
 
 ### 基本原则
 
@@ -117,6 +122,23 @@ npm run req:complete -- --id REQ-YYYY-NNN
 | `npm run docs:verify` | 检查文档链接和同步约束 |
 | `npm run check:governance` | 检查治理结构完整性 |
 
+这些命令会结合当前 git 改动做 `diff-aware` 文档同步检查，用来约束入口文档、治理脚本和交付物说明保持一致。
+
+### 人类维护者最短路径
+
+1. `AGENTS.md`
+2. `requirements/INDEX.md`
+3. `.claude/progress.txt`
+4. 当前 REQ、最近完成 REQ 和必要报告
+
+### AI agent / Codex 完整路径
+
+1. `AGENTS.md`
+2. `requirements/INDEX.md`
+3. `.claude/progress.txt`
+4. 相关 `context/*/README.md`
+5. 当前 REQ、设计稿、报告和必要代码
+
 ## 适用场景
 
 **适合**：
@@ -145,6 +167,7 @@ npm run req:complete -- --id REQ-YYYY-NNN
 仓库内含脱敏示例，演示完整治理链路：
 
 - [REQ 示例](./requirements/completed/REQ-2026-900-example-status-filter.md)
+- [搁置 REQ 示例](./requirements/in-progress/REQ-2026-901-suspended-example.md)
 - [设计稿示例](./docs/plans/REQ-2026-900-design.md)
 - [Code Review 示例](./requirements/reports/REQ-2026-900-code-review.md)
 - [QA 示例](./requirements/reports/REQ-2026-900-qa.md)

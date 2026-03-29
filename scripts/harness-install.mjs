@@ -65,6 +65,11 @@ const modules = {
     default: true,
     files: [
       'context/business/README.md',
+      'context/business/product-overview.md',
+      'context/tech/README.md',
+      'context/tech/architecture.md',
+      'context/tech/tech-stack.md',
+      'context/tech/testing-strategy.md',
       'context/tech/env-contract.md',
       'context/tech/deployment-runbook.md',
       'context/experience/README.md',
@@ -91,7 +96,7 @@ const modules = {
     files: [
       'scripts/req-cli.mjs',
       'scripts/docs-verify.mjs',
-      'scripts/docs-impact.mjs',
+      'scripts/check-governance.mjs',
       'scripts/docs-sync-rules.json',
     ],
     packageScripts: {
@@ -100,17 +105,18 @@ const modules = {
       'req:block': 'node scripts/req-cli.mjs block',
       'req:complete': 'node scripts/req-cli.mjs complete',
       'docs:verify': 'node scripts/docs-verify.mjs',
-      'docs:impact': 'node scripts/docs-impact.mjs',
-      'docs:impact:json': 'node scripts/docs-impact.mjs --json',
+      'docs:impact': 'node scripts/docs-verify.mjs --impact-only',
+      'docs:impact:json': 'node scripts/docs-verify.mjs --impact-only --format json',
       'check:governance': 'node scripts/check-governance.mjs',
     },
   },
   hook: {
-    name: 'PreToolUse hook',
+    name: '治理 hooks',
     required: false,
     default: false,
     files: [
       '.claude/settings.example.json',
+      'scripts/session-start.sh',
     ],
     hook: true,
   },
@@ -217,14 +223,13 @@ function configureHook(targetDir) {
     fs.mkdirSync(settingsDir, { recursive: true });
   }
 
-  const hookConfig = {
-    PreToolUse: [
-      {
-        matcher: "Write|Edit",
-        hooks: [
-          {
-            type: "prompt",
-            prompt: `REQ ENFORCEMENT CHECK
+  const hookConfig = [
+    {
+      matcher: "Write|Edit",
+      hooks: [
+        {
+          type: "prompt",
+          prompt: `REQ ENFORCEMENT CHECK
 
 在执行 Write/Edit 操作前，检查是否需要 REQ：
 
@@ -251,11 +256,10 @@ function configureHook(targetDir) {
 如果存在 .claude/.req-exempt 文件，跳过检查。
 
 返回 'approve' 继续操作。`
-          }
-        ]
-      }
-    ]
-  };
+        }
+      ]
+    }
+  ];
 
   let settings = {};
   if (fs.existsSync(settingsPath)) {
@@ -267,7 +271,12 @@ function configureHook(targetDir) {
     }
   }
 
-  settings.PreToolUse = hookConfig.PreToolUse;
+  if (!settings.hooks || typeof settings.hooks !== 'object' || Array.isArray(settings.hooks)) {
+    settings.hooks = {};
+  }
+
+  settings.hooks.PreToolUse = hookConfig;
+  delete settings.PreToolUse;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
   return settingsPath;
@@ -401,7 +410,10 @@ async function main() {
   } else if (options.defaults) {
     log('📦 使用默认选项\n', 'yellow');
     selectedModules = ['core', 'docs', 'context', 'skills', 'cli'];
-    hookEnabled = options.withHook;
+    if (options.withHook) {
+      selectedModules.push('hook');
+      hookEnabled = true;
+    }
   } else {
     // 交互模式
     const rl = readline.createInterface({
@@ -412,6 +424,10 @@ async function main() {
     log('请选择要安装的模块：\n', 'cyan');
 
     for (const [key, mod] of Object.entries(modules)) {
+      if (key === 'hook') {
+        continue;
+      }
+
       if (mod.required) {
         log(`  [x] ${mod.name} (必须)`, 'green');
         continue;
@@ -429,9 +445,12 @@ async function main() {
     }
 
     // 询问 hook
-    const hookAnswer = await question(rl, '\n  配置 PreToolUse hook? [y/N] ');
+    const hookAnswer = await question(rl, '\n  安装治理 hooks（settings.example + SessionStart/PreToolUse）? [y/N] ');
     hookEnabled = hookAnswer.toLowerCase() === 'y';
-    log(hookEnabled ? '  [x] PreToolUse hook' : '  [ ] PreToolUse hook', hookEnabled ? 'green' : 'yellow');
+    if (hookEnabled) {
+      selectedModules.push('hook');
+    }
+    log(hookEnabled ? '  [x] 治理 hooks' : '  [ ] 治理 hooks', hookEnabled ? 'green' : 'yellow');
 
     rl.close();
   }

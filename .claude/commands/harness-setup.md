@@ -55,8 +55,8 @@ description: 一键将 harness-lab 治理框架接入到当前项目。支持交
 | `docs/` | 设计稿和规范目录 | ✅ |
 | `context/` | 业务/技术/经验索引 | ✅ |
 | `skills/` | 阶段导航技能 | ✅ |
-| CLI 脚本 | req-cli.mjs, docs-*.mjs | ✅ |
-| PreToolUse hook | 强制 REQ 检查 | ❌ |
+| CLI 脚本 | `req-cli.mjs`, `docs-verify.mjs`（含 impact 模式）, `check-governance.mjs` | ✅ |
+| 治理 hooks | `.claude/settings.example.json`, `scripts/session-start.sh`, `PreToolUse` 本地配置 | ❌ |
 
 ### Step 3: 文件复制
 
@@ -170,7 +170,7 @@ npx harness-install
 # 或使用选项
 npx harness-install --defaults        # 使用默认选项
 npx harness-install --core-only       # 仅安装核心模块
-npx harness-install --with-hook       # 包含 PreToolUse hook
+npx harness-install --with-hook       # 包含治理 hooks
 ```
 
 ## 错误处理

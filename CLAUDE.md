@@ -88,6 +88,7 @@ rm .claude/.req-exempt
 ### 验证任务
 - review / QA / ship 的结论必须落到 `requirements/reports/`
 - 报告里要记录实际执行的命令、结果和阻塞项
+- 如果修改的是模板仓库的入口文档或治理脚本，至少执行 `npm run docs:verify` 和 `npm run check:governance`
 
 ### 完成任务
 - 更新 REQ 状态
