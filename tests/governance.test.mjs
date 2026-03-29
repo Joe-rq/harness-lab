@@ -164,6 +164,20 @@ async function testReqCliLifecycle() {
     assert.match(startedReq, /- 当前状态：in-progress/);
     assert.match(startedReq, /- 当前阶段：implementation/);
 
+    // Create required reports for complete
+    const reportsDir = path.join(tempDir, 'requirements', 'reports');
+    mkdirSync(reportsDir, { recursive: true });
+    writeFileSync(
+      path.join(reportsDir, 'REQ-2026-001-code-review.md'),
+      '# Code Review\n\n## 状态\n\n- ✅ 通过\n',
+      'utf8'
+    );
+    writeFileSync(
+      path.join(reportsDir, 'REQ-2026-001-qa.md'),
+      '# QA\n\n## 状态\n\n- ✅ 通过\n',
+      'utf8'
+    );
+
     reqCli.completeCommand({
       id: 'REQ-2026-001',
       phase: 'qa',

@@ -4,6 +4,7 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
@@ -492,7 +493,7 @@ export function startCommand(options) {
   // Remove exempt file after successful start
   const exemptPath = toFullPath('.claude/.req-exempt');
   if (existsSync(exemptPath)) {
-    require('node:fs').unlinkSync(exemptPath);
+    unlinkSync(exemptPath);
   }
 
   console.log(`Started ${reqId} -> ${phase}`);
@@ -559,6 +560,26 @@ export function completeCommand(options) {
       console.error('Run `npm run docs:impact` to inspect the current document obligations before completing the REQ.');
       process.exit(1);
     }
+  }
+
+  // Check required reports exist
+  const requiredReports = ['code-review', 'qa'];
+  const missingReports = [];
+  for (const reportType of requiredReports) {
+    const reportPath = `requirements/reports/${reqId}-${reportType}.md`;
+    if (!existsSync(toFullPath(reportPath))) {
+      missingReports.push(reportPath);
+    }
+  }
+  if (missingReports.length > 0) {
+    console.error(`Cannot complete ${reqId} because required reports are missing:`);
+    for (const report of missingReports) {
+      console.error(`  - ${report}`);
+    }
+    console.error('');
+    console.error('Create the missing reports before completing the REQ.');
+    console.error('If a report type is not applicable, create the file and explain why.');
+    process.exit(1);
   }
 
   const completedPath = `requirements/completed/${req.fileName}`;
