@@ -56,14 +56,16 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 
 ### 接入后配置
 
-1. **绑定真实命令**：在 `package.json` 中配置 `lint`、`test`、`build`、`verify`
+1. **检查自动绑定结果**：如果目标项目已有 `lint`、`test`、`build`，安装器会尽量复用，并自动组合 `verify`
 
-2. **创建第一个 REQ**：
+2. **替换 placeholder guard**：如果安装器没有找到真实命令，会在 `package.json` 中写入 `node scripts/template-guard.mjs <name>` 作为占位提示；这些脚本需要后续替换成真实链路
+
+3. **创建第一个 REQ**：
    ```bash
    npm run req:create -- --title "Your first requirement"
    ```
 
-3. **开始治理流程**
+4. **开始治理流程**
 
 ## 核心目录
 
@@ -125,6 +127,7 @@ npm run req:complete -- --id REQ-YYYY-NNN
 
 这些命令会结合当前 git 改动做 `diff-aware` 文档同步检查，用来约束入口文档、治理脚本和交付物说明保持一致。
 GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`npm run docs:verify` 和 `npm run check:governance`，把仓库级治理检查变成默认门禁。
+对于目标项目，`harness-install` 现在会尝试自动绑定已有真实 `lint / test / build`，并在缺失时写入 placeholder guard，避免接入后只剩 README 提示。
 
 ### 人类维护者最短路径
 

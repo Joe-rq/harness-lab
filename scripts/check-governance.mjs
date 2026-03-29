@@ -16,6 +16,9 @@ const expectedGovernanceScript =
 const expectedReqCompleteScript =
   'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.req-complete-status && node scripts/req-cli.mjs complete --status-file .claude/.req-complete-status';
 const expectedTestScript = 'node tests/governance.test.mjs';
+const expectedLintScript = 'node scripts/template-guard.mjs lint';
+const expectedBuildScript = 'node scripts/template-guard.mjs build';
+const expectedVerifyScript = 'node scripts/template-guard.mjs verify';
 
 try {
   docsVerifyOptions = parseDocsVerifyArgs(process.argv.slice(2));
@@ -64,6 +67,7 @@ const requiredFiles = [
   'scripts/docs-verify.mjs',
   'scripts/req-check.sh',
   'scripts/req-cli.mjs',
+  'scripts/template-guard.mjs',
   'skills/README.md',
   'context/business/README.md',
   'context/business/product-overview.md',
@@ -105,6 +109,7 @@ requireText('README.md', [
   'AI agent / Codex 完整路径',
   'REQ-2026-901-suspended-example.md',
   'npm run req:create',
+  'placeholder',
 ]);
 requireText('CONTRIBUTING.md', [
   'Files To Update Together',
@@ -135,6 +140,15 @@ requireText('.claude/settings.local.json', ['node scripts/check-governance.mjs']
 const packageJson = JSON.parse(read('package.json'));
 if (packageJson.scripts?.test !== expectedTestScript) {
   errors.push(`package.json must expose "test": "${expectedTestScript}"`);
+}
+if (packageJson.scripts?.lint !== expectedLintScript) {
+  errors.push(`package.json must expose "lint": "${expectedLintScript}"`);
+}
+if (packageJson.scripts?.build !== expectedBuildScript) {
+  errors.push(`package.json must expose "build": "${expectedBuildScript}"`);
+}
+if (packageJson.scripts?.verify !== expectedVerifyScript) {
+  errors.push(`package.json must expose "verify": "${expectedVerifyScript}"`);
 }
 if (packageJson.scripts?.['check:governance'] !== expectedGovernanceScript) {
   errors.push('package.json must expose the git-status-backed check:governance command');

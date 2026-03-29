@@ -98,6 +98,7 @@ export const modules = {
       'scripts/docs-verify.mjs',
       'scripts/check-governance.mjs',
       'scripts/docs-sync-rules.json',
+      'scripts/template-guard.mjs',
     ],
     packageScripts: {
       'req:create': 'node scripts/req-cli.mjs create',
@@ -121,6 +122,151 @@ export const modules = {
     hook: true,
   },
 };
+
+const targetProjectScripts = {
+  req: 'node scripts/req-cli.mjs',
+  'req:create': 'node scripts/req-cli.mjs create',
+  'req:start': 'node scripts/req-cli.mjs start',
+  'req:block': 'node scripts/req-cli.mjs block',
+  'req:complete': 'node scripts/req-cli.mjs complete',
+  'docs:verify': 'node scripts/docs-verify.mjs',
+  'docs:impact': 'node scripts/docs-verify.mjs --impact-only',
+  'docs:impact:json': 'node scripts/docs-verify.mjs --impact-only --format json',
+  'check:governance': 'node scripts/check-governance.mjs',
+};
+
+function guardScript(name) {
+  return `node scripts/template-guard.mjs ${name}`;
+}
+
+function isPlaceholderScript(command) {
+  if (!command || typeof command !== 'string') {
+    return false;
+  }
+
+  return (
+    command.startsWith('node scripts/template-guard.mjs ') ||
+    command.includes('Harness Lab keeps') ||
+    command.includes('template guard')
+  );
+}
+
+function inferVerifyScript(scripts) {
+  const realScripts = ['lint', 'test', 'build'].filter((name) => {
+    const command = scripts[name];
+    return typeof command === 'string' && command.trim() !== '' && !isPlaceholderScript(command);
+  });
+
+  if (realScripts.length === 0) {
+    return null;
+  }
+
+  return realScripts.map((name) => `npm run ${name}`).join(' && ');
+}
+
+export function updateTargetPackageJson(targetDir) {
+  const packageJsonPath = path.join(targetDir, 'package.json');
+  if (!fs.existsSync(packageJsonPath)) {
+    return {
+      updated: false,
+      exists: false,
+      path: null,
+      bindingStatus: [],
+      addedScripts: [],
+      preservedScripts: [],
+      generatedVerify: false,
+    };
+  }
+
+  let packageJson;
+  try {
+    packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+  } catch (error) {
+    return {
+      updated: false,
+      exists: true,
+      path: packageJsonPath,
+      parseError: error.message,
+      bindingStatus: [],
+      addedScripts: [],
+      preservedScripts: [],
+      generatedVerify: false,
+    };
+  }
+
+  if (!packageJson.scripts || typeof packageJson.scripts !== 'object' || Array.isArray(packageJson.scripts)) {
+    packageJson.scripts = {};
+  }
+
+  const scripts = packageJson.scripts;
+  const addedScripts = [];
+  const preservedScripts = [];
+  const bindingStatus = [];
+  let generatedVerify = false;
+
+  for (const name of ['lint', 'test', 'build']) {
+    const current = scripts[name];
+    if (typeof current === 'string' && current.trim() !== '' && !isPlaceholderScript(current)) {
+      preservedScripts.push(name);
+      bindingStatus.push({ name, status: 'preserved', command: current });
+      continue;
+    }
+
+    const placeholder = guardScript(name);
+    scripts[name] = placeholder;
+    addedScripts.push(name);
+    bindingStatus.push({
+      name,
+      status: current ? 'placeholder-refreshed' : 'placeholder-added',
+      command: placeholder,
+    });
+  }
+
+  const currentVerify = scripts.verify;
+  if (typeof currentVerify === 'string' && currentVerify.trim() !== '' && !isPlaceholderScript(currentVerify)) {
+    preservedScripts.push('verify');
+    bindingStatus.push({ name: 'verify', status: 'preserved', command: currentVerify });
+  } else {
+    const inferredVerify = inferVerifyScript(scripts);
+    if (inferredVerify) {
+      scripts.verify = inferredVerify;
+      addedScripts.push('verify');
+      generatedVerify = true;
+      bindingStatus.push({ name: 'verify', status: 'generated', command: inferredVerify });
+    } else {
+      const placeholder = guardScript('verify');
+      scripts.verify = placeholder;
+      addedScripts.push('verify');
+      bindingStatus.push({
+        name: 'verify',
+        status: currentVerify ? 'placeholder-refreshed' : 'placeholder-added',
+        command: placeholder,
+      });
+    }
+  }
+
+  for (const [name, command] of Object.entries(targetProjectScripts)) {
+    if (typeof scripts[name] === 'string' && scripts[name].trim() !== '') {
+      preservedScripts.push(name);
+      continue;
+    }
+
+    scripts[name] = command;
+    addedScripts.push(name);
+  }
+
+  fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
+
+  return {
+    updated: true,
+    exists: true,
+    path: packageJsonPath,
+    bindingStatus,
+    addedScripts,
+    preservedScripts,
+    generatedVerify,
+  };
+}
 
 // 检测 Git 仓库
 export function isGitRepo(dir) {
@@ -283,7 +429,7 @@ export function configureHook(targetDir) {
 }
 
 // 生成接入报告
-export function generateReport(targetDir, selectedModules, results, hookEnabled) {
+export function generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate = null) {
   const reportDir = path.join(targetDir, 'requirements', 'reports');
   if (!fs.existsSync(reportDir)) {
     fs.mkdirSync(reportDir, { recursive: true });
@@ -327,15 +473,35 @@ ${results.failed.length > 0 ? `### 失败 (${results.failed.length} 个文件)\n
 
 ${hookEnabled ? '✅ 已配置' : '❌ 未配置'}
 
+## 命令绑定状态
+
+${!packageUpdate || !packageUpdate.exists
+    ? '⚠️ 未检测到 `package.json`，未自动绑定 `lint / test / build / verify`。'
+    : packageUpdate.parseError
+      ? `❌ 读取 \`package.json\` 失败：${packageUpdate.parseError}`
+      : packageUpdate.bindingStatus.length === 0
+        ? 'ℹ️ 未修改标准命令绑定。'
+        : packageUpdate.bindingStatus
+            .map((item) => `- \`${item.name}\`：${item.status} -> \`${item.command}\``)
+            .join('\n')}
+
+${packageUpdate && packageUpdate.exists && !packageUpdate.parseError
+    ? `${packageUpdate.generatedVerify ? '\n已根据目标项目已有真实命令自动生成 `verify`。\n' : ''}${
+        packageUpdate.bindingStatus.some((item) => item.status.startsWith('placeholder'))
+          ? '\n仍有 placeholder guard，说明这些命令需要目标项目后续替换为真实链路。\n'
+          : ''
+      }`
+    : ''}
+
 ## 后续步骤
 
-1. 在 \`package.json\` 中绑定真实命令：
+1. 检查 \`package.json\` 中自动绑定的命令，必要时替换 placeholder guard：
    \`\`\`json
    {
      "scripts": {
        "lint": "eslint .",
        "test": "vitest run",
-       "build": "npm run build",
+       "build": "next build",
        "verify": "npm run lint && npm run test && npm run build"
      }
    }
@@ -493,9 +659,11 @@ export async function main() {
     log('   ✅ 已配置', 'green');
   }
 
+  const packageUpdate = updateTargetPackageJson(targetDir);
+
   // 生成报告
   log('\n📄 生成接入报告...', 'blue');
-  const reportPath = generateReport(targetDir, selectedModules, results, hookEnabled);
+  const reportPath = generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate);
   log(`   ✅ ${path.relative(targetDir, reportPath)}`, 'green');
 
   // 完成

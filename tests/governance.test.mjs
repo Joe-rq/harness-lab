@@ -143,16 +143,36 @@ async function testHarnessInstallArtifacts() {
   try {
     const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/check-governance.mjs'));
+    assert.ok(harnessInstall.modules.cli.files.includes('scripts/template-guard.mjs'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/session-start.sh'));
+
+    writeFile(
+      tempDir,
+      'package.json',
+      JSON.stringify(
+        {
+          name: 'fixture-project',
+          scripts: {
+            lint: 'eslint .',
+            test: 'vitest run',
+            build: 'tsc -p tsconfig.json',
+          },
+        },
+        null,
+        2
+      )
+    );
 
     const selectedModules = ['core', 'docs', 'context', 'skills', 'cli', 'hook'];
     const copyResults = harnessInstall.copyFiles(repoRoot, tempDir, selectedModules);
     harnessInstall.createProgressTxt(tempDir);
     harnessInstall.configureHook(tempDir);
-    harnessInstall.generateReport(tempDir, selectedModules, copyResults, true);
+    const packageUpdate = harnessInstall.updateTargetPackageJson(tempDir);
+    harnessInstall.generateReport(tempDir, selectedModules, copyResults, true, packageUpdate);
 
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'check-governance.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'session-start.sh')));
+    assert.ok(existsSync(path.join(tempDir, 'scripts', 'template-guard.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'context', 'tech', 'README.md')));
 
     const settings = JSON.parse(
@@ -160,11 +180,55 @@ async function testHarnessInstallArtifacts() {
     );
     assert.ok(Array.isArray(settings.hooks?.PreToolUse));
 
+    const packageJson = JSON.parse(readFileSync(path.join(tempDir, 'package.json'), 'utf8'));
+    assert.equal(packageJson.scripts.lint, 'eslint .');
+    assert.equal(packageJson.scripts.test, 'vitest run');
+    assert.equal(packageJson.scripts.build, 'tsc -p tsconfig.json');
+    assert.equal(packageJson.scripts.verify, 'npm run lint && npm run test && npm run build');
+    assert.equal(packageJson.scripts['req:create'], 'node scripts/req-cli.mjs create');
+
     const report = readFileSync(
       path.join(tempDir, 'requirements', 'reports', 'harness-setup-report.md'),
       'utf8'
     );
     assert.match(report, /- \[x\] 治理 hooks/);
+    assert.match(report, /`verify`：generated/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testPackageBindingFallsBackToPlaceholderGuards() {
+  const tempDir = createTempDir('harness-install-placeholders');
+  try {
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+
+    writeFile(
+      tempDir,
+      'package.json',
+      JSON.stringify(
+        {
+          name: 'fixture-project',
+          scripts: {
+            test: 'playwright test',
+          },
+        },
+        null,
+        2
+      )
+    );
+
+    harnessInstall.copyFiles(repoRoot, tempDir, ['cli']);
+    const packageUpdate = harnessInstall.updateTargetPackageJson(tempDir);
+    const packageJson = JSON.parse(readFileSync(path.join(tempDir, 'package.json'), 'utf8'));
+
+    assert.equal(packageJson.scripts.lint, 'node scripts/template-guard.mjs lint');
+    assert.equal(packageJson.scripts.test, 'playwright test');
+    assert.equal(packageJson.scripts.build, 'node scripts/template-guard.mjs build');
+    assert.equal(packageJson.scripts.verify, 'npm run test');
+    assert.equal(packageJson.scripts.req, 'node scripts/req-cli.mjs');
+    assert.equal(packageUpdate.generatedVerify, true);
+    assert.ok(packageUpdate.bindingStatus.some((item) => item.name === 'lint' && item.status === 'placeholder-added'));
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -174,6 +238,7 @@ const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
   ['harness-install copies governance files and writes hook config', testHarnessInstallArtifacts],
+  ['package binding falls back to placeholder guards when commands are missing', testPackageBindingFallsBackToPlaceholderGuards],
 ];
 
 let failures = 0;

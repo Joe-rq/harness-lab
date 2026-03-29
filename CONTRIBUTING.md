@@ -75,4 +75,5 @@ Thanks for improving Harness Lab.
 - [ ] 需要机器消费时，已验证 `npm run docs:impact:json`
 - [ ] 已运行 `npm run docs:verify`
 - [ ] 已运行 `npm run check:governance`
+- [ ] 如修改接入流程，已验证目标项目 `package.json` 的真实命令绑定或 placeholder guard 行为
 - [ ] 如有破坏性变化，已在 PR 描述中说明

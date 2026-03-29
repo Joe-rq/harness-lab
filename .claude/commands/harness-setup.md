@@ -55,7 +55,7 @@ description: 一键将 harness-lab 治理框架接入到当前项目。支持交
 | `docs/` | 设计稿和规范目录 | ✅ |
 | `context/` | 业务/技术/经验索引 | ✅ |
 | `skills/` | 阶段导航技能 | ✅ |
-| CLI 脚本 | `req-cli.mjs`, `docs-verify.mjs`（含 impact 模式）, `check-governance.mjs` | ✅ |
+| CLI 脚本 | `req-cli.mjs`, `docs-verify.mjs`（含 impact 模式）, `check-governance.mjs`, `template-guard.mjs` | ✅ |
 | 治理 hooks | `.claude/settings.example.json`, `scripts/session-start.sh`, `PreToolUse` 本地配置 | ❌ |
 
 ### Step 3: 文件复制
@@ -105,6 +105,11 @@ description: 一键将 harness-lab 治理框架接入到当前项目。支持交
    - 创建或更新 `.claude/settings.local.json`
    - 添加 PreToolUse hook 配置
 
+4. **绑定目标项目命令**：
+   - 如果目标项目已有 `package.json` 和真实 `lint / test / build`，自动复用这些脚本
+   - 如果 `verify` 缺失，按已有真实脚本自动组合可行的 `npm run lint && npm run test && npm run build` 子集
+   - 对缺失的标准命令写入 `node scripts/template-guard.mjs <name>` placeholder guard，避免静默缺失
+
 ### Step 5: 生成接入报告
 
 创建 `requirements/reports/harness-setup-report.md`：
@@ -130,13 +135,13 @@ description: 一键将 harness-lab 治理框架接入到当前项目。支持交
 
 ## 后续步骤
 
-1. 在 `package.json` 中绑定真实命令：
+1. 检查 `package.json` 中自动绑定的命令，必要时替换 placeholder guard：
    ```json
    {
      "scripts": {
        "lint": "eslint .",
        "test": "vitest run",
-       "build": "npm run build",
+       "build": "next build",
        "verify": "npm run lint && npm run test && npm run build"
      }
    }
@@ -154,6 +159,7 @@ description: 一键将 harness-lab 治理框架接入到当前项目。支持交
 - 如果选择了 PreToolUse hook，每次修改文件前会检查 REQ 状态
 - 小改动（<3 个文件）不会触发警告
 - 可以使用 `.claude/.req-exempt` 临时豁免检查
+- 自动绑定只会复用目标项目已存在的标准脚本名，不会猜测非标准脚本语义
 ```
 
 ## CLI 备选方案
