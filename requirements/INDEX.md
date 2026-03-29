@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-012-pretooluse-req-block.md`（真实整改：PreToolUse 硬阻断：将 REQ 检查从软约束升级为强制 block）
 - `REQ-2026-011-governance-self-check-installer-parity-fixes.md`（真实整改：Governance self-check and installer parity fixes）
 - `REQ-2026-010-harness-setup-skill.md`（真实整改：harness-setup Skill）
 - `REQ-2026-009-pretooluse-hook-for-req-enforcement.md`（真实整改：PreToolUse hook for REQ enforcement）

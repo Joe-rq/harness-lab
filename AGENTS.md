@@ -67,13 +67,13 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 
 ### 2. PreToolUse Hook
 
-在 Write/Edit 操作前自动检查 REQ 状态：
+在 Write/Edit 操作前强制检查 REQ 状态：
 
 ```
 触发条件：Write 或 Edit 文件
 检查内容：当前是否有活跃 REQ
-输出：如需要 REQ 但没有，输出警告提醒
-行为：软性提醒，不阻止操作
+输出：如无活跃 REQ，输出阻断信息并拒绝操作
+行为：硬阻断，必须先创建 REQ 或使用豁免机制
 ```
 
 **豁免机制**：
@@ -151,6 +151,7 @@ rm .claude/.req-exempt
 
 ## 版本历史
 
+- 2026-03-29: PreToolUse hook 升级为硬阻断机制（REQ-2026-012）
 - 2026-03-29: 添加 PreToolUse hook 强制检查 REQ 状态
 - 2026-03-29: 添加会话启动协议、实施前检查点和 SessionStart hook 机制
 

@@ -17,8 +17,9 @@
         "matcher": "Write|Edit",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "╔══════════════════════════════════════════════════════════════╗\n║                    ⚠️ REQ ENFORCEMENT CHECK                  ║\n╠══════════════════════════════════════════════════════════════╣\n\nBefore modifying files, perform these checks:\n\n## Step 1: Check Current REQ Status\nRead `.claude/progress.txt` and `requirements/INDEX.md` to find:\n- Current active REQ: [check value]\n- Current phase: [check value]\n\n## Step 2: Evaluate If REQ Is Needed\n\n| Condition | Needs REQ |\n|-----------|-----------|\n| 3+ files will be changed | YES |\n| New feature development | YES |\n| Architecture/flow change | YES |\n| Single file typo/small bug fix | NO |\n| User explicitly said 'no REQ' | NO |\n| `.claude/.req-exempt` file exists | NO |\n\n## Step 3: Decision\n\nIF REQ needed AND no active REQ:\n  OUTPUT WARNING:\n  \"⚠️ REQ ENFORCEMENT: This change may require a REQ.\n   Current active REQ: none\n   Suggestion: npm run req:create -- --title \\\"...\\\"\n   To bypass: touch .claude/.req-exempt\"\n\nIF REQ exists OR REQ not needed:\n  Proceed silently\n\n## Important\n- ALWAYS return 'approve' to allow the operation (soft enforcement)\n- This is a REMINDER, not a blocker\n- The goal is to make you AWARE, not to stop you\n\n╚══════════════════════════════════════════════════════════════╝"
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/scripts/req-check.sh\"",
+            "timeout": 10
           }
         ]
       }
@@ -31,6 +32,7 @@
       "Bash(git push:*)",
       "Bash(git rev-parse:*)",
       "Bash(bash scripts/session-start.sh)",
+      "Bash(bash scripts/req-check.sh)",
       "Bash(npm run:*)"
     ]
   }

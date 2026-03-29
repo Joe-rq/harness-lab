@@ -55,6 +55,18 @@
 ✅ 用户提供详细计划 → 创建 REQ → 实施 → 生成报告
 ```
 
+### 强制执行机制
+
+PreToolUse hook 会**强制阻断**无活跃 REQ 的文件修改操作：
+
+```
+🚫 REQ ENFORCEMENT: BLOCKED
+No active REQ found. File modifications require a REQ for:
+  - 3+ file changes
+  - New feature development
+  - Architecture/flow changes
+```
+
 ### 临时豁免机制
 
 如果需要临时跳过 REQ 检查（如紧急修复、小改动）：
