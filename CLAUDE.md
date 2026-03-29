@@ -74,6 +74,26 @@ Hook 也会检测 REQ 是否有实际内容：
 `req:create` 只会生成骨架文件，不代表这个 REQ 已经可以直接开始实施。
 在运行 `npm run req:start` 之前，必须先把背景、目标、验收标准等关键章节写实；空模板 REQ 会被 `req:start` 直接拒绝。
 
+### REQ 工作流程
+
+```bash
+# 1. 创建 REQ（自动创建豁免文件）
+npm run req:create -- --title "Your feature"
+
+# 2. 填充 REQ 内容（背景、目标、验收标准等）
+# 豁免文件已自动创建，可以直接编辑 requirements/in-progress/REQ-xxx-*.md
+
+# 3. 启动 REQ（验证内容完整性，自动删除豁免文件）
+npm run req:start -- --id REQ-xxx --phase implementation
+
+# 4. 开始实施
+```
+
+**关键点**：
+- `req:create` 会自动创建 `.claude/.req-exempt` 豁免文件
+- `req:start` 成功后会自动删除豁免文件
+- 如果手动创建豁免文件，应在完成后删除
+
 ### 临时豁免机制
 
 如果需要临时跳过 REQ 检查（如紧急修复、小改动）：
