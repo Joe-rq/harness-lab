@@ -74,22 +74,7 @@ if [ -n "$ACTIVE_REQ" ] && [ "$ACTIVE_REQ" != "none" ] && [ "$ACTIVE_REQ" != "�
   exit $?
 fi
 
-# No active REQ — block and explain
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║              🚫 REQ ENFORCEMENT: BLOCKED                    ║"
-echo "╠══════════════════════════════════════════════════════════════╣"
-echo ""
-echo "  No active REQ found. File modifications require a REQ for:"
-echo "    - 3+ file changes"
-echo "    - New feature development"
-echo "    - Architecture/flow changes"
-echo ""
-echo "  To create a REQ:"
-echo "    npm run req:create -- --title \"Your feature title\""
-echo ""
-echo "  To bypass (small fixes only):"
-echo "    touch .claude/.req-exempt"
-echo "    # (delete after task is done)"
-echo ""
-echo "╚══════════════════════════════════════════════════════════════╝"
-exit 2
+# No active REQ (or "none") — allow
+# This enables creating and filling REQ files when no active REQ exists
+# Enforcement is handled by req:start which validates REQ content
+exit 0

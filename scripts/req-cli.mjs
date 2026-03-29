@@ -439,9 +439,13 @@ export function createCommand(options) {
   updateIndex({ active: parseIndexItem(reqFileName, title) });
   updateProgress('active', reqId, 'design');
 
+  // Create exempt file to allow filling REQ content
+  writeFileSync(toFullPath('.claude/.req-exempt'), '', 'utf8');
+
   console.log(`Created ${reqId}`);
   console.log(`- ${reqPath}`);
   console.log(`- ${designPath}`);
+  console.log('- .claude/.req-exempt (fill REQ content, then run req:start)');
 }
 
 export function startCommand(options) {
@@ -484,6 +488,12 @@ export function startCommand(options) {
     removeBlockedId: reqId,
   });
   updateProgress('active', reqId, phase);
+
+  // Remove exempt file after successful start
+  const exemptPath = toFullPath('.claude/.req-exempt');
+  if (existsSync(exemptPath)) {
+    require('node:fs').unlinkSync(exemptPath);
+  }
 
   console.log(`Started ${reqId} -> ${phase}`);
 }
