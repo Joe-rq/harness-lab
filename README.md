@@ -39,6 +39,8 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults
 
 # 包含 PreToolUse hook
 node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
+# --with-hook 会配置 SessionStart + PreToolUse hooks
+# PreToolUse 为硬阻断：无活跃 REQ 时禁止 Write/Edit
 ```
 
 ### 手动接入
@@ -60,12 +62,53 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 
 2. **替换 placeholder guard**：如果安装器没有找到真实命令，会在 `package.json` 中写入 `node scripts/template-guard.mjs <name>` 作为占位提示；这些脚本需要后续替换成真实链路
 
-3. **创建第一个 REQ**：
+3. **确认 hook 行为**：如果启用了 `--with-hook`，目标项目会在无活跃 REQ 时阻止文件修改；紧急小改动可用 `.claude/.req-exempt` 临时豁免
+
+4. **创建第一个 REQ**：
    ```bash
    npm run req:create -- --title "Your first requirement"
    ```
 
-4. **开始治理流程**
+5. **开始治理流程**
+
+#### 自动绑定结果怎么看
+
+安装完成后，优先检查这两个地方：
+
+- `package.json` 里的 `scripts`
+- `requirements/reports/harness-setup-report.md`
+
+常见结果有两种：
+
+**目标项目已经有真实脚本**：
+
+```json
+{
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run",
+    "build": "next build",
+    "verify": "npm run lint && npm run test && npm run build"
+  }
+}
+```
+
+这表示安装器保留了原有真实命令，并自动补出了 `verify`。
+
+**目标项目缺少真实脚本**：
+
+```json
+{
+  "scripts": {
+    "lint": "node scripts/template-guard.mjs lint",
+    "test": "node scripts/template-guard.mjs test",
+    "build": "node scripts/template-guard.mjs build",
+    "verify": "node scripts/template-guard.mjs verify"
+  }
+}
+```
+
+这表示治理骨架已经接入，但这些命令还需要目标项目自己绑定成真实链路。
 
 ## 核心目录
 
@@ -128,6 +171,25 @@ npm run req:complete -- --id REQ-YYYY-NNN
 这些命令会结合当前 git 改动做 `diff-aware` 文档同步检查，用来约束入口文档、治理脚本和交付物说明保持一致。
 GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`npm run docs:verify` 和 `npm run check:governance`，把仓库级治理检查变成默认门禁。
 对于目标项目，`harness-install` 现在会尝试自动绑定已有真实 `lint / test / build`，并在缺失时写入 placeholder guard，避免接入后只剩 README 提示。
+
+### 模板仓库 vs 目标项目
+
+第一次接入时，最容易混淆的是这两套命令：
+
+**模板仓库命令**：
+- `npm test`
+- `npm run docs:verify`
+- `npm run check:governance`
+
+这些命令只用于验证 `harness-lab` 仓库自身是否健康。
+
+**目标项目命令**：
+- `lint`
+- `test`
+- `build`
+- `verify`
+
+这些命令属于被接入的业务项目，必须反映那个项目的真实验证链路。Harness Lab 只负责帮你复用、补齐或显式标出缺口，不替你决定业务项目应该怎么构建和测试。
 
 ### 人类维护者最短路径
 
