@@ -69,7 +69,9 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
    npm run req:create -- --title "Your first requirement"
    ```
 
-5. **开始治理流程**
+5. **写实 REQ 内容**：`req:create` 只会生成骨架。开始实施前，需要先补齐真实背景、目标、验收标准
+
+6. **开始治理流程**
 
 #### 自动绑定结果怎么看
 
@@ -146,7 +148,7 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 # 创建
 npm run req:create -- --title "Feature name"
 
-# 启动
+# 先补齐 REQ 的真实内容，再启动
 npm run req:start -- --id REQ-YYYY-NNN
 
 # 阻塞（可选）
@@ -190,6 +192,7 @@ GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`n
 - `verify`
 
 这些命令属于被接入的业务项目，必须反映那个项目的真实验证链路。Harness Lab 只负责帮你复用、补齐或显式标出缺口，不替你决定业务项目应该怎么构建和测试。
+同样地，Harness Lab 会帮你创建 REQ 骨架，但不会替你填写真实需求内容；空模板 REQ 既不能通过 `PreToolUse`，也不能执行 `req:start`。
 
 ### 人类维护者最短路径
 

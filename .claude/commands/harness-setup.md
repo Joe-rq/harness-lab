@@ -55,8 +55,8 @@ description: 一键将 harness-lab 治理框架接入到当前项目。支持交
 | `docs/` | 设计稿和规范目录 | ✅ |
 | `context/` | 业务/技术/经验索引 | ✅ |
 | `skills/` | 阶段导航技能 | ✅ |
-| CLI 脚本 | `req-cli.mjs`, `docs-verify.mjs`（含 impact 模式）, `check-governance.mjs`, `template-guard.mjs` | ✅ |
-| 治理 hooks | `.claude/settings.example.json`, `scripts/session-start.sh`, `PreToolUse` 本地配置 | ❌ |
+| CLI 脚本 | `req-cli.mjs`, `req-validation.mjs`, `docs-verify.mjs`（含 impact 模式）, `check-governance.mjs`, `template-guard.mjs` | ✅ |
+| 治理 hooks | `.claude/settings.example.json`, `scripts/session-start.sh`, `scripts/req-check.sh`, 本地 hook 配置 | ❌ |
 
 ### Step 3: 文件复制
 
@@ -103,12 +103,14 @@ description: 一键将 harness-lab 治理框架接入到当前项目。支持交
 
 3. **配置 PreToolUse hook**（如果选择）：
    - 创建或更新 `.claude/settings.local.json`
-   - 添加 PreToolUse hook 配置
+   - 添加 `SessionStart + PreToolUse` 的 `command` hook 配置
+   - `PreToolUse` 为硬阻断：无活跃 REQ、空模板 REQ 或 draft REQ 时拒绝 `Write/Edit`
 
 4. **绑定目标项目命令**：
    - 如果目标项目已有 `package.json` 和真实 `lint / test / build`，自动复用这些脚本
    - 如果 `verify` 缺失，按已有真实脚本自动组合可行的 `npm run lint && npm run test && npm run build` 子集
    - 对缺失的标准命令写入 `node scripts/template-guard.mjs <name>` placeholder guard，避免静默缺失
+   - 如果启用了治理 hooks，确保连带复制 `req-check.sh` 与 `req-validation.mjs`
 
 ### Step 5: 生成接入报告
 
@@ -152,12 +154,17 @@ description: 一键将 harness-lab 治理框架接入到当前项目。支持交
    npm run req:create -- --title "Your first requirement"
    ```
 
-3. 开始使用治理流程
+3. 补齐 REQ 的真实背景、目标、验收标准，再执行：
+   ```bash
+   npm run req:start -- --id REQ-YYYY-NNN --phase implementation
+   ```
+
+4. 开始使用治理流程
 
 ## 注意事项
 
-- 如果选择了 PreToolUse hook，每次修改文件前会检查 REQ 状态
-- 小改动（<3 个文件）不会触发警告
+- 如果选择了 PreToolUse hook，无活跃 REQ、空模板 REQ 或 draft REQ 都会阻断 Write/Edit
+- `req:create` 只会生成骨架，不代表 REQ 已可直接实施
 - 可以使用 `.claude/.req-exempt` 临时豁免检查
 - 自动绑定只会复用目标项目已存在的标准脚本名，不会猜测非标准脚本语义
 ```
@@ -193,6 +200,6 @@ npx harness-install --with-hook       # 包含治理 hooks
 安装完成后，输出以下信息：
 
 1. **已安装模块列表**
-2. **需要手动完成的步骤**（如绑定命令）
-3. **下一步建议**（创建第一个 REQ）
+2. **需要手动完成的步骤**（如绑定命令、写实 REQ）
+3. **下一步建议**（创建并填写第一个 REQ，再启动实施）
 4. **报告文件路径**

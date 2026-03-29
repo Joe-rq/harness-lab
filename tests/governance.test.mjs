@@ -239,8 +239,10 @@ async function testHarnessInstallArtifacts() {
   try {
     const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/check-governance.mjs'));
+    assert.ok(harnessInstall.modules.cli.files.includes('scripts/req-validation.mjs'));
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/template-guard.mjs'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/session-start.sh'));
+    assert.ok(harnessInstall.modules.hook.files.includes('scripts/req-check.sh'));
 
     writeFile(
       tempDir,
@@ -267,6 +269,8 @@ async function testHarnessInstallArtifacts() {
     harnessInstall.generateReport(tempDir, selectedModules, copyResults, true, packageUpdate);
 
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'check-governance.mjs')));
+    assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-validation.mjs')));
+    assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-check.sh')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'session-start.sh')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'template-guard.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'context', 'tech', 'README.md')));
@@ -274,7 +278,13 @@ async function testHarnessInstallArtifacts() {
     const settings = JSON.parse(
       readFileSync(path.join(tempDir, '.claude', 'settings.local.json'), 'utf8')
     );
+    assert.ok(Array.isArray(settings.hooks?.SessionStart));
     assert.ok(Array.isArray(settings.hooks?.PreToolUse));
+    assert.equal(settings.hooks.SessionStart[0].hooks[0].type, 'command');
+    assert.match(settings.hooks.SessionStart[0].hooks[0].command, /session-start\.sh/);
+    assert.equal(settings.hooks.PreToolUse[0].hooks[0].type, 'command');
+    assert.match(settings.hooks.PreToolUse[0].hooks[0].command, /req-check\.sh/);
+    assert.ok(settings.permissions.allow.includes('Bash(bash scripts/req-check.sh)'));
 
     const packageJson = JSON.parse(readFileSync(path.join(tempDir, 'package.json'), 'utf8'));
     assert.equal(packageJson.scripts.lint, 'eslint .');
@@ -289,6 +299,11 @@ async function testHarnessInstallArtifacts() {
     );
     assert.match(report, /- \[x\] 治理 hooks/);
     assert.match(report, /`verify`：generated/);
+    assert.match(report, /PreToolUse 为硬阻断/);
+    assert.match(report, /req:create` 只会生成骨架/);
+
+    const progress = readFileSync(path.join(tempDir, '.claude', 'progress.txt'), 'utf8');
+    assert.match(progress, /补齐 REQ 的真实背景、目标、验收标准后再执行 req:start/);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

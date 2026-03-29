@@ -67,6 +67,7 @@ const requiredFiles = [
   'scripts/docs-verify.mjs',
   'scripts/req-check.sh',
   'scripts/req-cli.mjs',
+  'scripts/req-validation.mjs',
   'scripts/template-guard.mjs',
   'skills/README.md',
   'context/business/README.md',

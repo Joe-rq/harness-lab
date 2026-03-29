@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-016-one-click-setup-hard-block-parity.md`（真实整改：One-click setup parity with hard-block governance hooks）
 - `REQ-2026-015-req-content-validation.md`（真实整改：REQ 内容有效性验证，阻止空模板 REQ 进入实施链路）
 - `REQ-2026-014-portable-real-command-binding-for-target-projects.md`（真实整改：Portable real command binding for target projects）
 - `REQ-2026-013-governance-automation-tests-and-ci-gate.md`（真实整改：Governance automation tests and CI gate）

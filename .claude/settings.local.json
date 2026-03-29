@@ -17,7 +17,15 @@
       "Bash(node scripts/check-governance.mjs --help)",
       "Bash(bash scripts/req-check.sh)",
       "Bash(echo \"Exit code: $?\")",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(rm:*)",
+      "Bash(cd:*)",
+      "Bash(grep:*)",
+      "Bash(node:*)",
+      "Bash(rm -f \"scripts・ && cp D:03resource_Projectsharness-labscriptsreq-check.sh D:03resource_Projectsagent-flow-litescripts・\")",
+      "Bash(rm -f .claude/.docs-impact-status .claude/.req-complete-status)",
+      "Bash(\"D:\\\\03resource\\\\_Projects\\\\agent-flow-lite\\\\requirements\\\\test.txt\")",
+      "Bash(bash -n \"D:\\\\03resource\\\\_Projects\\\\harness-lab\\\\scripts\\\\req-check.sh\")"
     ]
   },
   "hooks": {

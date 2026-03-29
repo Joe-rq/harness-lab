@@ -95,6 +95,7 @@ export const modules = {
     default: true,
     files: [
       'scripts/req-cli.mjs',
+      'scripts/req-validation.mjs',
       'scripts/docs-verify.mjs',
       'scripts/check-governance.mjs',
       'scripts/docs-sync-rules.json',
@@ -118,6 +119,7 @@ export const modules = {
     files: [
       '.claude/settings.example.json',
       'scripts/session-start.sh',
+      'scripts/req-check.sh',
     ],
     hook: true,
   },
@@ -351,6 +353,7 @@ Summary:
 
 Next steps:
 - 创建第一个 REQ: npm run req:create -- --title "Your first requirement"
+- 补齐 REQ 的真实背景、目标、验收标准后再执行 req:start
 
 Blockers:
 - None.
@@ -369,42 +372,40 @@ export function configureHook(targetDir) {
     fs.mkdirSync(settingsDir, { recursive: true });
   }
 
-  const hookConfig = [
+  const sessionStartHooks = [
     {
-      matcher: "Write|Edit",
+      matcher: '*',
       hooks: [
         {
-          type: "prompt",
-          prompt: `REQ ENFORCEMENT CHECK
+          type: 'command',
+          command: 'bash "$(git rev-parse --show-toplevel)/scripts/session-start.sh"',
+          timeout: 10,
+        },
+      ],
+    },
+  ];
 
-在执行 Write/Edit 操作前，检查是否需要 REQ：
+  const preToolUseHooks = [
+    {
+      matcher: 'Write|Edit',
+      hooks: [
+        {
+          type: 'command',
+          command: 'bash "$(git rev-parse --show-toplevel)/scripts/req-check.sh"',
+          timeout: 10,
+        },
+      ],
+    },
+  ];
 
-## 检查步骤
-
-1. 读取 requirements/INDEX.md 确认当前活跃 REQ
-2. 判断本次改动是否需要 REQ：
-   | 改动类型 | 需要 REQ |
-   |----------|----------|
-   | 3+ 文件改动 | ✅ 是 |
-   | 新功能开发 | ✅ 是 |
-   | 架构/流程变更 | ✅ 是 |
-   | 单文件小改动 | ❌ 否 |
-   | typo/小 bug 修复 | ❌ 否 |
-
-3. 如果需要 REQ 但没有活跃 REQ：
-   输出警告，建议创建 REQ，然后返回 'approve'
-
-4. 如果不需要 REQ 或有活跃 REQ：
-   静默返回 'approve'
-
-## 豁免机制
-
-如果存在 .claude/.req-exempt 文件，跳过检查。
-
-返回 'approve' 继续操作。`
-        }
-      ]
-    }
+  const requiredPermissions = [
+    'Bash(git add:*)',
+    'Bash(git commit:*)',
+    'Bash(git push:*)',
+    'Bash(git rev-parse:*)',
+    'Bash(bash scripts/session-start.sh)',
+    'Bash(bash scripts/req-check.sh)',
+    'Bash(npm run:*)',
   ];
 
   let settings = {};
@@ -421,8 +422,18 @@ export function configureHook(targetDir) {
     settings.hooks = {};
   }
 
-  settings.hooks.PreToolUse = hookConfig;
+  settings.hooks.SessionStart = sessionStartHooks;
+  settings.hooks.PreToolUse = preToolUseHooks;
+  if (!settings.permissions || typeof settings.permissions !== 'object' || Array.isArray(settings.permissions)) {
+    settings.permissions = {};
+  }
+  if (!Array.isArray(settings.permissions.allow)) {
+    settings.permissions.allow = [];
+  }
+  settings.permissions.allow = [...new Set([...settings.permissions.allow, ...requiredPermissions])];
+
   delete settings.PreToolUse;
+  delete settings.SessionStart;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
   return settingsPath;
@@ -471,7 +482,7 @@ ${results.failed.length > 0 ? `### 失败 (${results.failed.length} 个文件)\n
 
 ## PreToolUse Hook
 
-${hookEnabled ? '✅ 已配置' : '❌ 未配置'}
+${hookEnabled ? '✅ 已配置（SessionStart + PreToolUse command hooks，PreToolUse 为硬阻断）' : '❌ 未配置'}
 
 ## 命令绑定状态
 
@@ -512,13 +523,19 @@ ${packageUpdate && packageUpdate.exists && !packageUpdate.parseError
    npm run req:create -- --title "Your first requirement"
    \`\`\`
 
-3. 开始使用治理流程
+3. 补齐 REQ 的真实背景、目标、验收标准，再执行：
+   \`\`\`bash
+   npm run req:start -- --id REQ-YYYY-NNN --phase implementation
+   \`\`\`
+
+4. 开始使用治理流程
 
 ## 注意事项
 
-- 如果选择了 PreToolUse hook，每次修改文件前会检查 REQ 状态
-- 小改动（<3 个文件）不会触发警告
+- 如果选择了 PreToolUse hook，无活跃 REQ、空模板 REQ 或 draft REQ 都会阻断 Write/Edit
+- \`req:create\` 只会生成骨架，不代表 REQ 已经可以直接实施
 - 可以使用 \`.claude/.req-exempt\` 临时豁免检查
+- 自动绑定只会复用目标项目已存在的标准脚本名，不会猜测非标准脚本语义
 `;
 
   fs.writeFileSync(reportPath, content);
@@ -615,6 +632,10 @@ export async function main() {
     hookEnabled = hookAnswer.toLowerCase() === 'y';
     if (hookEnabled) {
       selectedModules.push('hook');
+      if (!selectedModules.includes('cli')) {
+        selectedModules.push('cli');
+        log('  [x] CLI 脚本（治理 hooks 依赖 req-check / req-validation）', 'green');
+      }
     }
     log(hookEnabled ? '  [x] 治理 hooks' : '  [ ] 治理 hooks', hookEnabled ? 'green' : 'yellow');
 
@@ -674,7 +695,8 @@ export async function main() {
   log('📚 后续步骤：\n');
   log('   1. 在 package.json 中绑定真实命令 (lint, test, build)');
   log('   2. 创建第一个 REQ: npm run req:create -- --title "..."');
-  log('   3. 查看接入报告: requirements/reports/harness-setup-report.md\n');
+  log('   3. 补齐 REQ 内容后再执行: npm run req:start -- --id REQ-YYYY-NNN --phase implementation');
+  log('   4. 查看接入报告: requirements/reports/harness-setup-report.md\n');
 }
 
 const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === __filename;
