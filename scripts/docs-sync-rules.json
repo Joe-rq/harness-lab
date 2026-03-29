@@ -16,37 +16,19 @@
       "id": "governance-automation",
       "description": "Automation tests and CI workflow changes must update the maintainer docs.",
       "triggers": ["tests/", ".github/workflows/"],
-      "requireAny": ["README.md", "CONTRIBUTING.md", "CLAUDE.md"]
+      "requireAny": ["README.md", "CONTRIBUTING.md"]
     },
     {
       "id": "req-cli-workflow",
       "description": "REQ CLI workflow changes must sync the main entry docs.",
       "triggers": ["scripts/req-cli.mjs"],
-      "requireAny": ["README.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md"]
-    },
-    {
-      "id": "agents-entry",
-      "description": "AGENTS.md changes must update CLAUDE.md or README.md.",
-      "triggers": ["AGENTS.md"],
-      "requireAny": ["CLAUDE.md", "README.md"]
-    },
-    {
-      "id": "claude-entry",
-      "description": "CLAUDE.md changes must update AGENTS.md or README.md.",
-      "triggers": ["CLAUDE.md"],
-      "requireAny": ["AGENTS.md", "README.md"]
+      "requireAny": ["README.md", "CONTRIBUTING.md"]
     },
     {
       "id": "req-template",
       "description": "REQ template changes must sync entry or contribution docs.",
       "triggers": ["requirements/REQ_TEMPLATE.md"],
-      "requireAny": ["README.md", "AGENTS.md", "CONTRIBUTING.md"]
-    },
-    {
-      "id": "req-index",
-      "description": "REQ index changes that affect workflow expectations must sync entry docs.",
-      "triggers": ["requirements/INDEX.md"],
-      "requireAny": ["README.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md"]
+      "requireAny": ["README.md", "CONTRIBUTING.md"]
     },
     {
       "id": "skills-content",

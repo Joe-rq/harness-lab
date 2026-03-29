@@ -149,9 +149,3 @@ rm .claude/.req-exempt
 - review / QA / ship 结论已落盘
 - 验证命令真实执行或明确说明未执行原因
 - `.claude/progress.txt` 能让下一次会话继续接手
-
-## 版本历史
-
-- 2026-03-29: `req:complete` 强制检查 code-review 和 qa 报告存在（REQ-2026-018）
-- 2026-03-29: 修复无活跃 REQ 时 Hook 绕过漏洞，阻止代码文件修改（REQ-2026-017）
-- 2026-03-29: `req:start` 与 PreToolUse 统一校验空模板 REQ，阻止骨架 REQ 直接进入实施（REQ-2026-015）
