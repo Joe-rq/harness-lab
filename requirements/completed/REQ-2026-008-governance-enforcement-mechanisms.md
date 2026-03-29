@@ -1,8 +1,8 @@
 # REQ-2026-008: Governance enforcement mechanisms
 
 ## 状态
-- 当前状态：implemented
-- 当前阶段：review
+- 当前状态：completed
+- 当前阶段：qa
 
 ## 背景
 
@@ -62,7 +62,9 @@
 - 需要的人工验证：新会话测试
 
 ## 阻塞 / 搁置说明（可选）
-- 无
+- 原因：无
+- 恢复条件：无
+- 下一步：无
 
 ## 风险与回滚
 - 风险：hook 可能增加新会话启动时间
