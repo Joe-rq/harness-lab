@@ -67,6 +67,13 @@ No active REQ found. File modifications require a REQ for:
   - Architecture/flow changes
 ```
 
+Hook 也会检测 REQ 是否有实际内容：
+- 如果 REQ 仍包含模板占位符（如 `说明为什么要做这件事。`），会被阻断
+- 如果 REQ 状态是 `draft`，需要先运行 `npm run req:start` 进入 in-progress 状态
+
+`req:create` 只会生成骨架文件，不代表这个 REQ 已经可以直接开始实施。
+在运行 `npm run req:start` 之前，必须先把背景、目标、验收标准等关键章节写实；空模板 REQ 会被 `req:start` 直接拒绝。
+
 ### 临时豁免机制
 
 如果需要临时跳过 REQ 检查（如紧急修复、小改动）：

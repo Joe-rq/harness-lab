@@ -71,10 +71,17 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 
 ```
 触发条件：Write 或 Edit 文件
-检查内容：当前是否有活跃 REQ
-输出：如无活跃 REQ，输出阻断信息并拒绝操作
-行为：硬阻断，必须先创建 REQ 或使用豁免机制
+检查内容：
+  1. 当前是否有活跃 REQ
+  2. REQ 是否有实际内容（非模板状态）
+  3. REQ 状态是否为 draft
+输出：如无活跃 REQ 或 REQ 为模板状态，输出阻断信息并拒绝操作
+行为：硬阻断，必须先创建并填写 REQ 或使用豁免机制
 ```
+
+**补充说明**：
+- `req:create` 只负责创建骨架，不代表 REQ 已可实施
+- 只有补齐真实背景、目标、验收标准后，REQ 才能通过 hook 与 `req:start`
 
 **豁免机制**：
 ```bash
@@ -130,6 +137,7 @@ rm .claude/.req-exempt
 - `blocked / suspended` 的 REQ 仍保留在 `requirements/in-progress/`，并在 REQ 与索引里写明恢复条件
 - 中大改动的设计稿进入 `docs/plans/`
 - 小改动可把设计摘要直接写进 REQ
+- `req:create` 后要先把 REQ 写实，再执行 `req:start`
 - 变更完成后补 `requirements/reports/` 下的 review / QA / ship 报告
 - 完成后移入 `requirements/completed/`
 
@@ -153,6 +161,7 @@ rm .claude/.req-exempt
 
 ## 版本历史
 
+- 2026-03-29: `req:start` 与 PreToolUse 统一校验空模板 REQ，阻止骨架 REQ 直接进入实施（REQ-2026-015）
 - 2026-03-29: 安装器支持自动绑定目标项目真实命令并写入 placeholder guard（REQ-2026-014）
 - 2026-03-29: 增加仓库级自动化测试与 GitHub Actions 治理门禁（REQ-2026-013）
 - 2026-03-29: PreToolUse hook 升级为硬阻断机制（REQ-2026-012）

@@ -3,14 +3,13 @@ Current phase: idle
 Last updated: 2026-03-29
 
 Summary:
-- Completed REQ-2026-010: harness-setup Skill
-- Created /harness-setup skill for one-click governance framework installation
-- Created CLI script (harness-install.mjs) as backup installation method
-- Features: interactive module selection, conflict detection, hook configuration, installation report
+- Completed REQ-2026-015: REQ content validation
+- Unified template-content checks across PreToolUse and req:start
+- Empty template REQs now fail before implementation can begin
 
 Next steps:
-- Consider publishing as npm package for easier installation
-- Consider creating GitHub template repository
+- No active REQ. Create or select the next requirement before implementation.
+- When updating the REQ template placeholders, sync scripts/req-validation.mjs
 
 Open questions:
 - None.

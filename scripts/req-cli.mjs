@@ -9,6 +9,7 @@ import {
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyzeDocsImpact } from './docs-verify.mjs';
+import { buildStartBlockMessage, validateReqDocument } from './req-validation.mjs';
 
 const root = process.cwd();
 const today = new Date().toISOString().slice(0, 10);
@@ -455,6 +456,17 @@ export function startCommand(options) {
   const req = readReq(reqId);
   if (!req.relPath.startsWith('requirements/in-progress/')) {
     fail(`REQ must be in requirements/in-progress before start: ${req.relPath}`);
+  }
+
+  const validation = validateReqDocument(req.content, { allowDraftStatus: true });
+  if (validation.issues.length > 0) {
+    fail(
+      buildStartBlockMessage({
+        reqId,
+        reqFile: req.relPath,
+        validation,
+      })
+    );
   }
 
   const index = read('requirements/INDEX.md');

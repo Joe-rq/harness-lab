@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { verifyDocs } from '../scripts/docs-verify.mjs';
+import { validateReqDocument } from '../scripts/req-validation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +25,34 @@ function writeFile(root, relPath, content) {
   const fullPath = path.join(root, relPath);
   mkdirSync(path.dirname(fullPath), { recursive: true });
   writeFileSync(fullPath, content, 'utf8');
+}
+
+function captureCommandFailure(fn) {
+  const originalExit = process.exit;
+  const originalError = console.error;
+  let exitCode = null;
+  let stderr = '';
+
+  process.exit = ((code) => {
+    exitCode = code ?? 0;
+    throw new Error(`process.exit:${exitCode}`);
+  });
+  console.error = (...args) => {
+    stderr += `${args.join(' ')}\n`;
+  };
+
+  try {
+    fn();
+  } catch (error) {
+    if (!String(error?.message || error).startsWith('process.exit:')) {
+      throw error;
+    }
+  } finally {
+    process.exit = originalExit;
+    console.error = originalError;
+  }
+
+  return { exitCode, stderr };
 }
 
 async function importFreshModule(relPath) {
@@ -107,6 +136,26 @@ async function testReqCliLifecycle() {
     assert.ok(existsSync(reqPath));
     assert.ok(existsSync(designPath));
 
+    const failedStart = captureCommandFailure(() =>
+      reqCli.startCommand({
+        id: 'REQ-2026-001',
+        phase: 'implementation',
+      })
+    );
+    assert.equal(failedStart.exitCode, 1);
+    assert.match(failedStart.stderr, /still contains template content/);
+
+    writeFileSync(
+      reqPath,
+      readFileSync(reqPath, 'utf8')
+        .replace('说明为什么要做这件事。', '验证空模板 REQ 不得进入实施阶段。')
+        .replace('- 目标 1', '- 阻止空模板 REQ 进入 in-progress')
+        .replace('- 目标 2', '- 让 req:start 和 PreToolUse 复用同一套内容校验')
+        .replace('- [ ] 标准 1', '- [ ] 空模板 REQ 无法执行 req:start')
+        .replace('- [ ] 标准 2', '- [ ] 已填充 REQ 可以正常执行 req:start'),
+      'utf8'
+    );
+
     reqCli.startCommand({
       id: 'REQ-2026-001',
       phase: 'implementation',
@@ -136,6 +185,53 @@ async function testReqCliLifecycle() {
     process.chdir(previousCwd);
     rmSync(tempDir, { recursive: true, force: true });
   }
+}
+
+async function testReqValidationDetectsTemplateAndDraftIssues() {
+  const draftReq = `# REQ-2026-999: Example
+
+## 状态
+- 当前状态：draft
+- 当前阶段：design
+
+## 背景
+说明为什么要做这件事。
+
+## 目标
+- 目标 1
+- 目标 2
+
+## 非目标
+- 不做 1
+
+## 范围
+- 涉及目录 / 模块：
+
+## 验收标准
+- [ ] 标准 1
+- [ ] 标准 2
+`;
+
+  const hookValidation = validateReqDocument(draftReq);
+  assert.ok(hookValidation.issues.some((issue) => issue.code === 'draft-status'));
+  assert.ok(
+    hookValidation.issues.some(
+      (issue) => issue.code === 'template-placeholder' && issue.section === '背景'
+    )
+  );
+  assert.ok(
+    hookValidation.issues.some(
+      (issue) => issue.code === 'template-placeholder' && issue.section === '目标'
+    )
+  );
+  assert.ok(
+    hookValidation.issues.some(
+      (issue) => issue.code === 'template-placeholder' && issue.section === '验收标准'
+    )
+  );
+
+  const startValidation = validateReqDocument(draftReq, { allowDraftStatus: true });
+  assert.ok(!startValidation.issues.some((issue) => issue.code === 'draft-status'));
 }
 
 async function testHarnessInstallArtifacts() {
@@ -237,6 +333,7 @@ async function testPackageBindingFallsBackToPlaceholderGuards() {
 const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
+  ['req validation detects template placeholders and draft status', testReqValidationDetectsTemplateAndDraftIssues],
   ['harness-install copies governance files and writes hook config', testHarnessInstallArtifacts],
   ['package binding falls back to placeholder guards when commands are missing', testPackageBindingFallsBackToPlaceholderGuards],
 ];

@@ -20,9 +20,27 @@ fi
 
 ACTIVE_REQ=$(grep -i "^Current active REQ:" "$PROGRESS" | head -1 | sed 's/Current active REQ:[[:space:]]*//')
 
-# If there's an active REQ, allow
+# If there's an active REQ, check if it's properly filled
 if [ -n "$ACTIVE_REQ" ] && [ "$ACTIVE_REQ" != "none" ] && [ "$ACTIVE_REQ" != "无" ]; then
-  exit 0
+  # Find the REQ file
+  REQ_FILE=$(find "$ROOT/requirements" -name "${ACTIVE_REQ}-*.md" -type f 2>/dev/null | head -1)
+
+  if [ -z "$REQ_FILE" ] || [ ! -f "$REQ_FILE" ]; then
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║              🚫 REQ ENFORCEMENT: BLOCKED                    ║"
+    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo ""
+    echo "  Active REQ ($ACTIVE_REQ) is referenced in progress.txt,"
+    echo "  but the REQ file cannot be found under requirements/."
+    echo ""
+    echo "  Fix the active REQ reference before making code changes."
+    echo ""
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    exit 2
+  fi
+
+  node "$ROOT/scripts/req-validation.mjs" --file "$REQ_FILE" --req-id "$ACTIVE_REQ"
+  exit $?
 fi
 
 # No active REQ — block and explain
