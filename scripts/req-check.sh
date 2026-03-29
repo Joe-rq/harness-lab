@@ -12,6 +12,37 @@ if [ -f "$ROOT/.claude/.req-exempt" ]; then
   exit 0
 fi
 
+# Try to get target file from stdin (Hook may pass tool input as JSON)
+# Also check environment variables as fallback
+TARGET_FILE=""
+if [ -n "$CLAUDE_FILE_PATH" ]; then
+  TARGET_FILE="$CLAUDE_FILE_PATH"
+elif [ -n "$TOOL_INPUT_FILE" ]; then
+  TARGET_FILE="$TOOL_INPUT_FILE"
+elif [ -n "$FILE_PATH" ]; then
+  TARGET_FILE="$FILE_PATH"
+else
+  # Try to read from stdin (non-blocking)
+  STDIN_DATA=""
+  if [ -t 0 ]; then
+    : # stdin is a terminal, skip
+  else
+    read -t 0.1 STDIN_DATA 2>/dev/null || true
+    if [ -n "$STDIN_DATA" ]; then
+      # Try to extract file_path from JSON
+      TARGET_FILE=$(echo "$STDIN_DATA" | grep -o '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+    fi
+  fi
+fi
+
+# Allow writes to requirements/ and docs/plans/ directories (filling REQ content)
+if [ -n "$TARGET_FILE" ]; then
+  REL_PATH="${TARGET_FILE#$ROOT/}"
+  if [[ "$REL_PATH" == requirements/* ]] || [[ "$REL_PATH" == docs/plans/* ]]; then
+    exit 0
+  fi
+fi
+
 # Read active REQ from progress.txt
 PROGRESS="$ROOT/.claude/progress.txt"
 if [ ! -f "$PROGRESS" ]; then
