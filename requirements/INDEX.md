@@ -12,7 +12,7 @@
 
 ## 当前活跃 REQ
 
-- 无
+- `REQ-2026-009-pretooluse-hook-for-req-enforcement.md`（真实整改：PreToolUse hook for REQ enforcement）
 
 ## 当前搁置 REQ
 

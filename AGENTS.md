@@ -57,7 +57,7 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 
 ## 强制机制
 
-### SessionStart Hook
+### 1. SessionStart Hook
 
 为确保治理协议被执行，建议配置 SessionStart hook：
 
@@ -65,7 +65,27 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 2. 确保 `scripts/session-start.sh` 有执行权限
 3. 新会话开始时会自动显示当前 REQ 状态
 
-### 实施前检查点
+### 2. PreToolUse Hook
+
+在 Write/Edit 操作前自动检查 REQ 状态：
+
+```
+触发条件：Write 或 Edit 文件
+检查内容：当前是否有活跃 REQ
+输出：如需要 REQ 但没有，输出警告提醒
+行为：软性提醒，不阻止操作
+```
+
+**豁免机制**：
+```bash
+# 临时豁免（紧急修复、小改动）
+touch .claude/.req-exempt
+
+# 完成后删除
+rm .claude/.req-exempt
+```
+
+### 3. 实施前检查点
 
 **在写代码之前必须检查：**
 
@@ -131,6 +151,7 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 
 ## 版本历史
 
+- 2026-03-29: 添加 PreToolUse hook 强制检查 REQ 状态
 - 2026-03-29: 添加会话启动协议、实施前检查点和 SessionStart hook 机制
 
 ## 框架使用边界
