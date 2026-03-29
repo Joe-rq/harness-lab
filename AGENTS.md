@@ -129,6 +129,10 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 - `requirements/reports/REQ-xxxx-ship.md`（需要发布时）
 - `context/experience/*.md`（有复用价值时）
 
+## 版本历史
+
+- 2026-03-29: 添加会话启动协议、实施前检查点和 SessionStart hook 机制
+
 ## 框架使用边界
 
 Harness Lab 不替你做业务架构决策。
