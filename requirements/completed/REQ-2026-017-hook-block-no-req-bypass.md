@@ -1,8 +1,8 @@
 # REQ-2026-017: 修复无活跃 REQ 时 Hook 绕过漏洞
 
 ## 状态
-- 当前状态：in-progress
-- 当前阶段：implementation
+- 当前状态：completed
+- 当前阶段：qa
 
 ## 背景
 在测试中发现治理框架存在漏洞：当没有活跃 REQ 时，`req-check.sh` 直接返回 `exit 0`（允许所有操作）。这导致 AI 可以绕过 REQ 流程直接修改代码文件。

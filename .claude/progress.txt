@@ -3,13 +3,11 @@ Current phase: idle
 Last updated: 2026-03-29
 
 Summary:
-- Completed REQ-2026-015: REQ content validation
-- Unified template-content checks across PreToolUse and req:start
-- Empty template REQs now fail before implementation can begin
+- Completed REQ-2026-016: One-click setup parity with hard-block governance hooks
+- Fixed vulnerability: req:complete now requires code-review and qa reports
 
 Next steps:
-- Update installer output, harness-setup docs, and governance tests together
-- Verify one-click setup parity with hard-block hook behavior
+
 
 Open questions:
 - None.

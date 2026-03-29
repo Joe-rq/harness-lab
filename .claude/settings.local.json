@@ -25,7 +25,12 @@
       "Bash(rm -f \"scripts・ && cp D:03resource_Projectsharness-labscriptsreq-check.sh D:03resource_Projectsagent-flow-litescripts・\")",
       "Bash(rm -f .claude/.docs-impact-status .claude/.req-complete-status)",
       "Bash(\"D:\\\\03resource\\\\_Projects\\\\agent-flow-lite\\\\requirements\\\\test.txt\")",
-      "Bash(bash -n \"D:\\\\03resource\\\\_Projects\\\\harness-lab\\\\scripts\\\\req-check.sh\")"
+      "Bash(bash -n \"D:\\\\03resource\\\\_Projects\\\\harness-lab\\\\scripts\\\\req-check.sh\")",
+      "Bash(bash -x scripts/req-check.sh)",
+      "Bash(mv docs/plans/harness-lab-auto-research-optimization.md context/experience/2026-03-28-autoresearch-optimization-design.md)",
+      "Bash(mv docs/plans/harness-lab-scope-results-optimization.md context/experience/2026-03-28-scope-results-optimization-design.md)",
+      "Bash(mv docs/plans/product-opportunity-research-2026-03-23.md context/experience/2026-03-23-product-opportunity-research.md)",
+      "Bash(echo \"Exit: $?\")"
     ]
   },
   "hooks": {
