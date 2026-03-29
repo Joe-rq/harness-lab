@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-018-req-complete-report-check.md`（真实整改：req:complete 强制检查报告文件存在）
 - `REQ-2026-017-hook-block-no-req-bypass.md`（真实整改：修复无活跃 REQ 时 Hook 绕过漏洞）
 - `REQ-2026-016-one-click-setup-hard-block-parity.md`（真实整改：One-click setup parity with hard-block governance hooks）
 - `REQ-2026-015-req-content-validation.md`（真实整改：REQ 内容有效性验证，阻止空模板 REQ 进入实施链路）

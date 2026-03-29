@@ -161,6 +161,7 @@ rm .claude/.req-exempt
 
 ## 版本历史
 
+- 2026-03-29: `req:complete` 强制检查 code-review 和 qa 报告存在（REQ-2026-018）
 - 2026-03-29: 修复无活跃 REQ 时 Hook 绕过漏洞，阻止代码文件修改（REQ-2026-017）
 - 2026-03-29: `req:start` 与 PreToolUse 统一校验空模板 REQ，阻止骨架 REQ 直接进入实施（REQ-2026-015）
 - 2026-03-29: 安装器支持自动绑定目标项目真实命令并写入 placeholder guard（REQ-2026-014）
