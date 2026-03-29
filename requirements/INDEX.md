@@ -12,7 +12,7 @@
 
 ## 当前活跃 REQ
 
-- `REQ-2026-009-pretooluse-hook-for-req-enforcement.md`（真实整改：PreToolUse hook for REQ enforcement）
+- 无
 
 ## 当前搁置 REQ
 
@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-009-pretooluse-hook-for-req-enforcement.md`（真实整改：PreToolUse hook for REQ enforcement）
 - `REQ-2026-008-governance-enforcement-mechanisms.md`（真实整改：Governance enforcement mechanisms）
 - `REQ-2026-007-scope-control-lightweight-upgrade.md`（真实整改：Scope control lightweight upgrade）
 - `REQ-2026-006-structured-docs-impact-output-mvp.md`（真实整改：Structured docs impact output MVP）
