@@ -1,6 +1,6 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-03-28
+Last updated: 2026-03-29
 
 Summary:
 - Completed REQ-2026-007 scope control lightweight upgrade with optional Scope Control in the REQ template, CLI-generated skeleton, and engineering review guidance.
@@ -11,8 +11,18 @@ Summary:
 - Completed REQ-2026-002 REQ lifecycle CLI MVP with real create / start / block / complete validation.
 - Added `npm run docs:impact:json` as a stable machine-readable contract on top of the existing drift-control flow.
 
+Latest improvements (2026-03-29):
+- Added "会话启动协议" and "实施前检查点" to CLAUDE.md
+  - Problem: AI could skip governance by treating user's "implementation plan" as green light
+  - Fix: Added explicit checkpoints requiring REQ check before writing any code
+  - Added violation examples to prevent common bypass patterns
+- Added SessionStart hook mechanism
+  - Created scripts/session-start.sh for automatic context loading
+  - Created .claude/settings.example.json as hook configuration reference
+  - Subagent detection to avoid unnecessary context loading
+- Updated AGENTS.md with enforcement mechanisms
+
 Next steps:
-- Decide whether the next REQ should target CI governance guard, multi-tool adapter, or hooks automation.
 - If drift-control expands, keep `scripts/docs-sync-rules.json`, `README.md`, and `CONTRIBUTING.md` in sync.
 - If machine consumers start to depend heavily on impact JSON, consider adding a schema file or contract tests.
 - Update this file whenever scope, phase, or blockers change.

@@ -13,6 +13,8 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 - 设计、评审、QA、发布的交付物
 - 索引优先的上下文加载顺序
 - 进度交接和经验沉淀机制
+- **会话启动协议和实施前检查点**
+- **SessionStart hook 强制机制**
 
 由目标项目自己决定的内容：
 - 技术栈
@@ -40,6 +42,8 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 │   ├── in-progress/
 │   ├── completed/
 │   └── reports/
+├── scripts/
+│   └── session-start.sh      # 会话启动脚本
 ├── skills/
 │   ├── README.md
 │   ├── plan/
@@ -47,7 +51,40 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 │   ├── qa/
 │   └── ship/
 └── .claude/
-    └── progress.txt
+    ├── progress.txt
+    └── settings.example.json  # hook 配置示例
+```
+
+## 强制机制
+
+### SessionStart Hook
+
+为确保治理协议被执行，建议配置 SessionStart hook：
+
+1. 复制 `.claude/settings.example.json` 到 `.claude/settings.local.json`
+2. 确保 `scripts/session-start.sh` 有执行权限
+3. 新会话开始时会自动显示当前 REQ 状态
+
+### 实施前检查点
+
+**在写代码之前必须检查：**
+
+1. **是否需要 REQ？**
+   - 涉及 3+ 文件、新功能、架构变更 → 需要
+   - 单文件小改动 → 不需要
+
+2. **REQ 是否存在？**
+   - 有活跃 REQ → 继续
+   - 无活跃 REQ → 先创建
+
+3. **重要：用户给出的"实施计划"不等于 REQ！**
+   - 用户给计划 → 创建 REQ → 实施 → 生成报告
+
+### 违规示例（禁止）
+
+```
+❌ 用户提供详细计划 → 直接实施 → 结束
+✅ 用户提供详细计划 → 创建 REQ → 实施 → 生成报告
 ```
 
 ## 默认读取顺序
@@ -78,7 +115,7 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 
 ### 3. 执行原则
 - 优先读取索引，再按需深入
-- 验证必须真实执行，不能只写“看起来没问题”
+- 验证必须真实执行，不能只写"看起来没问题"
 - 评审和 QA 必须有落盘结果
 - 经验沉淀必须回写 `context/experience/`
 
