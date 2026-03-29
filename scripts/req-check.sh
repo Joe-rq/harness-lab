@@ -74,7 +74,27 @@ if [ -n "$ACTIVE_REQ" ] && [ "$ACTIVE_REQ" != "none" ] && [ "$ACTIVE_REQ" != "�
   exit $?
 fi
 
-# No active REQ (or "none") — allow
-# This enables creating and filling REQ files when no active REQ exists
-# Enforcement is handled by req:start which validates REQ content
-exit 0
+# No active REQ (or "none") — only allow requirements/ and docs/plans/
+# This ensures code changes always require an active REQ
+if [ -n "$TARGET_FILE" ]; then
+  REL_PATH="${TARGET_FILE#$ROOT/}"
+  if [[ "$REL_PATH" == requirements/* ]] || [[ "$REL_PATH" == docs/plans/* ]]; then
+    exit 0
+  fi
+fi
+
+# Block all other writes when no active REQ
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║              🚫 REQ ENFORCEMENT: BLOCKED                    ║"
+echo "╠══════════════════════════════════════════════════════════════╣"
+echo ""
+echo "  No active REQ found. Code modifications require a REQ."
+echo ""
+echo "  To create a REQ:"
+echo "    npm run req:create -- --title \"Your feature title\""
+echo ""
+echo "  To bypass (small fixes only):"
+echo "    touch .claude/.req-exempt"
+echo ""
+echo "╚══════════════════════════════════════════════════════════════╝"
+exit 2
