@@ -36,7 +36,7 @@ function log(message, color = 'reset') {
 }
 
 // 模块定义
-const modules = {
+export const modules = {
   core: {
     name: '核心模块',
     required: true,
@@ -123,12 +123,12 @@ const modules = {
 };
 
 // 检测 Git 仓库
-function isGitRepo(dir) {
+export function isGitRepo(dir) {
   return fs.existsSync(path.join(dir, '.git'));
 }
 
 // 检测现有文件
-function detectExistingFiles(targetDir, selectedModules) {
+export function detectExistingFiles(targetDir, selectedModules) {
   const existing = [];
   for (const [key, module] of Object.entries(modules)) {
     if (!selectedModules.includes(key)) continue;
@@ -143,7 +143,7 @@ function detectExistingFiles(targetDir, selectedModules) {
 }
 
 // 复制文件
-function copyFiles(sourceDir, targetDir, selectedModules, skipExisting = true, existingFiles = []) {
+export function copyFiles(sourceDir, targetDir, selectedModules, skipExisting = true, existingFiles = []) {
   const copied = [];
   const skipped = [];
   const failed = [];
@@ -187,7 +187,7 @@ function copyFiles(sourceDir, targetDir, selectedModules, skipExisting = true, e
 }
 
 // 创建 progress.txt
-function createProgressTxt(targetDir) {
+export function createProgressTxt(targetDir) {
   const progressPath = path.join(targetDir, '.claude', 'progress.txt');
   const progressDir = path.dirname(progressPath);
 
@@ -215,7 +215,7 @@ Blockers:
 }
 
 // 配置 PreToolUse hook
-function configureHook(targetDir) {
+export function configureHook(targetDir) {
   const settingsPath = path.join(targetDir, '.claude', 'settings.local.json');
   const settingsDir = path.dirname(settingsPath);
 
@@ -283,7 +283,7 @@ function configureHook(targetDir) {
 }
 
 // 生成接入报告
-function generateReport(targetDir, selectedModules, results, hookEnabled) {
+export function generateReport(targetDir, selectedModules, results, hookEnabled) {
   const reportDir = path.join(targetDir, 'requirements', 'reports');
   if (!fs.existsSync(reportDir)) {
     fs.mkdirSync(reportDir, { recursive: true });
@@ -360,7 +360,7 @@ ${hookEnabled ? '✅ 已配置' : '❌ 未配置'}
 }
 
 // 交互式输入
-async function question(rl, prompt) {
+export async function question(rl, prompt) {
   return new Promise((resolve) => {
     rl.question(prompt, (answer) => {
       resolve(answer.trim());
@@ -369,7 +369,7 @@ async function question(rl, prompt) {
 }
 
 // 主函数
-async function main() {
+export async function main() {
   const args = process.argv.slice(2);
   const options = {
     defaults: args.includes('--defaults'),
@@ -509,7 +509,11 @@ async function main() {
   log('   3. 查看接入报告: requirements/reports/harness-setup-report.md\n');
 }
 
-main().catch((err) => {
-  log(`\n❌ 安装失败: ${err.message}`, 'red');
-  process.exit(1);
-});
+const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === __filename;
+
+if (isMainModule) {
+  main().catch((err) => {
+    log(`\n❌ 安装失败: ${err.message}`, 'red');
+    process.exit(1);
+  });
+}

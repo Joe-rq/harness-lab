@@ -13,7 +13,7 @@
     "req:block": "node scripts/req-cli.mjs block",
     "req:complete": "git -c safe.directory=* status --porcelain=v1 -uall > .claude/.req-complete-status && node scripts/req-cli.mjs complete --status-file .claude/.req-complete-status",
     "lint": "node -e \"console.error('Harness Lab keeps lint as a template guard. Bind a real lint command in the target project; see README.md -> 快速开始 -> 绑定真实命令.'); process.exit(1)\"",
-    "test": "node -e \"console.error('Harness Lab keeps test as a template guard. Bind a real test command in the target project; see README.md -> 快速开始 -> 绑定真实命令.'); process.exit(1)\"",
+    "test": "node tests/governance.test.mjs",
     "build": "node -e \"console.error('Harness Lab keeps build as a template guard. Bind a real build command in the target project; see README.md -> 快速开始 -> 绑定真实命令.'); process.exit(1)\"",
     "verify": "node -e \"console.error('Harness Lab keeps verify as a template guard. In this repository, run npm run check:governance; in a target project, bind a real verify chain as documented in README.md.'); process.exit(1)\"",
     "harness:install": "node scripts/harness-install.mjs"

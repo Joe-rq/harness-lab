@@ -1,0 +1,30 @@
+name: Governance
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run repository tests
+        run: npm test
+
+      - name: Verify docs contract
+        run: npm run docs:verify
+
+      - name: Verify governance contract
+        run: npm run check:governance

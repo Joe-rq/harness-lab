@@ -117,12 +117,14 @@ npm run req:complete -- --id REQ-YYYY-NNN
 
 | 命令 | 用途 |
 |------|------|
+| `npm test` | 运行仓库级自动化回归测试 |
 | `npm run docs:impact` | 查看 changed files 触发的文档义务 |
 | `npm run docs:impact:json` | JSON 格式输出（供 agent/CI 消费） |
 | `npm run docs:verify` | 检查文档链接和同步约束 |
 | `npm run check:governance` | 检查治理结构完整性 |
 
 这些命令会结合当前 git 改动做 `diff-aware` 文档同步检查，用来约束入口文档、治理脚本和交付物说明保持一致。
+GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`npm run docs:verify` 和 `npm run check:governance`，把仓库级治理检查变成默认门禁。
 
 ### 人类维护者最短路径
 

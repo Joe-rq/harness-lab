@@ -15,6 +15,7 @@ const expectedGovernanceScript =
   'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.check-governance-status && node scripts/check-governance.mjs --status-file .claude/.check-governance-status';
 const expectedReqCompleteScript =
   'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.req-complete-status && node scripts/req-cli.mjs complete --status-file .claude/.req-complete-status';
+const expectedTestScript = 'node tests/governance.test.mjs';
 
 try {
   docsVerifyOptions = parseDocsVerifyArgs(process.argv.slice(2));
@@ -56,9 +57,12 @@ const requiredFiles = [
   'README.md',
   'package.json',
   '.claude/settings.local.json',
+  '.github/workflows/governance.yml',
   '.claude/progress.txt',
   'scripts/docs-sync-rules.json',
+  'scripts/check-governance.mjs',
   'scripts/docs-verify.mjs',
+  'scripts/req-check.sh',
   'scripts/req-cli.mjs',
   'skills/README.md',
   'context/business/README.md',
@@ -76,6 +80,7 @@ const requiredFiles = [
   'requirements/reports/REQ-2026-900-code-review.md',
   'requirements/reports/REQ-2026-900-qa.md',
   'requirements/reports/REQ-2026-900-ship.md',
+  'tests/governance.test.mjs',
 ];
 
 for (const relPath of requiredFiles) {
@@ -90,6 +95,7 @@ if (experienceDocs.length === 0) {
 }
 
 requireText('README.md', [
+  'npm test',
   'npm run docs:impact',
   'npm run docs:impact:json',
   'npm run docs:verify',
@@ -102,13 +108,16 @@ requireText('README.md', [
 ]);
 requireText('CONTRIBUTING.md', [
   'Files To Update Together',
+  'tests/',
+  '.github/workflows/',
+  'npm test',
   'scripts/docs-sync-rules.json',
   'npm run docs:impact',
   'npm run docs:impact:json',
   'npm run docs:verify',
 ]);
 
-requireText('CLAUDE.md', ['npm run check:governance']);
+requireText('CLAUDE.md', ['npm test', 'npm run check:governance']);
 requireText('requirements/INDEX.md', [
   '## 当前搁置 REQ',
   'REQ-2026-001-template-hardening.md',
@@ -124,6 +133,9 @@ requireText('skills/README.md', [
 requireText('.claude/settings.local.json', ['node scripts/check-governance.mjs']);
 
 const packageJson = JSON.parse(read('package.json'));
+if (packageJson.scripts?.test !== expectedTestScript) {
+  errors.push(`package.json must expose "test": "${expectedTestScript}"`);
+}
 if (packageJson.scripts?.['check:governance'] !== expectedGovernanceScript) {
   errors.push('package.json must expose the git-status-backed check:governance command');
 }

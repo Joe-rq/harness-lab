@@ -13,6 +13,12 @@
       "requireAny": ["README.md", "CONTRIBUTING.md"]
     },
     {
+      "id": "governance-automation",
+      "description": "Automation tests and CI workflow changes must update the maintainer docs.",
+      "triggers": ["tests/", ".github/workflows/"],
+      "requireAny": ["README.md", "CONTRIBUTING.md", "CLAUDE.md"]
+    },
+    {
       "id": "req-cli-workflow",
       "description": "REQ CLI workflow changes must sync the main entry docs.",
       "triggers": ["scripts/req-cli.mjs"],

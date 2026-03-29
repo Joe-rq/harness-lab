@@ -7,6 +7,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { analyzeDocsImpact } from './docs-verify.mjs';
 
 const root = process.cwd();
@@ -81,7 +82,7 @@ function setLine(text, label, value) {
   return text.replace(pattern, `${label}${value}`);
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const [command, ...rest] = argv;
   const options = {};
 
@@ -402,7 +403,7 @@ function buildDesignContent(reqId, title) {
   ].join('\n');
 }
 
-function createCommand(options) {
+export function createCommand(options) {
   const title = options.title;
   if (!title || typeof title !== 'string') {
     fail('create requires --title');
@@ -442,7 +443,7 @@ function createCommand(options) {
   console.log(`- ${designPath}`);
 }
 
-function startCommand(options) {
+export function startCommand(options) {
   const reqId = options.id;
   if (!reqId || typeof reqId !== 'string') {
     fail('start requires --id');
@@ -475,7 +476,7 @@ function startCommand(options) {
   console.log(`Started ${reqId} -> ${phase}`);
 }
 
-function blockCommand(options) {
+export function blockCommand(options) {
   const reqId = options.id;
   if (!reqId || typeof reqId !== 'string') {
     fail('block requires --id');
@@ -505,7 +506,7 @@ function blockCommand(options) {
   console.log(`Blocked ${reqId} -> ${phase}`);
 }
 
-function completeCommand(options) {
+export function completeCommand(options) {
   const reqId = options.id;
   if (!reqId || typeof reqId !== 'string') {
     fail('complete requires --id');
@@ -557,7 +558,7 @@ function completeCommand(options) {
   console.log(`Completed ${reqId} -> ${completedPath}`);
 }
 
-function printHelp() {
+export function printHelp() {
   console.log('Harness Lab REQ lifecycle CLI');
   console.log('');
   console.log('Commands:');
@@ -567,26 +568,31 @@ function printHelp() {
   console.log('  complete --id REQ-2026-002 [--phase qa] [--status-file .claude/.req-complete-status] [--no-docs-gate]');
 }
 
-const { command, options } = parseArgs(process.argv.slice(2));
+const isMainModule =
+  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
-if (!command || command === '--help' || command === 'help') {
-  printHelp();
-  process.exit(0);
-}
+if (isMainModule) {
+  const { command, options } = parseArgs(process.argv.slice(2));
 
-switch (command) {
-  case 'create':
-    createCommand(options);
-    break;
-  case 'start':
-    startCommand(options);
-    break;
-  case 'block':
-    blockCommand(options);
-    break;
-  case 'complete':
-    completeCommand(options);
-    break;
-  default:
-    fail(`Unknown command: ${command}`);
+  if (!command || command === '--help' || command === 'help') {
+    printHelp();
+    process.exit(0);
+  }
+
+  switch (command) {
+    case 'create':
+      createCommand(options);
+      break;
+    case 'start':
+      startCommand(options);
+      break;
+    case 'block':
+      blockCommand(options);
+      break;
+    case 'complete':
+      completeCommand(options);
+      break;
+    default:
+      fail(`Unknown command: ${command}`);
+  }
 }

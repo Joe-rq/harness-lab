@@ -136,6 +136,7 @@ rm .claude/.req-exempt
 ### 3. 执行原则
 - 优先读取索引，再按需深入
 - 验证必须真实执行，不能只写"看起来没问题"
+- 修改模板仓库的入口文档、治理脚本或自动化门禁后，至少执行 `npm test`、`npm run docs:verify`、`npm run check:governance`
 - 评审和 QA 必须有落盘结果
 - 经验沉淀必须回写 `context/experience/`
 
@@ -151,6 +152,7 @@ rm .claude/.req-exempt
 
 ## 版本历史
 
+- 2026-03-29: 增加仓库级自动化测试与 GitHub Actions 治理门禁（REQ-2026-013）
 - 2026-03-29: PreToolUse hook 升级为硬阻断机制（REQ-2026-012）
 - 2026-03-29: 添加 PreToolUse hook 强制检查 REQ 状态
 - 2026-03-29: 添加会话启动协议、实施前检查点和 SessionStart hook 机制
