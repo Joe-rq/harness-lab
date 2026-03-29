@@ -3,27 +3,14 @@ Current phase: idle
 Last updated: 2026-03-29
 
 Summary:
-- Completed REQ-2026-007 scope control lightweight upgrade with optional Scope Control in the REQ template, CLI-generated skeleton, and engineering review guidance.
-- Completed REQ-2026-006 structured docs impact output MVP with stable JSON output for agent / CI consumers.
-- Completed REQ-2026-005 docs impact planning and completion gate MVP with agent-visible obligations and req:complete blocking.
-- Completed REQ-2026-004 diff-aware doc sync MVP with changed-files-based docs sync enforcement.
-- Completed REQ-2026-003 docs quality gate MVP with real `docs:verify` and governance integration.
-- Completed REQ-2026-002 REQ lifecycle CLI MVP with real create / start / block / complete validation.
-- Added `npm run docs:impact:json` as a stable machine-readable contract on top of the existing drift-control flow.
-- Added "会话启动协议" and "实施前检查点" to CLAUDE.md
-- Problem: AI could skip governance by treating user's "implementation plan" as green light
-- Fix: Added explicit checkpoints requiring REQ check before writing any code
-- Added violation examples to prevent common bypass patterns
-- Added SessionStart hook mechanism
-- Created scripts/session-start.sh for automatic context loading
-- Created .claude/settings.example.json as hook configuration reference
-- Subagent detection to avoid unnecessary context loading
-- Updated AGENTS.md with enforcement mechanisms
+- Completed REQ-2026-010: harness-setup Skill
+- Created /harness-setup skill for one-click governance framework installation
+- Created CLI script (harness-install.mjs) as backup installation method
+- Features: interactive module selection, conflict detection, hook configuration, installation report
 
 Next steps:
-- If drift-control expands, keep `scripts/docs-sync-rules.json`, `README.md`, and `CONTRIBUTING.md` in sync.
-- If machine consumers start to depend heavily on impact JSON, consider adding a schema file or contract tests.
-- Update this file whenever scope, phase, or blockers change.
+- Consider publishing as npm package for easier installation
+- Consider creating GitHub template repository
 
 Open questions:
 - None.

@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-010-harness-setup-skill.md`（真实整改：harness-setup Skill）
 - `REQ-2026-009-pretooluse-hook-for-req-enforcement.md`（真实整改：PreToolUse hook for REQ enforcement）
 - `REQ-2026-008-governance-enforcement-mechanisms.md`（真实整改：Governance enforcement mechanisms）
 - `REQ-2026-007-scope-control-lightweight-upgrade.md`（真实整改：Scope control lightweight upgrade）
