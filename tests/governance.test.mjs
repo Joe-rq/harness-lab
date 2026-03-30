@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { verifyDocs } from '../scripts/docs-verify.mjs';
-import { validateReqDocument } from '../scripts/req-validation.mjs';
+import { validateReqDocument, validateDesignDocument } from '../scripts/req-validation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -411,12 +411,78 @@ async function testPackageBindingFallsBackToPlaceholderGuards() {
   }
 }
 
+async function testDesignDocExemptionMechanism() {
+  // Test checkbox format exemption
+  const reqWithCheckboxExemption = `# REQ-2026-999: Example
+
+## 状态
+- 当前状态：draft
+- 当前阶段：design
+
+## 背景
+Real background content here.
+
+## 目标
+- Real goal 1
+- Real goal 2
+
+## 验收标准
+- [ ] Real acceptance criteria
+
+### 约束（Scope Control，可选）
+
+**豁免项**：
+- [x] skip-design-validation（小改动无需设计文档）
+
+**允许（CAN）**：
+- 可修改的文件 / 模块：scripts/
+`;
+
+  // Test legacy text format exemption
+  const reqWithLegacyExemption = `# REQ-2026-998: Example
+
+## 状态
+- 当前状态：draft
+- 当前阶段：design
+
+## 背景
+Real background content here.
+
+## 目标
+- Real goal 1
+- Real goal 2
+
+## 验收标准
+- [ ] Real acceptance criteria
+
+### 约束（Scope Control，可选）
+
+This is a small fix. 设计文档豁免
+
+**允许（CAN）**：
+- 可修改的文件 / 模块：scripts/
+`;
+
+  const { validateDesignDocument } = await importFreshModule('scripts/req-validation.mjs');
+
+  // Checkbox format should skip design validation
+  const checkboxResult = validateDesignDocument('REQ-2026-999', reqWithCheckboxExemption, repoRoot);
+  assert.ok(checkboxResult.skipped, 'Checkbox format exemption should be detected');
+  assert.ok(checkboxResult.valid, 'Exempted REQ should be valid');
+
+  // Legacy format should also skip design validation
+  const legacyResult = validateDesignDocument('REQ-2026-998', reqWithLegacyExemption, repoRoot);
+  assert.ok(legacyResult.skipped, 'Legacy format exemption should be detected');
+  assert.ok(legacyResult.valid, 'Exempted REQ should be valid');
+}
+
 const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
   ['req validation detects template placeholders and draft status', testReqValidationDetectsTemplateAndDraftIssues],
   ['harness-install copies governance files and writes hook config', testHarnessInstallArtifacts],
   ['package binding falls back to placeholder guards when commands are missing', testPackageBindingFallsBackToPlaceholderGuards],
+  ['design doc exemption mechanism works with checkbox and legacy formats', testDesignDocExemptionMechanism],
 ];
 
 let failures = 0;

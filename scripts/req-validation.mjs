@@ -147,9 +147,25 @@ const designPlaceholderPatterns = [
   ['- 回滚：', true],
 ];
 
+// Check if a specific exemption is marked (checkbox [x] format or legacy text format)
+function hasExemption(reqContent, exemptionId) {
+  // Use the full heading from REQ_TEMPLATE.md
+  const constraintSection = getSection(reqContent, '### 约束（Scope Control，可选）');
+  // New format: - [x] skip-design-validation
+  const checkboxPattern = new RegExp(`- \\[x\\]\\s*${exemptionId}`, 'i');
+  if (checkboxPattern.test(constraintSection)) {
+    return true;
+  }
+  // Legacy format: explicit text mention (backward compatibility)
+  // For design doc: "设计文档豁免" or "skip-design-validation"
+  if (exemptionId === 'skip-design-validation') {
+    return constraintSection.includes('设计文档豁免');
+  }
+  return false;
+}
+
 function hasDesignExemption(reqContent) {
-  const constraintSection = getSection(reqContent, '### 约束（Scope Control');
-  return constraintSection.includes('设计文档豁免') || constraintSection.includes('skip-design-validation');
+  return hasExemption(reqContent, 'skip-design-validation');
 }
 
 export function validateDesignDocument(reqId, reqContent, rootDir) {
