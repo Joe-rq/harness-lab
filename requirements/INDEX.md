@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-020-design-doc-validation.md`（真实整改：设计文档内容验证）
 - `REQ-2026-019-remove-version-history-from-entry-docs.md`（真实整改：移除入口文档中的版本历史）
 - `REQ-2026-018-req-complete-report-check.md`（真实整改：req:complete 强制检查报告文件存在）
 - `REQ-2026-017-hook-block-no-req-bypass.md`（真实整改：修复无活跃 REQ 时 Hook 绕过漏洞）

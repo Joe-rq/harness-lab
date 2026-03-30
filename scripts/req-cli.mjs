@@ -10,7 +10,12 @@ import {
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyzeDocsImpact } from './docs-verify.mjs';
-import { buildStartBlockMessage, validateReqDocument } from './req-validation.mjs';
+import {
+  buildDesignBlockMessage,
+  buildStartBlockMessage,
+  validateDesignDocument,
+  validateReqDocument,
+} from './req-validation.mjs';
 
 const root = process.cwd();
 const today = new Date().toISOString().slice(0, 10);
@@ -472,6 +477,15 @@ export function startCommand(options) {
         validation,
       })
     );
+  }
+
+  // Validate design document
+  const designValidation = validateDesignDocument(reqId, req.content, root);
+  if (!designValidation.valid) {
+    fail(buildDesignBlockMessage({ reqId, validation: designValidation }));
+  }
+  if (designValidation.skipped) {
+    console.log('Design document validation skipped (exemption marked).');
   }
 
   const index = read('requirements/INDEX.md');

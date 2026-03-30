@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -125,6 +125,105 @@ export function buildStartBlockMessage({ reqId, reqFile, validation }) {
 export function validateReqFile(reqFile, options = {}) {
   const content = readFileSync(reqFile, 'utf8').replace(/\r\n/g, '\n');
   return validateReqDocument(content, options);
+}
+
+// Design document validation
+// Each placeholder is a pattern that indicates an unfilled section
+// Format: [placeholder text, isListItem]
+// isListItem=true means it's a list item like "- 解决的问题：" and we check if there's content after the colon
+const designPlaceholderPatterns = [
+  ['- 补充本次需求的目标', true],
+  ['- 补充本次需求包含的内容', true],
+  ['- 补充本次需求不包含的内容', true],
+  ['- 解决的问题：', true],
+  ['- 目标用户：', true],
+  ['- 预期收益：', true],
+  ['- Proceed / Revise / Defer', false],
+  ['- 影响模块：', true],
+  ['- 依赖方向：', true],
+  ['- 需要新增或修改的边界：', true],
+  ['- 自动验证：', true],
+  ['- 人工验证：', true],
+  ['- 回滚：', true],
+];
+
+function hasDesignExemption(reqContent) {
+  const constraintSection = getSection(reqContent, '### 约束（Scope Control');
+  return constraintSection.includes('设计文档豁免') || constraintSection.includes('skip-design-validation');
+}
+
+export function validateDesignDocument(reqId, reqContent, rootDir) {
+  const issues = [];
+  const designPath = rootDir ? path.join(rootDir, `docs/plans/${reqId}-design.md`) : `docs/plans/${reqId}-design.md`;
+
+  // Check exemption
+  if (hasDesignExemption(reqContent)) {
+    return { valid: true, issues: [], skipped: true };
+  }
+
+  // Check file exists
+  if (!existsSync(designPath)) {
+    issues.push({
+      code: 'missing-design-doc',
+      path: `docs/plans/${reqId}-design.md`,
+    });
+    return { valid: false, issues, skipped: false };
+  }
+
+  // Check placeholders - detect if lines end with placeholder (no actual content)
+  const content = readFileSync(designPath, 'utf8').replace(/\r\n/g, '\n');
+  const lines = content.split('\n');
+
+  for (const [placeholder, isListItem] of designPlaceholderPatterns) {
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (isListItem) {
+        // For list items like "- 解决的问题：", check if line equals the placeholder
+        // (no content after the colon) or ends with just the placeholder part
+        if (trimmed === placeholder) {
+          issues.push({
+            code: 'design-placeholder',
+            placeholder,
+          });
+          break; // Only report once per placeholder type
+        }
+      } else {
+        // For non-list items like "- Proceed / Revise / Defer", check exact match
+        if (trimmed === placeholder) {
+          issues.push({
+            code: 'design-placeholder',
+            placeholder,
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return { valid: issues.length === 0, issues, skipped: false };
+}
+
+export function buildDesignBlockMessage({ reqId, validation }) {
+  const lines = [
+    `Cannot start ${reqId}: design document validation failed`,
+    '',
+  ];
+
+  for (const issue of validation.issues) {
+    if (issue.code === 'missing-design-doc') {
+      lines.push(`  - Missing design document: ${issue.path}`);
+    } else if (issue.code === 'design-placeholder') {
+      lines.push(`  - Design doc still has placeholder: "${issue.placeholder}"`);
+    }
+  }
+
+  lines.push(
+    '',
+    'Please fill in the design doc before starting implementation.',
+    'For small changes, add "设计文档豁免" in the Scope Control section of the REQ.',
+  );
+
+  return lines.join('\n');
 }
 
 function parseArgs(argv) {

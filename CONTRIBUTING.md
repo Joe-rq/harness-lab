@@ -52,6 +52,7 @@ Thanks for improving Harness Lab.
 - 需求流程：
   `requirements/INDEX.md`
   `requirements/REQ_TEMPLATE.md`
+  `docs/plans/REQ-*-design.md`（设计文档验证：`req:start` 阻断空模板）
 - 技术 / 经验索引：
   `context/*/README.md`
 - 执行协议：

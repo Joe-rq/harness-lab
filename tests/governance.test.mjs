@@ -156,6 +156,58 @@ async function testReqCliLifecycle() {
       'utf8'
     );
 
+    // Fill design doc content - rewrite completely to avoid placeholder issues
+    writeFileSync(
+      designPath,
+      `# REQ-2026-001 Design
+
+## Background
+
+验证 REQ 生命周期完整流程。
+
+## Goal
+
+- 验证 REQ 生命周期
+
+## Scope
+
+### In scope
+
+- req:create, req:start, req:complete
+
+### Out of scope
+
+- 其他命令
+
+## Product Review
+
+### User Value
+
+- 解决的问题：测试治理流程
+- 目标用户：开发者
+- 预期收益：确保流程正确
+
+### Recommendation
+
+- Proceed
+
+## Engineering Review
+
+### Architecture Impact
+
+- 影响模块：scripts/
+- 依赖方向：无
+- 需要新增或修改的边界：无
+
+### Verification
+
+- 自动验证：npm test
+- 人工验证：无
+- 回滚：删除文件
+`,
+      'utf8'
+    );
+
     reqCli.startCommand({
       id: 'REQ-2026-001',
       phase: 'implementation',
