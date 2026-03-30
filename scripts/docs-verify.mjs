@@ -384,7 +384,7 @@ function buildImpactPayload(impact) {
 export function verifyDocs(root = process.cwd(), options = {}) {
   const errors = [];
   const markdownFiles = [];
-  const ignoredDirs = new Set(['.git', 'node_modules', 'tmp']);
+  const ignoredDirs = new Set(['.git', 'node_modules', 'tmp', 'chats']);
   const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
   const coreDocs = new Set(['AGENTS.md', 'CLAUDE.md', 'README.md', 'CONTRIBUTING.md']);
 

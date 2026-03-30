@@ -43,6 +43,10 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 # PreToolUse 为硬阻断：无活跃 REQ 时禁止 Write/Edit
 ```
 
+**平台支持**：
+- 支持 Windows、macOS、Linux
+- Windows 环境使用 Node.js 跨平台脚本（无需 bash）
+
 ### 手动接入
 
 复制以下文件到目标项目：

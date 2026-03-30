@@ -64,15 +64,10 @@ export const modules = {
     required: false,
     default: true,
     files: [
-      'context/business/README.md',
-      'context/business/product-overview.md',
-      'context/tech/README.md',
-      'context/tech/architecture.md',
-      'context/tech/tech-stack.md',
-      'context/tech/testing-strategy.md',
-      'context/tech/env-contract.md',
-      'context/tech/deployment-runbook.md',
-      'context/experience/README.md',
+      'context/README.md',
+      'context/business/.gitkeep',
+      'context/tech/.gitkeep',
+      'context/experience/.gitkeep',
     ],
   },
   skills: {
@@ -120,6 +115,8 @@ export const modules = {
       '.claude/settings.example.json',
       'scripts/session-start.sh',
       'scripts/req-check.sh',
+      'scripts/session-start.js',
+      'scripts/req-check.js',
     ],
     hook: true,
   },
@@ -363,6 +360,27 @@ Blockers:
   return progressPath;
 }
 
+// 检测当前平台
+function getPlatform() {
+  return process.platform;
+}
+
+// 判断是否为 Harness Lab 配置的 hook
+function isHarnessHook(hook) {
+  if (!hook || !hook.hooks || !Array.isArray(hook.hooks)) return false;
+  return hook.hooks.some(h =>
+    h.command && (
+      h.command.includes('session-start') ||
+      h.command.includes('req-check')
+    )
+  );
+}
+
+// 检测是否为 Windows 平台
+function isWindows() {
+  return getPlatform() === 'win32';
+}
+
 // 配置 PreToolUse hook
 export function configureHook(targetDir) {
   const settingsPath = path.join(targetDir, '.claude', 'settings.local.json');
@@ -372,13 +390,22 @@ export function configureHook(targetDir) {
     fs.mkdirSync(settingsDir, { recursive: true });
   }
 
+  // 使用跨平台 Node.js 脚本替代 bash 脚本
+  const sessionStartCommand = isWindows()
+    ? 'node "scripts/session-start.js"'
+    : 'node "$(git rev-parse --show-toplevel)/scripts/session-start.js"';
+
+  const reqCheckCommand = isWindows()
+    ? 'node "scripts/req-check.js"'
+    : 'node "$(git rev-parse --show-toplevel)/scripts/req-check.js"';
+
   const sessionStartHooks = [
     {
       matcher: '*',
       hooks: [
         {
           type: 'command',
-          command: 'bash "$(git rev-parse --show-toplevel)/scripts/session-start.sh"',
+          command: sessionStartCommand,
           timeout: 10,
         },
       ],
@@ -391,7 +418,7 @@ export function configureHook(targetDir) {
       hooks: [
         {
           type: 'command',
-          command: 'bash "$(git rev-parse --show-toplevel)/scripts/req-check.sh"',
+          command: reqCheckCommand,
           timeout: 10,
         },
       ],
@@ -403,8 +430,8 @@ export function configureHook(targetDir) {
     'Bash(git commit:*)',
     'Bash(git push:*)',
     'Bash(git rev-parse:*)',
-    'Bash(bash scripts/session-start.sh)',
-    'Bash(bash scripts/req-check.sh)',
+    'Bash(node scripts/session-start.js)',
+    'Bash(node scripts/req-check.js)',
     'Bash(npm run:*)',
   ];
 
@@ -422,8 +449,14 @@ export function configureHook(targetDir) {
     settings.hooks = {};
   }
 
-  settings.hooks.SessionStart = sessionStartHooks;
-  settings.hooks.PreToolUse = preToolUseHooks;
+  // 深度合并 hooks：保留用户已有的同类型 hook，追加到数组中
+  // SessionStart hooks 合并
+  const existingSessionStart = Array.isArray(settings.hooks.SessionStart) ? settings.hooks.SessionStart : [];
+  settings.hooks.SessionStart = [...existingSessionStart.filter(h => !isHarnessHook(h)), ...sessionStartHooks];
+
+  // PreToolUse hooks 合并
+  const existingPreToolUse = Array.isArray(settings.hooks.PreToolUse) ? settings.hooks.PreToolUse : [];
+  settings.hooks.PreToolUse = [...existingPreToolUse.filter(h => !isHarnessHook(h)), ...preToolUseHooks];
   if (!settings.permissions || typeof settings.permissions !== 'object' || Array.isArray(settings.permissions)) {
     settings.permissions = {};
   }
@@ -439,8 +472,110 @@ export function configureHook(targetDir) {
   return settingsPath;
 }
 
+// 安装后验证
+export function verifyInstallation(targetDir, selectedModules, hookEnabled) {
+  const results = {
+    passed: [],
+    failed: [],
+    warnings: [],
+  };
+
+  // 1. 验证核心文件存在
+  const coreFiles = [
+    'AGENTS.md',
+    'CLAUDE.md',
+    'requirements/INDEX.md',
+    'requirements/REQ_TEMPLATE.md',
+    '.claude/progress.txt',
+  ];
+
+  for (const file of coreFiles) {
+    const filePath = path.join(targetDir, file);
+    if (fs.existsSync(filePath)) {
+      results.passed.push(`Core file exists: ${file}`);
+    } else {
+      results.failed.push(`Missing core file: ${file}`);
+    }
+  }
+
+  // 2. 验证 package.json 脚本
+  const packageJsonPath = path.join(targetDir, 'package.json');
+  if (fs.existsSync(packageJsonPath)) {
+    try {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+      const scripts = packageJson.scripts || {};
+
+      const requiredScripts = ['req:create', 'req:start', 'req:complete'];
+      for (const script of requiredScripts) {
+        if (scripts[script]) {
+          results.passed.push(`Script configured: ${script}`);
+        } else {
+          results.warnings.push(`Script not configured: ${script}`);
+        }
+      }
+    } catch (e) {
+      results.warnings.push(`Could not verify package.json scripts: ${e.message}`);
+    }
+  }
+
+  // 3. 验证 hook 配置
+  if (hookEnabled) {
+    const settingsPath = path.join(targetDir, '.claude', 'settings.local.json');
+    if (fs.existsSync(settingsPath)) {
+      try {
+        const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+        if (settings.hooks?.SessionStart) {
+          results.passed.push('Hook: SessionStart configured');
+        } else {
+          results.failed.push('Hook: SessionStart not configured');
+        }
+        if (settings.hooks?.PreToolUse) {
+          results.passed.push('Hook: PreToolUse configured');
+        } else {
+          results.failed.push('Hook: PreToolUse not configured');
+        }
+      } catch (e) {
+        results.failed.push(`Could not verify hook configuration: ${e.message}`);
+      }
+    } else {
+      results.failed.push('Hook: settings.local.json not found');
+    }
+
+    // 4. 验证跨平台脚本存在
+    const crossPlatformScripts = [
+      'scripts/session-start.js',
+      'scripts/req-check.js',
+    ];
+    for (const script of crossPlatformScripts) {
+      const scriptPath = path.join(targetDir, script);
+      if (fs.existsSync(scriptPath)) {
+        results.passed.push(`Cross-platform script exists: ${script}`);
+      } else {
+        results.warnings.push(`Cross-platform script missing: ${script}`);
+      }
+    }
+  }
+
+  // 5. 验证 progress.txt 可读
+  const progressPath = path.join(targetDir, '.claude', 'progress.txt');
+  if (fs.existsSync(progressPath)) {
+    try {
+      const content = fs.readFileSync(progressPath, 'utf-8');
+      if (content.includes('Current active REQ:') && content.includes('Current phase:')) {
+        results.passed.push('Progress file is valid');
+      } else {
+        results.warnings.push('Progress file may be incomplete');
+      }
+    } catch (e) {
+      results.warnings.push(`Could not read progress file: ${e.message}`);
+    }
+  }
+
+  return results;
+}
+
 // 生成接入报告
-export function generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate = null) {
+export function generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate = null, verifyResults = null) {
   const reportDir = path.join(targetDir, 'requirements', 'reports');
   if (!fs.existsSync(reportDir)) {
     fs.mkdirSync(reportDir, { recursive: true });
@@ -503,6 +638,22 @@ ${packageUpdate && packageUpdate.exists && !packageUpdate.parseError
           : ''
       }`
     : ''}
+
+${verifyResults ? `## 安装验证结果
+
+${verifyResults.failed.length > 0 ? `### ❌ 失败 (${verifyResults.failed.length} 项)
+
+${verifyResults.failed.map(item => `- ${item}`).join('\n')}
+
+` : ''}${verifyResults.warnings.length > 0 ? `### ⚠️ 警告 (${verifyResults.warnings.length} 项)
+
+${verifyResults.warnings.map(item => `- ${item}`).join('\n')}
+
+` : ''}${verifyResults.passed.length > 0 ? `### ✅ 通过 (${verifyResults.passed.length} 项)
+
+${verifyResults.passed.slice(0, 10).map(item => `- ${item}`).join('\n')}${verifyResults.passed.length > 10 ? `\n- ... 还有 ${verifyResults.passed.length - 10} 项通过` : ''}
+
+` : ''}` : ''}
 
 ## 后续步骤
 
@@ -682,9 +833,20 @@ export async function main() {
 
   const packageUpdate = updateTargetPackageJson(targetDir);
 
+  // 安装后验证
+  log('\n🔍 安装后验证...', 'blue');
+  const verifyResults = verifyInstallation(targetDir, selectedModules, hookEnabled);
+  log(`   ✅ 通过: ${verifyResults.passed.length} 项`, 'green');
+  if (verifyResults.warnings.length > 0) {
+    log(`   ⚠️  警告: ${verifyResults.warnings.length} 项`, 'yellow');
+  }
+  if (verifyResults.failed.length > 0) {
+    log(`   ❌ 失败: ${verifyResults.failed.length} 项`, 'red');
+  }
+
   // 生成报告
   log('\n📄 生成接入报告...', 'blue');
-  const reportPath = generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate);
+  const reportPath = generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate, verifyResults);
   log(`   ✅ ${path.relative(targetDir, reportPath)}`, 'green');
 
   // 完成

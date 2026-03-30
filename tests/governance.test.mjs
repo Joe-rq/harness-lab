@@ -338,8 +338,10 @@ async function testHarnessInstallArtifacts() {
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-validation.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-check.sh')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'session-start.sh')));
+    assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-check.js')));
+    assert.ok(existsSync(path.join(tempDir, 'scripts', 'session-start.js')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'template-guard.mjs')));
-    assert.ok(existsSync(path.join(tempDir, 'context', 'tech', 'README.md')));
+    assert.ok(existsSync(path.join(tempDir, 'context', 'README.md')));
 
     const settings = JSON.parse(
       readFileSync(path.join(tempDir, '.claude', 'settings.local.json'), 'utf8')
@@ -347,10 +349,14 @@ async function testHarnessInstallArtifacts() {
     assert.ok(Array.isArray(settings.hooks?.SessionStart));
     assert.ok(Array.isArray(settings.hooks?.PreToolUse));
     assert.equal(settings.hooks.SessionStart[0].hooks[0].type, 'command');
-    assert.match(settings.hooks.SessionStart[0].hooks[0].command, /session-start\.sh/);
+    // 根据平台检查对应的脚本
+    const isWindows = process.platform === 'win32';
+    const expectedSessionStart = isWindows ? /session-start\.js/ : /session-start\.js/;
+    const expectedReqCheck = isWindows ? /req-check\.js/ : /req-check\.js/;
+    assert.match(settings.hooks.SessionStart[0].hooks[0].command, expectedSessionStart);
     assert.equal(settings.hooks.PreToolUse[0].hooks[0].type, 'command');
-    assert.match(settings.hooks.PreToolUse[0].hooks[0].command, /req-check\.sh/);
-    assert.ok(settings.permissions.allow.includes('Bash(bash scripts/req-check.sh)'));
+    assert.match(settings.hooks.PreToolUse[0].hooks[0].command, expectedReqCheck);
+    assert.ok(settings.permissions.allow.includes('Bash(node scripts/req-check.js)'));
 
     const packageJson = JSON.parse(readFileSync(path.join(tempDir, 'package.json'), 'utf8'));
     assert.equal(packageJson.scripts.lint, 'eslint .');

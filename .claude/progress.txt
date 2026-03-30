@@ -3,8 +3,14 @@ Current phase: idle
 Last updated: 2026-03-30
 
 Summary:
-- Completed REQ-2026-016: One-click setup parity with hard-block governance hooks
-- Fixed vulnerability: req:complete now requires code-review and qa reports
+- ✅ Created cross-platform scripts (session-start.js, req-check.js)
+- ✅ Added post-install verification logic
+- ✅ Simplified context/ templates (reduced from 9 files to 4)
+- ✅ Updated harness-install.mjs with Windows platform support
+- ✅ Implemented settings.local.json deep merge strategy
+- ✅ Updated README.md with Windows support notes
+- ✅ All tests passing (6/6)
+- ✅ Governance check passed
 
 Next steps:
 
