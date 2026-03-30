@@ -40,6 +40,78 @@ Thanks for improving Harness Lab.
 3. 你的改动会影响哪些入口或模板文件
 4. 是否需要迁移说明
 
+## Commit 规范
+
+### 格式
+
+```
+<type>(<scope>): <中文描述> (REQ-YYYY-NNN)
+
+<body>
+```
+
+- **type**: 改动类型（必填）
+- **scope**: 影响范围（可选）
+- **中文描述**: 简要说明改动内容（必填）
+- **REQ-YYYY-NNN**: 关联的需求编号（feat/fix 必填，其他可选）
+- **body**: 详细说明（可选）
+
+### 类型
+
+| type | 含义 | 示例 |
+|------|------|------|
+| feat | 新功能 | feat(req): 新增设计文档验证 |
+| fix | Bug 修复 | fix(hook): 修复绕过漏洞 |
+| docs | 文档更新 | docs: 统一 commit 规范 |
+| refactor | 重构 | refactor(cli): 简化验证逻辑 |
+| test | 测试相关 | test: 补充豁免机制测试 |
+| chore | 杂项 | chore: 更新依赖 |
+
+### Scope
+
+| scope | 范围 |
+|-------|------|
+| req | REQ 生命周期相关 |
+| hook | PreToolUse hook |
+| install | 安装器 |
+| governance | 治理检查 |
+| docs | 文档 |
+
+### 正确示例
+
+```
+feat(req): 新增设计文档内容验证 (REQ-2026-020)
+
+在 req:start 阶段验证设计文档：
+- 检查文件是否存在
+- 检测未填充的模板占位符
+- 支持豁免机制
+
+fix(hook): 修复无活跃 REQ 时代码修改绕过漏洞 (REQ-2026-017)
+
+只允许 requirements/ 和 docs/plans/ 目录的写入。
+
+docs: 统一 commit 规范
+
+定义格式、类型、scope，提供示例。
+```
+
+### 错误示例
+
+```
+❌ Add design document content validation in req:start
+   （全英文，无 REQ 编号）
+
+❌ 完成 REQ-2026-019：移除入口文档中的版本历史
+   （格式不规范，type/scope 缺失）
+
+❌ feat: fix the bug
+   （描述过于简略，无中文，无 REQ 编号）
+
+❌ 修复bug
+   （无 type，无 scope，无 REQ 编号）
+```
+
 ## Files To Update Together
 
 如果改动影响这些区域，通常要联动更新：
