@@ -481,13 +481,11 @@ export function createCommand(options) {
 
   const reqFileName = `${reqId}-${slug}.md`;
   const reqPath = `requirements/in-progress/${reqFileName}`;
-  const designPath = `docs/plans/${reqId}-design.md`;
-  if (existsSync(toFullPath(reqPath)) || existsSync(toFullPath(designPath))) {
-    fail(`Target files already exist for ${reqId}`);
+  if (existsSync(toFullPath(reqPath))) {
+    fail(`Target file already exists for ${reqId}`);
   }
 
   write(reqPath, buildReqContent(reqId, title, slug));
-  write(designPath, buildDesignContent(reqId, title));
   updateIndex({ active: parseIndexItem(reqFileName, title) });
   updateProgress('active', reqId, 'design');
 
@@ -497,8 +495,11 @@ export function createCommand(options) {
 
   console.log(`Created ${reqId}`);
   console.log(`- ${reqPath}`);
-  console.log(`- ${designPath}`);
   console.log('- .claude/.req-exempt (fill REQ content, then run req:start)');
+  console.log('');
+  console.log('Note: Design document is not created automatically.');
+  console.log('If this REQ requires design documentation, create it manually:');
+  console.log(`  docs/plans/${reqId}-design.md`);
 }
 
 export function startCommand(options) {

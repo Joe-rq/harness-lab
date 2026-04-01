@@ -134,7 +134,8 @@ async function testReqCliLifecycle() {
     );
     const designPath = path.join(tempDir, 'docs', 'plans', 'REQ-2026-001-design.md');
     assert.ok(existsSync(reqPath));
-    assert.ok(existsSync(designPath));
+    // Design doc is no longer auto-created
+    assert.ok(!existsSync(designPath));
 
     const failedStart = captureCommandFailure(() =>
       reqCli.startCommand({
@@ -143,7 +144,11 @@ async function testReqCliLifecycle() {
       })
     );
     assert.equal(failedStart.exitCode, 1);
-    assert.match(failedStart.stderr, /still contains template content/);
+    // Should fail due to missing design doc or template content
+    assert.ok(
+      failedStart.stderr.includes('design document validation failed') ||
+      failedStart.stderr.includes('still contains template content')
+    );
 
     writeFileSync(
       reqPath,
@@ -156,7 +161,8 @@ async function testReqCliLifecycle() {
       'utf8'
     );
 
-    // Fill design doc content - rewrite completely to avoid placeholder issues
+    // Create design doc manually (no longer auto-created)
+    mkdirSync(path.dirname(designPath), { recursive: true });
     writeFileSync(
       designPath,
       `# REQ-2026-001 Design

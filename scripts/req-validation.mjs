@@ -225,6 +225,8 @@ export function buildDesignBlockMessage({ reqId, validation }) {
     '',
   ];
 
+  const hasMissingDoc = validation.issues.some((issue) => issue.code === 'missing-design-doc');
+
   for (const issue of validation.issues) {
     if (issue.code === 'missing-design-doc') {
       lines.push(`  - Missing design document: ${issue.path}`);
@@ -233,11 +235,24 @@ export function buildDesignBlockMessage({ reqId, validation }) {
     }
   }
 
-  lines.push(
-    '',
-    'Please fill in the design doc before starting implementation.',
-    'For small changes, add "设计文档豁免" in the Scope Control section of the REQ.',
-  );
+  if (hasMissingDoc) {
+    lines.push(
+      '',
+      'To create a design document:',
+      `  1. Create file: docs/plans/${reqId}-design.md`,
+      '  2. Fill in the design details',
+      '  3. Run req:start again',
+      '',
+      'For small changes that don\'t need design documentation:',
+      '  Add "skip-design-validation" exemption in the REQ\'s Scope Control section.',
+    );
+  } else {
+    lines.push(
+      '',
+      'Please fill in the design doc before starting implementation.',
+      'For small changes, add "skip-design-validation" in the Scope Control section of the REQ.',
+    );
+  }
 
   return lines.join('\n');
 }
