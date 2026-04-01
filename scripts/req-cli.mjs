@@ -23,8 +23,28 @@ const today = new Date().toISOString().slice(0, 10);
 const progressLabels = ['Summary:', 'Next steps:', 'Open questions:', 'Blockers:'];
 const allowedPhases = new Set(['design', 'implementation', 'review', 'qa', 'ship', 'blocked', 'idle']);
 
+/**
+ * Write an error entry to the error log file
+ * @param {string} message - Error message
+ * @param {string} type - Error type (e.g., 'REQ_BLOCK', 'VALIDATION_FAIL')
+ */
+function appendErrorLog(message, type = 'ERROR') {
+  try {
+    const logPath = toFullPath('.claude/error.log');
+    const timestamp = new Date().toISOString();
+    // Truncate message to first line for log readability
+    const firstLine = message.split('\n')[0].slice(0, 200);
+    const entry = `${timestamp} | ${type} | ${firstLine}\n`;
+    mkdirSync(path.dirname(logPath), { recursive: true });
+    appendFileSync(logPath, entry, 'utf8');
+  } catch {
+    // Silently ignore log write failures to avoid masking the original error
+  }
+}
+
 function fail(message) {
   console.error(message);
+  appendErrorLog(message, 'FAIL');
   process.exit(1);
 }
 
