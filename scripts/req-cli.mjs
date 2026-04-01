@@ -222,9 +222,20 @@ function readReq(reqId) {
 }
 
 function setReqStatusAndPhase(content, status, phase) {
-  let nextContent = content.replace(/^- 当前状态：.*$/m, `- 当前状态：${status}`);
-  nextContent = nextContent.replace(/^- 当前阶段：.*$/m, `- 当前阶段：${phase}`);
-  return nextContent;
+  // Extract the ## 状态 section and replace only within it
+  const statusSectionPattern = /(## 状态\n+)([\s\S]*?)(?=\n## |$)/;
+  const match = content.match(statusSectionPattern);
+  if (!match) {
+    fail('Missing ## 状态 section in REQ document');
+  }
+
+  // Replace status and phase lines only within the section
+  let section = match[2];
+  section = section.replace(/^- 当前状态：.*$/m, `- 当前状态：${status}`);
+  section = section.replace(/^- 当前阶段：.*$/m, `- 当前阶段：${phase}`);
+
+  // Reconstruct the document
+  return content.replace(statusSectionPattern, `$1${section.trimEnd()}\n`);
 }
 
 function setBlockDetails(content, reason, condition, nextStep) {
