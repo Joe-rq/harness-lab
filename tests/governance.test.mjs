@@ -536,6 +536,127 @@ async function testSetReqStatusAndPhaseBoundary() {
   assert.match(result, /上面的示例不应被修改/);
 }
 
+async function testReqBlockCommand() {
+  const tempDir = createTempDir('req-block');
+  const previousCwd = process.cwd();
+
+  try {
+    setupReqFixture(tempDir);
+    process.chdir(tempDir);
+
+    const reqCli = await importFreshModule('scripts/req-cli.mjs');
+
+    // Create a REQ
+    reqCli.createCommand({ title: 'Block Test', slug: 'block-test' });
+
+    // Fill the REQ content to pass validation
+    const reqPath = path.join(tempDir, 'requirements', 'in-progress', 'REQ-2026-001-block-test.md');
+    let reqContent = readFileSync(reqPath, 'utf8');
+    reqContent = reqContent.replace('说明为什么要做这件事。', 'Real background for testing block command.');
+    reqContent = reqContent.replace('- 目标 1', '- Real goal 1');
+    reqContent = reqContent.replace('- 目标 2', '- Real goal 2');
+    reqContent = reqContent.replace('- [ ] 标准 1', '- [x] Real acceptance criteria 1');
+    reqContent = reqContent.replace('- [ ] 标准 2', '- [x] Real acceptance criteria 2');
+    // Add design doc exemption
+    reqContent = reqContent.replace(
+      '### 约束（Scope Control，可选）',
+      '### 约束（Scope Control，可选）\n\n**豁免项**：\n- [x] skip-design-validation'
+    );
+    writeFileSync(reqPath, reqContent, 'utf8');
+
+    // Start the REQ
+    reqCli.startCommand({ id: 'REQ-2026-001', phase: 'implementation' });
+
+    // Block the REQ
+    reqCli.blockCommand({
+      id: 'REQ-2026-001',
+      reason: 'Waiting for external dependency',
+      condition: 'Dependency resolved',
+      next: 'Resume implementation',
+      phase: 'implementation',
+    });
+
+    // Verify REQ status changed to blocked
+    const blockedReq = readFileSync(reqPath, 'utf8');
+    assert.match(blockedReq, /^- 当前状态：blocked$/m);
+
+    // Verify block details are recorded
+    assert.match(blockedReq, /- 原因：Waiting for external dependency/);
+    assert.match(blockedReq, /- 恢复条件：Dependency resolved/);
+    assert.match(blockedReq, /- 下一步：Resume implementation/);
+
+    // Verify INDEX.md updated
+    const indexContent = readFileSync(path.join(tempDir, 'requirements', 'INDEX.md'), 'utf8');
+    assert.match(indexContent, /REQ-2026-001-block-test/);
+    assert.match(indexContent, /当前搁置 REQ/);
+
+    // Verify progress.txt updated
+    const progressContent = readFileSync(path.join(tempDir, '.claude', 'progress.txt'), 'utf8');
+    assert.match(progressContent, /Current phase: blocked/);
+  } finally {
+    process.chdir(previousCwd);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testReqCompleteWithDocsGate() {
+  const tempDir = createTempDir('req-complete-docs-gate');
+  const previousCwd = process.cwd();
+
+  try {
+    setupReqFixture(tempDir);
+    process.chdir(tempDir);
+
+    const reqCli = await importFreshModule('scripts/req-cli.mjs');
+
+    // Create a REQ
+    reqCli.createCommand({ title: 'Docs Gate Test', slug: 'docs-gate-test' });
+
+    // Fill the REQ content
+    const reqPath = path.join(tempDir, 'requirements', 'in-progress', 'REQ-2026-001-docs-gate-test.md');
+    let reqContent = readFileSync(reqPath, 'utf8');
+    reqContent = reqContent.replace('说明为什么要做这件事。', 'Real background for testing docs gate.');
+    reqContent = reqContent.replace('- 目标 1', '- Real goal 1');
+    reqContent = reqContent.replace('- 目标 2', '- Real goal 2');
+    reqContent = reqContent.replace('- [ ] 标准 1', '- [x] Real acceptance criteria 1');
+    reqContent = reqContent.replace('- [ ] 标准 2', '- [x] Real acceptance criteria 2');
+    // Add design doc exemption
+    reqContent = reqContent.replace(
+      '### 约束（Scope Control，可选）',
+      '### 约束（Scope Control，可选）\n\n**豁免项**：\n- [x] skip-design-validation'
+    );
+    writeFileSync(reqPath, reqContent, 'utf8');
+
+    // Start the REQ
+    reqCli.startCommand({ id: 'REQ-2026-001', phase: 'implementation' });
+
+    // Create report files
+    const reportsDir = path.join(tempDir, 'requirements', 'reports');
+    mkdirSync(reportsDir, { recursive: true });
+    writeFileSync(path.join(reportsDir, 'REQ-2026-001-code-review.md'), '# Code Review\n\nTest review.', 'utf8');
+    writeFileSync(path.join(reportsDir, 'REQ-2026-001-qa.md'), '# QA\n\nTest QA.', 'utf8');
+
+    // Create a status file (simulating git status)
+    const statusFile = path.join(tempDir, '.claude', '.req-complete-status');
+    writeFileSync(statusFile, 'M requirements/INDEX.md\n', 'utf8');
+
+    // Complete with --no-docs-gate should succeed
+    reqCli.completeCommand({
+      id: 'REQ-2026-001',
+      phase: 'qa',
+      'no-docs-gate': true,
+      'status-file': statusFile,
+    });
+
+    // Verify REQ moved to completed
+    const completedPath = path.join(tempDir, 'requirements', 'completed', 'REQ-2026-001-docs-gate-test.md');
+    assert.ok(existsSync(completedPath), 'REQ should be moved to completed directory');
+  } finally {
+    process.chdir(previousCwd);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
@@ -544,6 +665,8 @@ const tests = [
   ['package binding falls back to placeholder guards when commands are missing', testPackageBindingFallsBackToPlaceholderGuards],
   ['design doc exemption mechanism works with checkbox and legacy formats', testDesignDocExemptionMechanism],
   ['setReqStatusAndPhase only replaces within status section', testSetReqStatusAndPhaseBoundary],
+  ['req:block command works correctly', testReqBlockCommand],
+  ['req:complete with docs gate works correctly', testReqCompleteWithDocsGate],
 ];
 
 let failures = 0;
