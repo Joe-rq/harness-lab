@@ -287,6 +287,104 @@ export function detectExistingFiles(targetDir, selectedModules) {
   return existing;
 }
 
+// 清理框架自身的 REQ 数据
+export function sanitizeFrameworkData(targetDir) {
+  const results = {
+    removed: [],
+    reset: [],
+    preserved: [],
+  };
+
+  // 1. 清理 completed/ 目录 - 删除所有 REQ-2026-00x 和 REQ-2026-01x 文件
+  const completedDir = path.join(targetDir, 'requirements', 'completed');
+  if (fs.existsSync(completedDir)) {
+    const files = fs.readdirSync(completedDir);
+    for (const file of files) {
+      // 保留 .gitkeep 和 README.md
+      if (file === '.gitkeep' || file === 'README.md') {
+        continue;
+      }
+      // 删除框架历史 REQ (001-899 编号范围)
+      if (/^REQ-2026-\d{3}/.test(file)) {
+        const reqNum = parseInt(file.match(/REQ-2026-(\d{3})/)?.[1], 10);
+        if (reqNum && reqNum < 900) {
+          fs.unlinkSync(path.join(completedDir, file));
+          results.removed.push(`completed/${file}`);
+        } else {
+          results.preserved.push(`completed/${file}`);
+        }
+      }
+    }
+  }
+
+  // 2. 清理 in-progress/ 目录 - 删除非示例 REQ
+  const inProgressDir = path.join(targetDir, 'requirements', 'in-progress');
+  if (fs.existsSync(inProgressDir)) {
+    const files = fs.readdirSync(inProgressDir);
+    for (const file of files) {
+      // 保留 .gitkeep 和示例 REQ (900+ 编号)
+      if (file === '.gitkeep') {
+        continue;
+      }
+      if (/^REQ-2026-\d{3}/.test(file)) {
+        const reqNum = parseInt(file.match(/REQ-2026-(\d{3})/)?.[1], 10);
+        if (reqNum && reqNum < 900) {
+          fs.unlinkSync(path.join(inProgressDir, file));
+          results.removed.push(`in-progress/${file}`);
+        } else {
+          results.preserved.push(`in-progress/${file}`);
+        }
+      }
+    }
+  }
+
+  // 3. 清理 reports/ 目录 - 删除所有框架历史报告
+  const reportsDir = path.join(targetDir, 'requirements', 'reports');
+  if (fs.existsSync(reportsDir)) {
+    const files = fs.readdirSync(reportsDir);
+    for (const file of files) {
+      // 保留 .gitkeep 和 README.md
+      if (file === '.gitkeep' || file === 'README.md') {
+        continue;
+      }
+      // 删除框架历史报告
+      if (/^REQ-2026-\d{3}-/.test(file) || file === 'harness-setup-report.md') {
+        fs.unlinkSync(path.join(reportsDir, file));
+        results.removed.push(`reports/${file}`);
+      }
+    }
+  }
+
+  // 4. 重置 INDEX.md - 清空"最近完成"列表
+  const indexPath = path.join(targetDir, 'requirements', 'INDEX.md');
+  if (fs.existsSync(indexPath)) {
+    let content = fs.readFileSync(indexPath, 'utf-8');
+
+    // 重置当前活跃 REQ 为无
+    content = content.replace(
+      /## 当前活跃 REQ\s*\n\s*- .*/,
+      '## 当前活跃 REQ\n\n- 无'
+    );
+
+    // 重置当前搁置 REQ 为无
+    content = content.replace(
+      /## 当前搁置 REQ\s*\n\s*- .*/,
+      '## 当前搁置 REQ\n\n- 无'
+    );
+
+    // 清空"最近完成 REQ"列表，替换为说明
+    content = content.replace(
+      /## 最近完成 REQ\s*\n(?:- `REQ-[^`]+`.*\n)*/,
+      `## 最近完成 REQ\n\n> 新项目暂无已完成 REQ。随着项目推进，已完成的 REQ 将显示在这里。\n`
+    );
+
+    fs.writeFileSync(indexPath, content);
+    results.reset.push('requirements/INDEX.md');
+  }
+
+  return results;
+}
+
 // 复制文件
 export function copyFiles(sourceDir, targetDir, selectedModules, skipExisting = true, existingFiles = []) {
   const copied = [];
@@ -816,6 +914,19 @@ export async function main() {
   }
   if (results.failed.length > 0) {
     log(`   ❌ 失败: ${results.failed.length} 个文件`, 'red');
+  }
+
+  // 清理框架自身数据
+  log('\n🧹 清理框架数据...', 'blue');
+  const sanitizeResults = sanitizeFrameworkData(targetDir);
+  if (sanitizeResults.removed.length > 0) {
+    log(`   ✅ 已移除: ${sanitizeResults.removed.length} 个框架文件`, 'green');
+  }
+  if (sanitizeResults.preserved.length > 0) {
+    log(`   ℹ️  保留示例: ${sanitizeResults.preserved.length} 个文件`, 'blue');
+  }
+  if (sanitizeResults.reset.length > 0) {
+    log(`   ✅ 已重置: ${sanitizeResults.reset.join(', ' )}`, 'green');
   }
 
   // 创建 progress.txt

@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-030-harness-setup-req.md`（真实整改：修复 harness-setup 移植时污染目标项目的 REQ 数据）
 - `REQ-2026-022-optimize-harness-setup.md`（真实整改：优化 harness-setup 安装流程）
 - `REQ-2026-021-unified-commit-convention.md`（真实整改：统一 commit 规范）
 - `REQ-2026-020-design-doc-validation.md`（真实整改：设计文档内容验证）
