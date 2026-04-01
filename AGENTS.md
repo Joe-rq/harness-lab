@@ -102,7 +102,30 @@ touch .claude/.req-exempt
 rm .claude/.req-exempt
 ```
 
-### 3. 实施前检查点
+### 3. Hook Timeout 配置
+
+Hook 默认 timeout 为 10 秒。如需调整：
+
+1. 编辑 `.claude/settings.local.json`
+2. 修改对应 hook 的 `timeout` 值（单位：秒）
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "*",
+      "hooks": [{ "type": "command", "command": "...", "timeout": 20 }]
+    }]
+  }
+}
+```
+
+**需要调整的场景**：
+- 项目文件数量超过 1000 个
+- 机器性能较差，文件遍历耗时较长
+- 文档验证链路较长
+
+### 4. 实施前检查点
 
 **在写代码之前必须检查：**
 
