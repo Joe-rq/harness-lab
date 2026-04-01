@@ -645,6 +645,33 @@ export function completeCommand(options) {
     process.exit(1);
   }
 
+  // Check experience document exists (unless skipped)
+  const skipExperience = options['skip-experience'];
+  if (!skipExperience) {
+    const experienceDir = toFullPath('context/experience');
+    let hasExperienceDoc = false;
+    if (existsSync(experienceDir)) {
+      const expFiles = readdirSync(experienceDir).filter(
+        (name) => name.endsWith('.md') && name.startsWith(reqId)
+      );
+      hasExperienceDoc = expFiles.length > 0;
+    }
+    if (!hasExperienceDoc) {
+      console.error(`Cannot complete ${reqId} because experience document is missing.`);
+      console.error('');
+      console.error('To create an experience document, run:');
+      console.error(`  npm run req:experience -- --id ${reqId}`);
+      console.error('');
+      console.error('If this REQ has no reusable experience worth documenting,');
+      console.error('pass --skip-experience with a reason:');
+      console.error(`  npm run req:complete -- --id ${reqId} --skip-experience "理由说明"`);
+      process.exit(1);
+    }
+  } else if (typeof skipExperience === 'string') {
+    // Log the skip reason for audit purposes
+    console.log(`Experience document check skipped: ${skipExperience}`);
+  }
+
   const completedPath = `requirements/completed/${req.fileName}`;
   if (existsSync(toFullPath(completedPath))) {
     fail(`Completed REQ already exists: ${completedPath}`);
@@ -664,6 +691,78 @@ export function completeCommand(options) {
   console.log(`Completed ${reqId} -> ${completedPath}`);
 }
 
+export function experienceCommand(options) {
+  const reqId = options.id;
+  if (!reqId || typeof reqId !== 'string') {
+    fail('experience requires --id');
+  }
+
+  const req = readReq(reqId);
+
+  // Determine the experience file name
+  const date = today;
+  const titleSlug = slugify(req.title);
+  const expFileName = `${reqId}-${titleSlug}.md`;
+  const expPath = `context/experience/${expFileName}`;
+
+  if (existsSync(toFullPath(expPath))) {
+    fail(`Experience document already exists: ${expPath}`);
+  }
+
+  // Build experience content from template
+  const content = buildExperienceContent(reqId, req.title, date);
+  write(expPath, content);
+
+  console.log(`Created experience document for ${reqId}`);
+  console.log(`- ${expPath}`);
+  console.log('');
+  console.log('Fill in the template with:');
+  console.log('  - The problem/scenario this REQ addressed');
+  console.log('  - Key decisions and their rationale');
+  console.log('  - Pitfalls encountered');
+  console.log('  - Patterns worth reusing in future projects');
+}
+
+function buildExperienceContent(reqId, title, date) {
+  return [
+    `# ${date} ${title}`,
+    '',
+    '## 场景',
+    '',
+    `{描述 ${reqId} 解决的核心问题或场景}`,
+    '',
+    '## 关联材料',
+    '',
+    `- REQ: \`requirements/completed/${reqId}.md\``,
+    `- Design: \`docs/plans/${reqId}-design.md\`（如有）`,
+    `- Code Review: \`requirements/reports/${reqId}-code-review.md\``,
+    `- QA: \`requirements/reports/${reqId}-qa.md\``,
+    '',
+    '## 问题 / 模式',
+    '',
+    '- {遇到的关键问题或重复模式}',
+    '- {踩过的坑}',
+    '- {意外的复杂度}',
+    '',
+    '## 关键决策',
+    '',
+    `- {决策 1：为什么这样做，而不是那样做}`,
+    `- {决策 2：权衡了哪些因素}`,
+    '',
+    '## 解决方案',
+    '',
+    '1. {具体步骤或方法}',
+    '2. {工具或技术的使用方式}',
+    '3. {验证手段}',
+    '',
+    '## 复用建议',
+    '',
+    '- {下次遇到类似场景如何直接套用}',
+    '- {需要调整的边界条件}',
+    '- {相关的其他经验文档}',
+  ].join('\n');
+}
+
 export function printHelp() {
   console.log('Harness Lab REQ lifecycle CLI');
   console.log('');
@@ -671,7 +770,8 @@ export function printHelp() {
   console.log('  create --title "Title" [--slug ascii-slug] [--year 2026]');
   console.log('  start --id REQ-2026-002 [--phase implementation]');
   console.log('  block --id REQ-2026-002 --reason "..." --condition "..." --next "..." [--phase implementation]');
-  console.log('  complete --id REQ-2026-002 [--phase qa] [--status-file .claude/.req-complete-status] [--no-docs-gate]');
+  console.log('  complete --id REQ-2026-002 [--phase qa] [--status-file .claude/.req-complete-status] [--no-docs-gate] [--skip-experience "reason"]');
+  console.log('  experience --id REQ-2026-002');
 }
 
 const isMainModule =
@@ -697,6 +797,9 @@ if (isMainModule) {
       break;
     case 'complete':
       completeCommand(options);
+      break;
+    case 'experience':
+      experienceCommand(options);
       break;
     default:
       fail(`Unknown command: ${command}`);

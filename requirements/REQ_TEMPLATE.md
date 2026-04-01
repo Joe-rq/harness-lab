@@ -26,6 +26,7 @@
 > 标记需要跳过的验证规则。
 - [ ] skip-design-validation（小改动无需设计文档）
 - [ ] skip-req-validation（紧急修复跳过 REQ 内容检查）
+- [ ] skip-experience（本 REQ 无值得沉淀的复用经验）
 
 **允许（CAN）**：
 - 可修改的文件 / 模块：

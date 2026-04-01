@@ -12,6 +12,7 @@
     "req:start": "node scripts/req-cli.mjs start",
     "req:block": "node scripts/req-cli.mjs block",
     "req:complete": "git -c safe.directory=* status --porcelain=v1 -uall > .claude/.req-complete-status && node scripts/req-cli.mjs complete --status-file .claude/.req-complete-status",
+    "req:experience": "node scripts/req-cli.mjs experience",
     "lint": "node scripts/template-guard.mjs lint",
     "test": "node tests/governance.test.mjs",
     "build": "node scripts/template-guard.mjs build",

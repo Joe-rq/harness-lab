@@ -30,7 +30,8 @@
       "Bash(mv docs/plans/harness-lab-auto-research-optimization.md context/experience/2026-03-28-autoresearch-optimization-design.md)",
       "Bash(mv docs/plans/harness-lab-scope-results-optimization.md context/experience/2026-03-28-scope-results-optimization-design.md)",
       "Bash(mv docs/plans/product-opportunity-research-2026-03-23.md context/experience/2026-03-23-product-opportunity-research.md)",
-      "Bash(echo \"Exit: $?\")"
+      "Bash(echo \"Exit: $?\")",
+      "Bash(gh run:*)"
     ]
   },
   "hooks": {

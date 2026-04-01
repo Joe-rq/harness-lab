@@ -1,19 +1,12 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-03-30
+Last updated: 2026-04-01
 
 Summary:
-- ✅ Created cross-platform scripts (session-start.js, req-check.js)
-- ✅ Added post-install verification logic
-- ✅ Simplified context/ templates (reduced from 9 files to 4)
-- ✅ Updated harness-install.mjs with Windows platform support
-- ✅ Implemented settings.local.json deep merge strategy
-- ✅ Updated README.md with Windows support notes
-- ✅ All tests passing (6/6)
-- ✅ Governance check passed
+- ✅ REQ-2026-031 completed: Governance 强制经验沉淀闭环
 
 Next steps:
-
+- 等待新 REQ 或用户指令
 
 Open questions:
 - None.
