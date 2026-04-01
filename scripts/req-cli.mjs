@@ -1,4 +1,5 @@
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -43,6 +44,20 @@ function write(relPath, content) {
   const fullPath = toFullPath(relPath);
   mkdirSync(path.dirname(fullPath), { recursive: true });
   writeFileSync(fullPath, content.endsWith('\n') ? content : `${content}\n`, 'utf8');
+}
+
+/**
+ * Append an audit log entry for exempt file operations
+ * @param {string} action - 'CREATE' or 'DELETE'
+ * @param {string} reqId - REQ ID if applicable, or 'manual'
+ * @param {string} reason - Reason for the exemption
+ */
+function appendExemptAuditLog(action, reqId, reason) {
+  const auditPath = toFullPath('.claude/exempt-audit.log');
+  const timestamp = new Date().toISOString();
+  const entry = `${timestamp} | ${action} | ${reqId || 'manual'} | ${reason}\n`;
+  mkdirSync(path.dirname(auditPath), { recursive: true });
+  appendFileSync(auditPath, entry, 'utf8');
 }
 
 function replaceSection(text, heading, body) {
@@ -447,6 +462,7 @@ export function createCommand(options) {
 
   // Create exempt file to allow filling REQ content
   writeFileSync(toFullPath('.claude/.req-exempt'), '', 'utf8');
+  appendExemptAuditLog('CREATE', reqId, 'req:create command');
 
   console.log(`Created ${reqId}`);
   console.log(`- ${reqPath}`);
@@ -508,6 +524,7 @@ export function startCommand(options) {
   const exemptPath = toFullPath('.claude/.req-exempt');
   if (existsSync(exemptPath)) {
     unlinkSync(exemptPath);
+    appendExemptAuditLog('DELETE', reqId, 'req:start success');
   }
 
   console.log(`Started ${reqId} -> ${phase}`);

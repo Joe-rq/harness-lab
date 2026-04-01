@@ -95,6 +95,7 @@ echo "    npm run req:create -- --title \"Your feature title\""
 echo ""
 echo "  To bypass (small fixes only):"
 echo "    touch .claude/.req-exempt"
+echo "    echo \"\$(date -Iseconds) | CREATE | manual | <reason>\" >> .claude/exempt-audit.log"
 echo ""
 echo "╚══════════════════════════════════════════════════════════════╝"
 exit 2

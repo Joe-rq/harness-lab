@@ -127,6 +127,7 @@ function printBlockMessage(activeReq) {
   log('║', 'red');
   log('║  For emergency fixes, create exemption:', 'cyan');
   log('║    touch .claude/.req-exempt', 'cyan');
+  log('║    echo "$(date -Iseconds) | CREATE | manual | <reason>" >> .claude/exempt-audit.log', 'cyan');
   log('╚════════════════════════════════════════════════════════════╝\n', 'red');
 }
 
