@@ -240,6 +240,7 @@ async function testReqCliLifecycle() {
       id: 'REQ-2026-001',
       phase: 'qa',
       'no-docs-gate': true,
+      'skip-experience': '自动化测试无需经验文档',
     });
 
     const completedPath = path.join(
@@ -652,6 +653,7 @@ async function testReqCompleteWithDocsGate() {
       phase: 'qa',
       'no-docs-gate': true,
       'status-file': statusFile,
+      'skip-experience': '自动化测试无需经验文档',
     });
 
     // Verify REQ moved to completed

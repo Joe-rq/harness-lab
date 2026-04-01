@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-031-governance.md`（真实整改：Governance: 强制经验沉淀闭环）
 - `REQ-2026-030-harness-setup-req.md`（真实整改：修复 harness-setup 移植时污染目标项目的 REQ 数据）
 - `REQ-2026-022-optimize-harness-setup.md`（真实整改：优化 harness-setup 安装流程）
 - `REQ-2026-021-unified-commit-convention.md`（真实整改：统一 commit 规范）
@@ -75,7 +76,8 @@
 ### 完成
 - 将 REQ 文件移入 `requirements/completed/`
 - 更新“当前活跃 REQ”和“最近完成 REQ”
-- 如有复用价值，补 `context/experience/` 经验文档
+- **强制**：创建 `context/experience/REQ-xxx-*.md` 经验文档（使用 `npm run req:experience -- --id REQ-xxx`）
+  - 如确实无复用价值，可在 Scope Control 中标记 `skip-experience` 豁免
 
 ### 搁置
 - 在 REQ 文件中写明原因、恢复条件和下一步
