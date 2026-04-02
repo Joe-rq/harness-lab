@@ -42,7 +42,8 @@
       "Bash(git pull:*)",
       "Bash(git stash:*)",
       "mcp__sequential-thinking__sequentialthinking",
-      "Bash(ls requirements/completed/REQ-2026-032*.md)"
+      "Bash(ls requirements/completed/REQ-2026-032*.md)",
+      "Bash(ls requirements/completed/*.md)"
     ]
   },
   "hooks": {

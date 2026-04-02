@@ -20,6 +20,7 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-033-req-granularity-4-entity-rule.md`（真实整改：REQ 颗粒度 4 实体原则）
 - `REQ-2026-032-experience-doc-quality-gate.md`（真实整改：Experience 文档质量门禁）
 - `REQ-2026-031-governance.md`（真实整改：Governance: 强制经验沉淀闭环）
 - `REQ-2026-030-harness-setup-req.md`（真实整改：修复 harness-setup 移植时污染目标项目的 REQ 数据）
