@@ -31,7 +31,18 @@
       "Bash(mv docs/plans/harness-lab-scope-results-optimization.md context/experience/2026-03-28-scope-results-optimization-design.md)",
       "Bash(mv docs/plans/product-opportunity-research-2026-03-23.md context/experience/2026-03-23-product-opportunity-research.md)",
       "Bash(echo \"Exit: $?\")",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "Bash(where codex:*)",
+      "Bash(npm list:*)",
+      "Skill(codex:setup)",
+      "Bash(codex --version)",
+      "Bash(codex review:*)",
+      "Bash(echo \"EXIT_CODE: $?\")",
+      "Bash(wc -l D:/03resource/_Projects/harness-lab/scripts/*.mjs D:/03resource/_Projects/harness-lab/scripts/*.js)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(ls requirements/completed/REQ-2026-032*.md)"
     ]
   },
   "hooks": {

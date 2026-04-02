@@ -20,8 +20,16 @@
 
 ## 最近完成 REQ
 
+- `REQ-2026-032-experience-doc-quality-gate.md`（真实整改：Experience 文档质量门禁）
 - `REQ-2026-031-governance.md`（真实整改：Governance: 强制经验沉淀闭环）
 - `REQ-2026-030-harness-setup-req.md`（真实整改：修复 harness-setup 移植时污染目标项目的 REQ 数据）
+- `REQ-2026-029-design-doc-creation-flow.md`（真实整改：优化设计文档创建流程）
+- `REQ-2026-028-critical-path-tests.md`（真实整改：补充关键路径测试）
+- `REQ-2026-027-hook-timeout-config.md`（真实整改：Hook timeout 可配置化）
+- `REQ-2026-026-error-log-persistence.md`（真实整改：添加错误日志持久化）
+- `REQ-2026-025-regex-replace-boundary-fix.md`（真实整改：修复正则替换边界风险）
+- `REQ-2026-024-exempt-audit-log.md`（真实整改：豁免机制审计日志）
+- `REQ-2026-023-review-based-docs-fix.md`（真实整改：基于综合评审结果的文档修正）
 - `REQ-2026-022-optimize-harness-setup.md`（真实整改：优化 harness-setup 安装流程）
 - `REQ-2026-021-unified-commit-convention.md`（真实整改：统一 commit 规范）
 - `REQ-2026-020-design-doc-validation.md`（真实整改：设计文档内容验证）

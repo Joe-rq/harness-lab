@@ -163,9 +163,14 @@ npm run req:start -- --id REQ-YYYY-NNN
 # 阻塞（可选）
 npm run req:block -- --id REQ-YYYY-NNN --reason "等待依赖"
 
+# 创建经验文档（完成前必须）
+npm run req:experience -- --id REQ-YYYY-NNN
+
 # 完成
 npm run req:complete -- --id REQ-YYYY-NNN
 ```
+
+**经验文档质量门禁**：`req:complete` 会检查 `context/experience/` 下是否存在对应的经验文档，并验证内容是否填充了模板占位符。空骨架文档会被阻断。
 
 ### 模板仓库命令
 

@@ -17,12 +17,15 @@
 - 相关设计稿
 - 相关 review / QA / ship 报告
 
-## 命名建议
+## 命名约定
 
-- `YYYY-MM-DD-<topic>.md`
-- `best-practice-<topic>.md`
-- `pitfall-<topic>.md`
-- `postmortem-YYYY-MM-DD-<incident>.md`
+**标准格式**：`REQ-YYYY-NNN-slug.md`（使用 `req:experience` 命令自动生成）
+
+示例：
+- `REQ-2026-031-governance.md`
+- `REQ-2026-029-design-doc-creation-flow.md`
+
+**历史兼容**：日期命名格式（如 `2026-03-23-xxx.md`）仍可读取，但新文档应使用 REQ ID 格式。
 
 ## 最低内容
 
@@ -32,6 +35,16 @@
 - 根因或关键判断
 - 解决方案
 - 后续项目如何复用
+
+**注意**：模板占位符（如 `{描述这个 REQ 解决的核心问题或场景}`）必须填充实质内容，否则 `req:complete` 会阻断。
+
+## 生成命令
+
+```bash
+npm run req:experience -- --id REQ-YYYY-NNN
+```
+
+这会基于 `TEMPLATE.md` 生成骨架文件，然后手动填充内容。
 
 ## 原则
 

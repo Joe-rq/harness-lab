@@ -23,6 +23,86 @@ const today = new Date().toISOString().slice(0, 10);
 const progressLabels = ['Summary:', 'Next steps:', 'Open questions:', 'Blockers:'];
 const allowedPhases = new Set(['design', 'implementation', 'review', 'qa', 'ship', 'blocked', 'idle']);
 
+// Experience document template placeholder checks
+// These placeholders indicate the document hasn't been filled in
+const experiencePlaceholderChecks = [
+  { pattern: '{DATE}', description: '日期' },
+  { pattern: '{TITLE}', description: '标题' },
+  { pattern: '{REQ_ID}', description: 'REQ ID' },
+  { pattern: '{描述这个 REQ 解决的核心问题或场景}', description: '场景描述' },
+  { pattern: '{遇到的关键问题或重复模式}', description: '问题/模式' },
+  { pattern: '{踩过的坑}', description: '踩坑记录' },
+  { pattern: '{决策 1：为什么这样做，而不是那样做}', description: '关键决策' },
+  { pattern: '{具体步骤或方法}', description: '解决方案' },
+  { pattern: '{下次遇到类似场景如何直接套用}', description: '复用建议' },
+];
+
+/**
+ * Validate experience document content
+ * @param {string} content - The document content
+ * @returns {{ valid: boolean, issues: string[] }}
+ */
+function validateExperienceContent(content) {
+  const issues = [];
+  const normalizedContent = content.replace(/\r\n/g, '\n');
+
+  for (const check of experiencePlaceholderChecks) {
+    if (normalizedContent.includes(check.pattern)) {
+      issues.push(check.description);
+    }
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues,
+  };
+}
+
+/**
+ * Find experience documents for a REQ
+ * Supports both REQ ID filename prefix and content-based REQ link
+ * @param {string} reqId - The REQ ID (e.g., REQ-2026-032)
+ * @returns {{ files: string[], hasValidContent: boolean, contentIssues: string[] }}
+ */
+function findExperienceDocs(reqId) {
+  const experienceDir = toFullPath('context/experience');
+  const result = { files: [], hasValidContent: false, contentIssues: [] };
+
+  if (!existsSync(experienceDir)) {
+    return result;
+  }
+
+  const allMdFiles = readdirSync(experienceDir).filter((name) => name.endsWith('.md'));
+
+  // Find files that match by filename prefix or content link
+  const matchingFiles = [];
+  for (const fileName of allMdFiles) {
+    const filePath = path.join(experienceDir, fileName);
+    const content = readFileSync(filePath, 'utf8');
+
+    // Match by filename prefix (REQ-xxx-slug.md)
+    const matchesByName = fileName.startsWith(reqId);
+    // Match by content link (supports date-named files)
+    const matchesByContent = content.includes(`requirements/completed/${reqId}.md`)
+      || content.includes(`requirements/in-progress/${reqId}.md`);
+
+    if (matchesByName || matchesByContent) {
+      matchingFiles.push(fileName);
+
+      // Validate content
+      const validation = validateExperienceContent(content);
+      if (validation.valid) {
+        result.hasValidContent = true;
+      } else {
+        result.contentIssues = validation.issues;
+      }
+    }
+  }
+
+  result.files = matchingFiles;
+  return result;
+}
+
 /**
  * Write an error entry to the error log file
  * @param {string} message - Error message
@@ -645,18 +725,12 @@ export function completeCommand(options) {
     process.exit(1);
   }
 
-  // Check experience document exists (unless skipped)
+  // Check experience document exists and has valid content (unless skipped)
   const skipExperience = options['skip-experience'];
   if (!skipExperience) {
-    const experienceDir = toFullPath('context/experience');
-    let hasExperienceDoc = false;
-    if (existsSync(experienceDir)) {
-      const expFiles = readdirSync(experienceDir).filter(
-        (name) => name.endsWith('.md') && name.startsWith(reqId)
-      );
-      hasExperienceDoc = expFiles.length > 0;
-    }
-    if (!hasExperienceDoc) {
+    const expResult = findExperienceDocs(reqId);
+
+    if (expResult.files.length === 0) {
       console.error(`Cannot complete ${reqId} because experience document is missing.`);
       console.error('');
       console.error('To create an experience document, run:');
@@ -667,6 +741,24 @@ export function completeCommand(options) {
       console.error(`  npm run req:complete -- --id ${reqId} --skip-experience "理由说明"`);
       process.exit(1);
     }
+
+    if (!expResult.hasValidContent) {
+      console.error(`Cannot complete ${reqId} because experience document has unfilled placeholders.`);
+      console.error('');
+      console.error('Found experience documents:');
+      expResult.files.forEach((f) => console.error(`  - context/experience/${f}`));
+      console.error('');
+      console.error('Missing content in sections:');
+      expResult.contentIssues.forEach((issue) => console.error(`  - ${issue}`));
+      console.error('');
+      console.error('Please fill in the template placeholders before completing the REQ.');
+      console.error('If this REQ has no reusable experience worth documenting,');
+      console.error('pass --skip-experience with a reason:');
+      console.error(`  npm run req:complete -- --id ${reqId} --skip-experience "理由说明"`);
+      process.exit(1);
+    }
+
+    console.log(`Experience document check passed: ${expResult.files.join(', ')}`);
   } else if (typeof skipExperience === 'string') {
     // Log the skip reason for audit purposes
     console.log(`Experience document check skipped: ${skipExperience}`);
