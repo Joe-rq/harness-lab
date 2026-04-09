@@ -147,7 +147,12 @@ rm .claude/.req-exempt
 
 ### 实现任务
 - 遵循 `plan -> build -> verify -> fix -> record` 闭环
+- **build 阶段**：如果涉及 4+ 文件，系统会提示。此时请反思：是否真的需要这么多文件？能否用 TaskCreate 拆分？
+- **verify 阶段**：执行元反思（对照 REQ 模板中的检查清单）
+- **record 阶段**：执行对齐检查（确认实现与目标、设计、验收标准对齐）
 - 重要状态变化及时更新 `.claude/progress.txt`
+
+> **4 实体规则**：人类工作记忆约 4±1 个组块。当修改文件 ≥4 时，系统会触发警告。这不是硬性限制，而是触发反思的信号——考虑拆分或使用 TaskCreate。
 
 ### 验证任务
 - review / QA / ship 的结论必须落到 `requirements/reports/`
@@ -172,5 +177,7 @@ rm .claude/.req-exempt
 - REQ 状态更新了
 - 设计稿与实现一致
 - review / QA / ship 结论已落盘
+- **元反思检查已完成**（verify 阶段的问题清单已回答）
+- **对齐检查已完成**（实现与目标、设计、验收标准对齐确认）
 - 验证命令真实执行或明确说明未执行原因
 - `.claude/progress.txt` 能让下一次会话继续接手

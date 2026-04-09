@@ -168,11 +168,14 @@ npm run req:experience -- --id REQ-YYYY-NNN
 
 # 完成
 npm run req:complete -- --id REQ-YYYY-NNN
+
+# 元反思（verify 阶段）
+npm run req:reflect -- --id REQ-YYYY-NNN
+
+# 对齐检查（record 阶段）
+npm run req:align -- --id REQ-YYYY-NNN
 ```
 
-**经验文档质量门禁**：`req:complete` 会检查 `context/experience/` 下是否存在对应的经验文档，并验证内容是否填充了模板占位符。空骨架文档会被阻断。
-
-**REQ 颗粒度原则**：一个 REQ 涉及实体数 ≤ 4（文件、模块、概念）。涉及 5-8 文件应拆分为 2 个 REQ，9+ 文件必须拆分为 3+ 个 REQ。
 
 ### 模板仓库命令
 
