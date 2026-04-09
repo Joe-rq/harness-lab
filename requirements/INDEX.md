@@ -15,11 +15,11 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 当前活跃 REQ
 
-- `REQ-2026-901-suspended-example.md`（示例 REQ - 演示搁置状态）
+- 无
 
 ## 当前搁置 REQ
 
-- 无
+- `REQ-2026-901-suspended-example.md`（示例 REQ - 演示搁置状态）
 
 ## 最近完成 REQ
 
