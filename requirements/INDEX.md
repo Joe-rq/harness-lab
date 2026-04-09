@@ -15,7 +15,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 当前活跃 REQ
 
-- 无
+- `REQ-2026-901-suspended-example.md`（示例 REQ - 演示搁置状态）
 
 ## 当前搁置 REQ
 
@@ -26,6 +26,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 - `REQ-2026-033-req-granularity-4-entity-rule.md`（真实整改：REQ 颗粒度 4 实体原则）
 - `REQ-2026-032-experience-doc-quality-gate.md`（真实整改：Experience 文档质量门禁）
 - `REQ-2026-032-feedback-meta-reflection-alignment.md`（真实整改：反馈机制增强：元反思与对齐）
+- `REQ-2026-001-template-hardening.md`（模板加固）
 - `REQ-2026-031-governance.md`（真实整改：Governance: 强制经验沉淀闭环）
 - `REQ-2026-030-harness-setup-req.md`（真实整改：修复 harness-setup 移植时污染目标项目的 REQ 数据）
 - `REQ-2026-029-design-doc-creation-flow.md`（真实整改：优化设计文档创建流程）
