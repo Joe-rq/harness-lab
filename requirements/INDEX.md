@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-034-loop-detection-and-exempt-ttl.md`（真实整改：循环检测与豁免 TTL 机制）
 - `REQ-2026-033-req-granularity-4-entity-rule.md`（真实整改：REQ 颗粒度 4 实体原则）
 - `REQ-2026-032-experience-doc-quality-gate.md`（真实整改：Experience 文档质量门禁）
 - `REQ-2026-032-feedback-meta-reflection-alignment.md`（真实整改：反馈机制增强：元反思与对齐）
@@ -44,5 +45,3 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 - `REQ-2026-017-req-check-refactor.md`（真实整改：重构 req-check.sh 为模块化 CLI）
 - `REQ-2026-016-lint-shell-scripts.md`（真实整改：Shell 脚本 lint 修复）
 - `REQ-2026-015-self-governance.md`（真实整改：harness-lab 自治理机制）
-
-（更早 REQ 请直接查看 `completed/` 目录）

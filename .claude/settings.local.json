@@ -40,7 +40,13 @@
       "Bash(bash:*)",
       "Bash(git status:*)",
       "Bash(ls -la context/experience/*.md)",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "Bash(ls:*)",
+      "Bash(git clone:*)",
+      "Bash(wc -l /Users/qrq/Documents/code/03-development-tools/harness-lab/scripts/*.mjs /Users/qrq/Documents/code/03-development-tools/harness-lab/scripts/*.js)",
+      "Bash(wc -l /tmp/wow-harness/scripts/hooks/*.py)",
+      "Bash(rm -f /Users/qrq/Documents/code/03-development-tools/harness-lab/.claude/.req-exempt)",
+      "Bash(rm -f /Users/qrq/Documents/code/03-development-tools/harness-lab/.claude/.loop-state/loop-*.json)"
     ]
   },
   "hooks": {
@@ -64,6 +70,18 @@
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/scripts/req-check.sh\"",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/loop-detection.mjs\"",
+            "timeout": 5
           }
         ]
       }
