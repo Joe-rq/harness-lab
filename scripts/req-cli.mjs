@@ -17,6 +17,7 @@ import {
   validateDesignDocument,
   validateReqDocument,
 } from './req-validation.mjs';
+import { formatErrorBlock, logError } from './error-classifier.mjs';
 
 const root = process.cwd();
 const today = new Date().toISOString().slice(0, 10);
@@ -695,12 +696,11 @@ export function completeCommand(options) {
 
     const missingFindings = docsImpact.findings.filter((finding) => finding.status === 'missing');
     if (missingFindings.length > 0) {
-      console.error(`Cannot complete ${reqId} because docs drift obligations are still open:`);
-      for (const finding of missingFindings) {
-        console.error(`- ${finding.id}: triggered by ${finding.triggeredFiles.join(', ')}`);
-        console.error(`  missing docs: ${finding.missing.join(', ')}`);
-      }
-      console.error('Run `npm run docs:impact` to inspect the current document obligations before completing the REQ.');
+      const detail = missingFindings
+        .map((f) => `${f.id}: missing ${f.missing.join(', ')}`)
+        .join('; ');
+      console.error(formatErrorBlock('DOCS_DRIFT', { reqId, detail }));
+      logError('DOCS_DRIFT', { reqId, detail });
       process.exit(1);
     }
   }
@@ -715,13 +715,9 @@ export function completeCommand(options) {
     }
   }
   if (missingReports.length > 0) {
-    console.error(`Cannot complete ${reqId} because required reports are missing:`);
-    for (const report of missingReports) {
-      console.error(`  - ${report}`);
-    }
-    console.error('');
-    console.error('Create the missing reports before completing the REQ.');
-    console.error('If a report type is not applicable, create the file and explain why.');
+    const detail = `缺失报告: ${missingReports.join(', ')}`;
+    console.error(formatErrorBlock('MISSING_REPORTS', { reqId, detail }));
+    logError('MISSING_REPORTS', { reqId, detail });
     process.exit(1);
   }
 
@@ -731,30 +727,15 @@ export function completeCommand(options) {
     const expResult = findExperienceDocs(reqId);
 
     if (expResult.files.length === 0) {
-      console.error(`Cannot complete ${reqId} because experience document is missing.`);
-      console.error('');
-      console.error('To create an experience document, run:');
-      console.error(`  npm run req:experience -- --id ${reqId}`);
-      console.error('');
-      console.error('If this REQ has no reusable experience worth documenting,');
-      console.error('pass --skip-experience with a reason:');
-      console.error(`  npm run req:complete -- --id ${reqId} --skip-experience "理由说明"`);
+      console.error(formatErrorBlock('MISSING_EXPERIENCE', { reqId }));
+      logError('MISSING_EXPERIENCE', { reqId });
       process.exit(1);
     }
 
     if (!expResult.hasValidContent) {
-      console.error(`Cannot complete ${reqId} because experience document has unfilled placeholders.`);
-      console.error('');
-      console.error('Found experience documents:');
-      expResult.files.forEach((f) => console.error(`  - context/experience/${f}`));
-      console.error('');
-      console.error('Missing content in sections:');
-      expResult.contentIssues.forEach((issue) => console.error(`  - ${issue}`));
-      console.error('');
-      console.error('Please fill in the template placeholders before completing the REQ.');
-      console.error('If this REQ has no reusable experience worth documenting,');
-      console.error('pass --skip-experience with a reason:');
-      console.error(`  npm run req:complete -- --id ${reqId} --skip-experience "理由说明"`);
+      const detail = `未填充章节: ${expResult.contentIssues.join(', ')}`;
+      console.error(formatErrorBlock('MISSING_EXPERIENCE', { reqId, detail }));
+      logError('MISSING_EXPERIENCE', { reqId, detail });
       process.exit(1);
     }
 

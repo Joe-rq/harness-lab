@@ -1,10 +1,10 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-04-10
+Last updated: 2026-04-13
 
 Summary:
-- ✅ REQ-2026-034 completed: 循环检测与豁免 TTL 机制（借鉴 wow-harness）
-- ✅ REQ-2026-031 completed: Governance 强制经验沉淀闭环
+- ✅ REQ-2026-035 completed: 错误分类器：结构化治理错误与恢复策略
+- ✅ REQ-2026-034 completed: 循环检测与豁免 TTL 机制
 
 Next steps:
 - 等待新 REQ 或用户指令

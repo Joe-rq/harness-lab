@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { formatErrorBlock, logError, ErrorTypes } from './error-classifier.mjs';
 
 const reqTemplateChecks = [
   {
@@ -84,40 +85,88 @@ function renderIssue(issue) {
   return `- Unknown validation issue: ${JSON.stringify(issue)}`;
 }
 
+/**
+ * 确定错误类型
+ */
+function classifyValidationIssues(validation) {
+  const hasTemplateIssues = validation.issues.some((issue) => issue.code === 'template-placeholder');
+  const hasDraftStatus = validation.issues.some((issue) => issue.code === 'draft-status');
+
+  if (hasDraftStatus && hasTemplateIssues) {
+    return 'REQ_DRAFT_STATUS';
+  }
+  if (hasTemplateIssues) {
+    return 'REQ_TEMPLATE_EMPTY';
+  }
+  if (hasDraftStatus) {
+    return 'REQ_DRAFT_STATUS';
+  }
+  return 'REQ_TEMPLATE_EMPTY';
+}
+
+/**
+ * 获取错误详情列表
+ */
+function buildIssueDetail(validation) {
+  return validation.issues.map(renderIssue).join('\n');
+}
+
 export function buildHookBlockMessage({ reqId, reqFile, validation }) {
+  const errorTypeKey = classifyValidationIssues(validation);
+  const errorType = ErrorTypes[errorTypeKey];
+
   const lines = [
     '╔══════════════════════════════════════════════════════════════╗',
-    '║              🚫 REQ ENFORCEMENT: BLOCKED                    ║',
+    '║              🚫 GOVERNANCE BLOCKED                          ║',
     '╠══════════════════════════════════════════════════════════════╣',
-    '',
-    `  Active REQ (${reqId}) is not ready for implementation.`,
-    '',
-    '  Blocking issues:',
-    ...validation.issues.map((issue) => `  ${renderIssue(issue)}`),
-    '',
-    `  REQ file: ${reqFile}`,
+    `║  错误代码: ${errorType.code.padEnd(48)}║`,
+    `║  错误类型: ${errorType.type.padEnd(48)}║`,
+    `║  描述: ${errorType.message.padEnd(52)}║`,
+    `║  REQ: ${reqId.padEnd(54)}║`,
+    '╠══════════════════════════════════════════════════════════════╣',
+    '║  具体问题:                                                   ║',
+    ...validation.issues.map((issue) => `║    ${renderIssue(issue).padEnd(58)}║`),
+    `║  文件: ${reqFile.padEnd(52)}║`,
+    '╠══════════════════════════════════════════════════════════════╣',
+    '║  恢复策略:                                                   ║',
   ];
 
-  if (validation.issues.some((issue) => issue.code === 'template-placeholder')) {
-    lines.push('', '  Fill the REQ with real background, goals, and acceptance criteria.');
+  for (const step of errorType.recovery) {
+    lines.push(`║    ${step.padEnd(58)}║`);
   }
 
-  if (validation.issues.some((issue) => issue.code === 'draft-status')) {
-    lines.push('', "  Run 'npm run req:start -- --id REQ-YYYY-NNN --phase implementation' after filling the REQ.");
-  }
+  lines.push('╚══════════════════════════════════════════════════════════════╝');
 
-  lines.push('', '╚══════════════════════════════════════════════════════════════╝');
+  // 记录错误日志
+  logError(errorTypeKey, { reqId, file: reqFile, detail: buildIssueDetail(validation) });
+
   return lines.join('\n');
 }
 
 export function buildStartBlockMessage({ reqId, reqFile, validation }) {
+  const errorTypeKey = classifyValidationIssues(validation);
+  const errorType = ErrorTypes[errorTypeKey];
+
   const lines = [
-    `Cannot start ${reqId} because the REQ still contains template content:`,
-    ...validation.issues.map(renderIssue),
-    '',
-    'Fill the REQ with real background, goals, and acceptance criteria before running req:start.',
-    `REQ file: ${reqFile}`,
+    '╔══════════════════════════════════════════════════════════════╗',
+    '║              🚫 GOVERNANCE BLOCKED                          ║',
+    '╠══════════════════════════════════════════════════════════════╣',
+    `║  错误代码: ${errorType.code.padEnd(48)}║`,
+    `║  错误类型: ${errorType.type.padEnd(48)}║`,
+    `║  描述: 无法启动 ${reqId} - REQ 内容不完整                     ║`,
+    '╠══════════════════════════════════════════════════════════════╣',
+    '║  具体问题:                                                   ║',
+    ...validation.issues.map((issue) => `║    ${renderIssue(issue).padEnd(58)}║`),
+    `║  文件: ${reqFile.padEnd(52)}║`,
+    '╠══════════════════════════════════════════════════════════════╣',
+    '║  恢复策略:                                                   ║',
   ];
+
+  for (const step of errorType.recovery) {
+    lines.push(`║    ${step.padEnd(58)}║`);
+  }
+
+  lines.push('╚══════════════════════════════════════════════════════════════╝');
 
   return lines.join('\n');
 }

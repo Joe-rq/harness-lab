@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-035-governance-error-classifier.md`（真实整改：错误分类器：结构化治理错误与恢复策略）
 - `REQ-2026-034-loop-detection-and-exempt-ttl.md`（真实整改：循环检测与豁免 TTL 机制）
 - `REQ-2026-033-req-granularity-4-entity-rule.md`（真实整改：REQ 颗粒度 4 实体原则）
 - `REQ-2026-032-experience-doc-quality-gate.md`（真实整改：Experience 文档质量门禁）

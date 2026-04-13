@@ -176,6 +176,18 @@ npm run req:reflect -- --id REQ-YYYY-NNN
 npm run req:align -- --id REQ-YYYY-NNN
 ```
 
+**结构化错误分类**：治理 Hook 输出使用统一的错误格式，包含错误代码、错误类型和恢复策略。错误代码对照：
+
+| 代码 | 类型 | 场景 |
+|------|------|------|
+| E001 | NO_ACTIVE_REQ | 无活跃 REQ |
+| E002 | REQ_NOT_FOUND | REQ 文件不存在 |
+| E003 | REQ_DRAFT_STATUS | REQ 仍为 draft 状态 |
+| E004 | REQ_TEMPLATE_EMPTY | REQ 模板未填充 |
+| E005 | DOCS_DRIFT | 文档同步缺失 |
+| E006 | MISSING_REPORTS | 缺少必需报告 |
+| E007 | MISSING_EXPERIENCE | 缺少经验文档 |
+| E008 | EXEMPT_ABUSED | 豁免机制滥用 |
 
 ### 模板仓库命令
 

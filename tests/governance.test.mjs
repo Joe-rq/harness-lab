@@ -12,6 +12,13 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { verifyDocs } from '../scripts/docs-verify.mjs';
 import { validateReqDocument, validateDesignDocument } from '../scripts/req-validation.mjs';
+import {
+  ErrorTypes,
+  formatErrorBlock,
+  getErrorCode,
+  getRecoverySteps,
+  logError,
+} from '../scripts/error-classifier.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -145,9 +152,13 @@ async function testReqCliLifecycle() {
     );
     assert.equal(failedStart.exitCode, 1);
     // Should fail due to missing design doc or template content
+    // New format uses structured error blocks with error codes
     assert.ok(
       failedStart.stderr.includes('design document validation failed') ||
-      failedStart.stderr.includes('still contains template content')
+      failedStart.stderr.includes('still contains template content') ||
+      failedStart.stderr.includes('E003') ||
+      failedStart.stderr.includes('E004') ||
+      failedStart.stderr.includes('GOVERNANCE BLOCKED')
     );
 
     writeFileSync(
@@ -665,6 +676,92 @@ async function testReqCompleteWithDocsGate() {
   }
 }
 
+async function testErrorClassifierFormatsBlocks() {
+  // Test NO_ACTIVE_REQ error type
+  const noActiveReqBlock = formatErrorBlock('NO_ACTIVE_REQ', { file: 'test.js' });
+
+  assert.ok(noActiveReqBlock.includes('E001'), 'Error block should contain error code E001');
+  assert.ok(noActiveReqBlock.includes('NO_ACTIVE_REQ'), 'Error block should contain error type');
+  assert.ok(noActiveReqBlock.includes('无活跃 REQ'), 'Error block should contain error title');
+  assert.ok(noActiveReqBlock.includes('npm run req:create'), 'Error block should contain recovery command');
+  assert.ok(noActiveReqBlock.includes('test.js'), 'Error block should contain file context');
+
+  // Test REQ_TEMPLATE_EMPTY error type
+  const templateEmptyBlock = formatErrorBlock('REQ_TEMPLATE_EMPTY', { reqId: 'REQ-2026-001' });
+  assert.ok(templateEmptyBlock.includes('E004'), 'Error block should contain error code E004');
+  assert.ok(templateEmptyBlock.includes('REQ_TEMPLATE_EMPTY'), 'Error block should contain error type');
+  assert.ok(templateEmptyBlock.includes('REQ-2026-001'), 'Error block should contain REQ ID');
+
+  // Test MISSING_REPORTS error type
+  const missingReportsBlock = formatErrorBlock('MISSING_REPORTS', {
+    reqId: 'REQ-2026-002',
+    detail: '缺失报告: requirements/reports/REQ-2026-002-code-review.md',
+  });
+  assert.ok(missingReportsBlock.includes('E006'), 'Error block should contain error code E006');
+  assert.ok(missingReportsBlock.includes('缺失报告'), 'Error block should contain detail');
+
+  // Test getErrorCode function
+  assert.equal(getErrorCode('NO_ACTIVE_REQ'), 'E001');
+  assert.equal(getErrorCode('REQ_NOT_FOUND'), 'E002');
+  assert.equal(getErrorCode('REQ_DRAFT_STATUS'), 'E003');
+  assert.equal(getErrorCode('UNKNOWN_TYPE'), 'UNKNOWN');
+
+  // Test getRecoverySteps function
+  const recoverySteps = getRecoverySteps('NO_ACTIVE_REQ');
+  assert.ok(Array.isArray(recoverySteps), 'Recovery steps should be an array');
+  assert.ok(recoverySteps.length > 0, 'Recovery steps should not be empty');
+  assert.ok(recoverySteps.some((step) => step.includes('npm run req:create')), 'Recovery steps should mention req:create');
+
+  // Test all error types are defined
+  const expectedTypes = [
+    'NO_ACTIVE_REQ',
+    'REQ_NOT_FOUND',
+    'REQ_DRAFT_STATUS',
+    'REQ_TEMPLATE_EMPTY',
+    'DOCS_DRIFT',
+    'MISSING_REPORTS',
+    'MISSING_EXPERIENCE',
+    'EXEMPT_ABUSED',
+  ];
+
+  for (const type of expectedTypes) {
+    assert.ok(ErrorTypes[type], `ErrorTypes should define ${type}`);
+    assert.ok(ErrorTypes[type].code, `${type} should have a code`);
+    assert.ok(ErrorTypes[type].type, `${type} should have a type`);
+    assert.ok(ErrorTypes[type].title, `${type} should have a title`);
+    assert.ok(ErrorTypes[type].message, `${type} should have a message`);
+    assert.ok(Array.isArray(ErrorTypes[type].recovery), `${type} should have recovery steps`);
+  }
+}
+
+async function testErrorClassifierLogsErrors() {
+  const tempDir = createTempDir('error-classifier-log');
+  const logPath = path.join(tempDir, '.claude', 'error.log');
+
+  try {
+    // Log an error
+    logError('NO_ACTIVE_REQ', { file: 'test.js', detail: 'Test error' }, logPath);
+
+    // Verify log file was created
+    assert.ok(existsSync(logPath), 'Log file should be created');
+
+    // Verify log format
+    const logContent = readFileSync(logPath, 'utf8');
+    assert.ok(logContent.includes('E001'), 'Log should contain error code');
+    assert.ok(logContent.includes('NO_ACTIVE_REQ'), 'Log should contain error type');
+    assert.ok(logContent.includes('Test error'), 'Log should contain detail');
+    assert.ok(logContent.includes('|'), 'Log should use pipe separator');
+
+    // Log another error
+    logError('MISSING_REPORTS', { reqId: 'REQ-2026-001' }, logPath);
+    const updatedLog = readFileSync(logPath, 'utf8');
+    const lines = updatedLog.trim().split('\n');
+    assert.equal(lines.length, 2, 'Log should have 2 entries');
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
@@ -675,6 +772,8 @@ const tests = [
   ['setReqStatusAndPhase only replaces within status section', testSetReqStatusAndPhaseBoundary],
   ['req:block command works correctly', testReqBlockCommand],
   ['req:complete with docs gate works correctly', testReqCompleteWithDocsGate],
+  ['error classifier formats error blocks correctly', testErrorClassifierFormatsBlocks],
+  ['error classifier logs errors with structured format', testErrorClassifierLogsErrors],
 ];
 
 let failures = 0;
