@@ -9,6 +9,7 @@
 - `business/` - 业务背景、产品概述
 - `tech/` - 技术架构、栈说明、测试策略
 - `experience/` - 可复用的经验教训
+- `references/` - 参考资料与文章
 
 ## 使用原则
 
@@ -21,3 +22,4 @@
 - 业务文档：[`business/`](./business/)
 - 技术文档：[`tech/`](./tech/)
 - 经验沉淀：[`experience/`](./experience/)
+- 参考资料：[`references/`](./references/)
