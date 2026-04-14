@@ -36,6 +36,11 @@ context/session/*.md
 .claude/.req-complete-status
 .claude/settings.local.json
 .claude/.req-exempt
+.claude/.loop-state/
+
+# 临时文件和草稿
+chats/
+reviews/
 
 # 但在必要时可以保留某些会话记录
 # 如需保留，手动添加到 git
