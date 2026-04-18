@@ -1,16 +1,20 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-04-13
+Last updated: 2026-04-18
 
 Summary:
-- ✅ REQ-2026-035 completed: 错误分类器：结构化治理错误与恢复策略
-- ✅ REQ-2026-034 completed: 循环检测与豁免 TTL 机制
+- ✅ invariant-extractor.mjs 实现 --scan 和 --check 双模式
+- ✅ 3 条种子不变量（INV-001 多面漂移、INV-002 占位符逃逸、INV-003 Edit截断）
+- ✅ req-check.sh 集成不变量检查（仅提醒不阻断）
+- ✅ req-cli.mjs complete 流程触发增量扫描
+- ✅ 所有 11 个现有测试通过
 
 Next steps:
-- 等待新 REQ 或用户指令
+- 完成元反思和对齐检查
+- 生成报告并完成 REQ
 
 Open questions:
-- None.
+- 自动扫描候选质量较低，当前策略是手动精选种子 + 自动增量扫描
 
 Blockers:
 - None.

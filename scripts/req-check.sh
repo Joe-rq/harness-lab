@@ -61,8 +61,16 @@ if [ -n "$ACTIVE_REQ" ] && [ "$ACTIVE_REQ" != "none" ] && [ "$ACTIVE_REQ" != "æ—
     exit 2
   fi
 
+  # Run REQ validation
   node "$ROOT/scripts/req-validation.mjs" --file "$REQ_FILE" --req-id "$ACTIVE_REQ"
-  exit $?
+  REQ_EXIT=$?
+
+  # Invariant check (advisory only, never blocks)
+  if [ -n "$TARGET_FILE" ] && [ -f "$ROOT/scripts/invariant-extractor.mjs" ]; then
+    node "$ROOT/scripts/invariant-extractor.mjs" --check --file "$TARGET_FILE" 2>&1 || true
+  fi
+
+  exit $REQ_EXIT
 fi
 
 # No active REQ (or "none") â€” only allow requirements/ and docs/plans/

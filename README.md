@@ -136,6 +136,7 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 ├── docs/plans/            # 设计稿
 ├── docs/specs/            # 产品/API 规范
 ├── context/               # 业务/技术/经验索引
+│   └── invariants/        # 经验回流：结构化不变量规则
 ├── skills/                # 阶段导航技能
 ├── scripts/               # CLI 工具
 ├── .claude/commands/      # 可调用 skills
@@ -266,6 +267,7 @@ GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`n
 - 验证命令真实可执行
 - 新会话能快速恢复上下文
 - 已完成工作沉淀为可复用经验
+- 经验自动回流为不变量规则，在后续操作中主动提醒
 
 ## 示例文档
 

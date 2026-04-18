@@ -18,6 +18,7 @@ import {
   validateReqDocument,
 } from './req-validation.mjs';
 import { formatErrorBlock, logError } from './error-classifier.mjs';
+import { execSync } from 'node:child_process';
 
 const root = process.cwd();
 const today = new Date().toISOString().slice(0, 10);
@@ -762,6 +763,22 @@ export function completeCommand(options) {
   updateProgress('idle');
 
   console.log(`Completed ${reqId} -> ${completedPath}`);
+
+  // Trigger invariant re-scan (experience → invariants feedback loop)
+  const invariantExtractor = toFullPath('scripts/invariant-extractor.mjs');
+  if (existsSync(invariantExtractor)) {
+    try {
+      const result = execSync(`node "${invariantExtractor}" --scan --incremental`, {
+        cwd: root,
+        encoding: 'utf-8',
+        timeout: 10000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      if (result) console.log(result.trim());
+    } catch {
+      // Non-critical: invariant scan failure should not block completion
+    }
+  }
 }
 
 export function experienceCommand(options) {
