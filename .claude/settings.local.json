@@ -48,7 +48,16 @@
       "Bash(rm -f /Users/qrq/Documents/code/03-development-tools/harness-lab/.claude/.req-exempt)",
       "Bash(rm -f /Users/qrq/Documents/code/03-development-tools/harness-lab/.claude/.loop-state/loop-*.json)",
       "Bash(find /Users/qrq/Documents/code/03-development-tools/harness-lab/scripts -type f -exec wc -l {} +)",
-      "Bash(sort -k2)"
+      "Bash(sort -k2)",
+      "Bash(mv:*)",
+      "Bash(touch .claude/.req-exempt)",
+      "Bash(date -Iseconds)",
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | REQ-2026-035 | 更新 README 添加错误分类器表格\")",
+      "Bash(mkdir -p context/references)",
+      "Bash(mv yangzhiping.com.md context/references/2026-03-17-meta-reflection-techniques.md)",
+      "Bash(mv DE0hc3Mz6zwoSCgL0k4SgQ.md context/references/2026-04-02-harness-engineering-article.md)",
+      "Bash(touch:*)",
+      "Bash(git fetch:*)"
     ]
   },
   "hooks": {
