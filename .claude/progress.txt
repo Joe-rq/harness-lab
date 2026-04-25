@@ -3,20 +3,17 @@ Current phase: idle
 Last updated: 2026-04-25
 
 Summary:
-- ✅ TEMPLATE.md 新建（含 status/severity/triggers/verification 结构化字段）
-- ✅ 24 条不变量补充 status：3 active / 20 draft / 1 deprecated
-- ✅ invariant-gate.mjs --scan 质量门禁可用
-- ✅ invariant-extractor.mjs --inject 生成 active 不变量注入文本
-- ✅ session-start.sh 显示不变量统计
-- ✅ 11 个现有测试通过
+- ✅ Phase 2B 完成 (REQ-2026-039)：3 个特化 REQ slash command（/bugfix、/feature、/refactor）
+- ✅ 11 个现有测试全部通过
+- ✅ 路线图状态已更新
 
 Next steps:
-- 运行验收标准逐项验证
-- 元反思 + 对齐检查
-- 生成报告并完成 REQ
+- 路线图下一步：Phase 3A（基础安全模式：模式切换 + Stop + SessionEnd）
+- 适配器延后项可随时启动
 
 Open questions:
-- 20 条 draft 不变量待后续人工审核激活
+- /bugfix、/feature、/refactor 需人工端到端测试
+- 项目适配器是否需要单独开 REQ
 
 Blockers:
 - None.

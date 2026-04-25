@@ -23,6 +23,8 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-039-phase-2b-specialized-req-slash-commands-bugfix-feature-refactor.md`（真实整改：Phase 2B: specialized REQ slash commands (bugfix/feature/refactor)）
+- `REQ-2026-038-phase-2a-onboarding-dx-harness-doctor-and-first-req-wizard.md`（真实整改：Phase 2A: Onboarding DX — harness-doctor and first-req wizard）
 - `REQ-2026-037-phase-1-invariant-quality-gate-lifecycle-and-injection.md`（真实整改：Phase 1: invariant quality gate, lifecycle, and injection）
 - `REQ-2026-036-learning-loop-experience-feedback.md`（真实整改：学习闭环：经验回流机制）
 - `REQ-2026-035-governance-error-classifier.md`（真实整改：错误分类器：结构化治理错误与恢复策略）
