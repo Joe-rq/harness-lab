@@ -3,6 +3,7 @@
 // 用法：
 //   node scripts/invariant-extractor.mjs --scan [--incremental]
 //   node scripts/invariant-extractor.mjs --check --file <path>
+//   node scripts/invariant-extractor.mjs --inject
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, statSync } from "fs";
 import { join, relative, basename } from "path";
@@ -51,6 +52,8 @@ function parseInvariant(filePath) {
   const fm = fmMatch[1];
   const id = fm.match(/id:\s*(INV-\d+)/)?.[1];
   const title = fm.match(/^title:\s*(.+)/m)?.[1]?.trim();
+  const status = fm.match(/status:\s*(\w+)/)?.[1] || "draft";
+  const severity = fm.match(/severity:\s*(\w+)/)?.[1] || "medium";
   const confidence = fm.match(/confidence:\s*(\w+)/)?.[1] || "medium";
 
   // 解析 message 块：message: | 后的缩进内容，直到非缩进行或下一个键
@@ -72,7 +75,7 @@ function parseInvariant(filePath) {
   const patternMatches = fm.matchAll(/-\s*pattern:\s*["']?(.+?)["']?\s*$/gm);
   for (const m of patternMatches) triggerPatterns.push(m[1].trim());
 
-  return { id, title, confidence, message: messageText, triggerGlobs, triggerPatterns, file: filePath };
+  return { id, title, status, severity, confidence, message: messageText, triggerGlobs, triggerPatterns, file: filePath };
 }
 
 function loadAllInvariants() {
@@ -188,6 +191,8 @@ function scanExperience(incremental = false) {
       "---",
       `id: ${invId}`,
       `title: ${(title || slug).replace(/[#*]/g, "").trim()}`,
+      "status: draft",
+      "severity: medium",
       "triggers:",
       ...pathPatterns.slice(0, 4).map(p => `  - glob: "${p}"`),
       `confidence: medium`,
@@ -224,6 +229,7 @@ function checkInvariants(targetFile) {
 
   for (const inv of invariants) {
     if (!relPath) continue;
+    if (inv.status === "deprecated") continue; // deprecated 不触发提醒
 
     // glob 匹配：任一 glob 模式命中即触发
     const globHit = inv.triggerGlobs.some(g => globMatch(g, relPath));
@@ -237,6 +243,43 @@ function checkInvariants(targetFile) {
   return matched;
 }
 
+// ── 模式 3: --inject（生成注入文本） ───────────────────────────
+
+function injectInvariants() {
+  const invariants = loadAllInvariants().filter(inv => inv.status === "active");
+  if (invariants.length === 0) {
+    log("📋 无 active 不变量，跳过注入");
+    return;
+  }
+
+  const lines = [];
+  lines.push("⚠️ 不变量提醒（编辑相关文件时请遵守）：\n");
+
+  for (const inv of invariants) {
+    const globs = inv.triggerGlobs.length > 0 ? `触发: ${inv.triggerGlobs.join(", ")}` : "";
+    lines.push(`- ${inv.id} [${inv.severity}]: ${inv.title}`);
+    if (globs) lines.push(`  ${globs}`);
+    if (inv.message) {
+      const msgLines = inv.message.split("\n").filter(l => l.trim());
+      for (const ml of msgLines.slice(0, 2)) {
+        lines.push(`  ${ml.replace(/^⚠️\s*/, "")}`);
+      }
+    }
+    lines.push("");
+  }
+
+  const output = lines.join("\n");
+
+  // 写入注入文件供 hook 消费
+  const injectDir = join(ROOT, ".claude", ".invariant-injections");
+  ensureDir(injectDir);
+  writeFileSync(join(injectDir, "active-invariants.txt"), output, "utf-8");
+
+  // 也输出到 stdout（供直接消费）
+  console.log(output);
+  log(`📋 注入完成: ${invariants.length} 条 active 不变量 → .claude/.invariant-injections/active-invariants.txt`);
+}
+
 // ── CLI 入口 ────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
@@ -245,6 +288,9 @@ if (args.includes("--scan")) {
   const incremental = args.includes("--incremental");
   log("🔍 扫描 experience 文档，提取不变量候选...");
   scanExperience(incremental);
+} else if (args.includes("--inject")) {
+  log("💉 生成 active 不变量注入文本...");
+  injectInvariants();
 } else if (args.includes("--check")) {
   const fileIdx = args.indexOf("--file");
   const targetFile = fileIdx >= 0 ? args[fileIdx + 1] : "";
@@ -257,5 +303,6 @@ if (args.includes("--scan")) {
   log("用法:");
   log("  node scripts/invariant-extractor.mjs --scan [--incremental]");
   log("  node scripts/invariant-extractor.mjs --check --file <path>");
+  log("  node scripts/invariant-extractor.mjs --inject");
   process.exit(1);
 }

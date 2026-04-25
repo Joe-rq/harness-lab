@@ -4,6 +4,8 @@ title: 存在不等于就绪：占位符逃逸
 triggers:
   - glob: "requirements/**/*.md"
   - glob: "context/experience/*.md"
+status: active
+severity: high
 confidence: high
 message: |
   ⚠️ INV-002: 检查是否残留模板占位符（如 {描述...}、"说明为什么要做这件事"、"目标 1"）

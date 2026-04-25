@@ -37,6 +37,7 @@ context/session/*.md
 .claude/settings.local.json
 .claude/.req-exempt
 .claude/.loop-state/
+.claude/.invariant-injections/
 
 # 临时文件和草稿
 chats/

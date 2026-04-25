@@ -5,6 +5,8 @@ triggers:
   - glob: "context/experience/**"
   - glob: "requirements/in-progress/**"
   - glob: "requirements/reports/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-019: 2026-04-01 Governance: 强制经验沉淀闭环

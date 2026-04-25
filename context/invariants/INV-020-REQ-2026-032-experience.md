@@ -5,6 +5,8 @@ triggers:
   - glob: "requirements/in-progress/**"
   - glob: "requirements/reports/**"
   - glob: "context/experience/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-020: 2026-04-02 Experience 文档质量门禁

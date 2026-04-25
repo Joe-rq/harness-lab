@@ -3,6 +3,8 @@ id: INV-016
 title: REQ Ready != REQ Exists
 triggers:
   - glob: "scripts/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-016: REQ Ready != REQ Exists

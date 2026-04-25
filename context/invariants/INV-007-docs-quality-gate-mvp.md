@@ -5,6 +5,8 @@ triggers:
   - glob: "requirements/completed/**"
   - glob: "docs/plans/**"
   - glob: "requirements/reports/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-007: 2026-03-23 Docs Quality Gate MVP

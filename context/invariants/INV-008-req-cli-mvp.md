@@ -6,6 +6,8 @@ triggers:
   - glob: "docs/plans/**"
   - glob: "requirements/reports/**"
   - glob: "create / start / block / complete/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-008: 2026-03-23 REQ CLI MVP

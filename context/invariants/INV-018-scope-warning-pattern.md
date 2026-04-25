@@ -56,6 +56,8 @@ MODIFIED_COUNT=$(git status --porcelain=v1 | grep -E '^\s*[MADRC]' | grep -vE 'r
 ╠══════════════════════════════════════════════════════════════╣
 
   Modified 5 files (excluding requirements/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-018: 2026-04-06 4 实体规则的轻量级实现（深度思考案例）

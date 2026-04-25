@@ -18,6 +18,8 @@ triggers:
 
 - **决策 1：固化到模板而非仅口头建议**
   不是写文档说"记得元反思"，而是在 /**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-021: 2026-04-06 元反思与对齐机制的引入

@@ -6,6 +6,8 @@ triggers:
   - glob: "requirements/completed/**"
   - glob: "docs/plans/**"
   - glob: "requirements/reports/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-015: 2026-03-29 Portable Command Binding

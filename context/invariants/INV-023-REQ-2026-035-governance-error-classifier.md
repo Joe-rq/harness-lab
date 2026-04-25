@@ -10,6 +10,8 @@ triggers:
 - **决策 2：保持向后兼容**：Hook 的 exit code 不变（0/2），输出格式增强而非替换，不破坏现有流程
 
 - **决策 3：错误代码使用 E 前缀 + 三位数字**：/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-023: 2026-04-13 错误分类器：结构化治理错误与恢复策略

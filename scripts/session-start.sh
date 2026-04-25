@@ -88,6 +88,17 @@ else
   echo "⚠️ 需求索引不存在: $INDEX_FILE"
 fi
 
+# 不变量统计
+INV_DIR="$ROOT_DIR/context/invariants"
+if [ -d "$INV_DIR" ]; then
+  INV_TOTAL=$(ls "$INV_DIR"/INV-*.md 2>/dev/null | grep -v TEMPLATE | wc -l | tr -d ' ')
+  INV_ACTIVE=$(grep -rl "^status: active" "$INV_DIR"/INV-*.md 2>/dev/null | wc -l | tr -d ' ')
+  INV_DRAFT=$(grep -rl "^status: draft" "$INV_DIR"/INV-*.md 2>/dev/null | wc -l | tr -d ' ')
+  INV_DEPRECATED=$(grep -rl "^status: deprecated" "$INV_DIR"/INV-*.md 2>/dev/null | wc -l | tr -d ' ')
+  echo ""
+  echo "🛡️ 不变量: ${INV_TOTAL} 条 (active: ${INV_ACTIVE} / draft: ${INV_DRAFT} / deprecated: ${INV_DEPRECATED})"
+fi
+
 echo ""
 echo "════════════════════════════════════════════════════════════"
 echo "✅ 请根据上述状态继续工作，或询问用户需要做什么"

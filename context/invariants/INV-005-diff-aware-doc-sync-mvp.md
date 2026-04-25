@@ -6,6 +6,8 @@ triggers:
   - glob: "docs/plans/**"
   - glob: "requirements/reports/**"
   - glob: "scripts/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-005: 2026-03-23 Diff-aware Doc Sync MVP

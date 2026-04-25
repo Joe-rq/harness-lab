@@ -10,6 +10,8 @@ triggers:
   - glob: "docs/plans/**"
   - glob: "requirements/reports/**"
   - glob: "requirements/completed/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-009: 2026-03-23 Structured Docs Impact Output MVP

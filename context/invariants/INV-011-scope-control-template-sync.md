@@ -6,6 +6,8 @@ triggers:
   - glob: "requirements/completed/**"
   - glob: "docs/plans/**"
   - glob: "requirements/reports/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-011: 2026-03-28 Scope Control Template Sync

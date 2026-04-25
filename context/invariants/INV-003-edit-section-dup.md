@@ -3,6 +3,8 @@ id: INV-003
 title: Edit 截断导致章节重复
 triggers:
   - glob: "requirements/**/*.md"
+status: active
+severity: high
 confidence: high
 message: |
   ⚠️ INV-003: Edit 工具 old_string 末尾多余空行会吞掉下一章节标题，导致重复

@@ -3,6 +3,8 @@ id: INV-004
 title: 2026-03-20 Example: keep evidence with the REQ
 triggers:
   - glob: "requirements/reports/**"
+status: deprecated
+severity: low
 confidence: medium
 message: |
   ⚠️ INV-004: 2026-03-20 Example: keep evidence with the REQ

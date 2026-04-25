@@ -7,6 +7,8 @@ triggers:
   - glob: "scripts/harness-install.mjs"
   - glob: "scripts/check-governance.mjs"
   - glob: "requirements/REQ_TEMPLATE.md"
+status: active
+severity: high
 confidence: high
 message: |
   ⚠️ INV-001: 你正在修改治理系统的"多面契约"文件

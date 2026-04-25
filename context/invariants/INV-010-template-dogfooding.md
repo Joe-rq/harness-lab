@@ -10,6 +10,8 @@ triggers:
   - glob: "docs/plans/**"
   - glob: "requirements/reports/**"
   - glob: "blocked / suspended/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-010: 2026-03-23 Template Dogfooding

@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-037-phase-1-invariant-quality-gate-lifecycle-and-injection.md`（真实整改：Phase 1: invariant quality gate, lifecycle, and injection）
 - `REQ-2026-036-learning-loop-experience-feedback.md`（真实整改：学习闭环：经验回流机制）
 - `REQ-2026-035-governance-error-classifier.md`（真实整改：错误分类器：结构化治理错误与恢复策略）
 - `REQ-2026-034-loop-detection-and-exempt-ttl.md`（真实整改：循环检测与豁免 TTL 机制）

@@ -4,6 +4,8 @@ title: Installer Contract Drift Needs Tests
 triggers:
   - glob: " / /**"
   - glob: "/harness-setup/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-014: Installer Contract Drift Needs Tests

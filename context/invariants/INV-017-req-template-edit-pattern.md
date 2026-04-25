@@ -36,6 +36,8 @@ new_string = """## 阻塞 / 搁置说明（可选）
 - 下一步：无
 """
 /**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-017: REQ 模板填充时的章节重复问题

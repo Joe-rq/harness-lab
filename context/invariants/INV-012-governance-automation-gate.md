@@ -6,6 +6,8 @@ triggers:
   - glob: "docs/plans/**"
   - glob: "requirements/reports/**"
   - glob: "scripts/**"
+status: draft
+severity: medium
 confidence: medium
 message: |
   ⚠️ INV-012: 2026-03-29 Governance Automation Gate
