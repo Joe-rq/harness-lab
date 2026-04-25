@@ -8,7 +8,7 @@
 | Phase 0 | completed | — | 全部通过 | 2026-04-18 |
 | Phase 1 | completed | REQ-2026-037 | 全部通过 | 2026-04-25 |
 | Phase 2A | completed | REQ-2026-038 | 全部通过 | 2026-04-25 |
-| Phase 2B | completed | REQ-2026-039 | 全部通过 | 2026-04-25 |
+| Phase 2B | completed | REQ-2026-040 | 全部通过 | 2026-04-25 |
 | Phase 3A | — | — | — | — |
 | Phase 3B | — | — | — | — |
 | Phase 3C | — | — | — | — |
@@ -51,3 +51,12 @@
   - feature：用户痛点+业务背景+Scope Control CAN/CANNOT 必填提示
   - refactor：技术债描述+行为不变约束+后续 Phase 排除
 - 项目适配器延后至后续 REQ
+
+### 2026-04-25
+
+- Phase 2B 补充 (REQ-2026-040)：req-cli --type 参数化，模板源统一
+  - req-cli.mjs 新增 --type bugfix|feature|refactor 参数
+  - 4 个构建函数（generic + 3 特化），补全颗粒度自检和反馈章节
+  - 3 个 slash command 简化为薄壳（收集信息 → req:create --type）
+  - 消除模板源分裂（REQ_TEMPLATE.md / req-cli.mjs / slash command 三源 → req-cli.mjs 单源）
+  - 路线图 Phase 2B 章节已更新反映新方案

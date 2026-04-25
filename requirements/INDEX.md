@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-040-phase-2b-req-cli-type.md`（真实整改：Phase 2B 补充：req-cli --type 参数化，统一模板源）
 - `REQ-2026-039-phase-2b-specialized-req-slash-commands-bugfix-feature-refactor.md`（真实整改：Phase 2B: specialized REQ slash commands (bugfix/feature/refactor)）
 - `REQ-2026-038-phase-2a-onboarding-dx-harness-doctor-and-first-req-wizard.md`（真实整改：Phase 2A: Onboarding DX — harness-doctor and first-req wizard）
 - `REQ-2026-037-phase-1-invariant-quality-gate-lifecycle-and-injection.md`（真实整改：Phase 1: invariant quality gate, lifecycle, and injection）
