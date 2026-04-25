@@ -19,7 +19,8 @@
     "test": "node tests/governance.test.mjs",
     "build": "node scripts/template-guard.mjs build",
     "verify": "node scripts/template-guard.mjs verify",
-    "harness:install": "node scripts/harness-install.mjs"
+    "harness:install": "node scripts/harness-install.mjs",
+    "harness:doctor": "node scripts/harness-doctor.mjs"
   },
   "keywords": [
     "harness-engineering",

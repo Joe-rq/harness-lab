@@ -78,6 +78,11 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
    npm run req:create -- --title "Your first requirement"
    ```
 
+   或使用交互式向导（Claude Code 环境）：
+   ```
+   /first-req
+   ```
+
 5. **写实 REQ 内容**：`req:create` 只会生成骨架。开始实施前，需要先补齐真实背景、目标、验收标准
 
 6. **开始治理流程**
@@ -201,6 +206,7 @@ npm run req:align -- --id REQ-YYYY-NNN
 | `npm run docs:impact:json` | JSON 格式输出（供 agent/CI 消费） |
 | `npm run docs:verify` | 检查文档链接和同步约束 |
 | `npm run check:governance` | 检查治理结构完整性 |
+| `npm run harness:doctor` | 诊断项目接入健康状态 |
 
 这些命令会结合当前 git 改动做 `diff-aware` 文档同步检查，用来约束入口文档、治理脚本和交付物说明保持一致。
 GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`npm run docs:verify` 和 `npm run check:governance`，把仓库级治理检查变成默认门禁。

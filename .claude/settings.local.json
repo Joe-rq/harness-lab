@@ -57,7 +57,18 @@
       "Bash(mv yangzhiping.com.md context/references/2026-03-17-meta-reflection-techniques.md)",
       "Bash(mv DE0hc3Mz6zwoSCgL0k4SgQ.md context/references/2026-04-02-harness-engineering-article.md)",
       "Bash(touch:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(git pull *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git config *)",
+      "Bash(git stash *)",
+      "Bash(git reset *)",
+      "Skill(meta-reflection-agent-design)",
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | 路线图修正：Phase 3 拆分 + 治理漏洞修复\")",
+      "Bash(touch /Users/qrq/Documents/code/03-development-tools/harness-lab/.claude/.req-exempt)",
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | update roadmap-status after REQ-2026-037 complete\")",
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | 路线图文档修订：Phase 2B 方案更新（非代码改动）\")",
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | 更新路线图状态和进度文件（文档维护）\")"
     ]
   },
   "hooks": {
