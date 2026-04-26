@@ -50,6 +50,7 @@ PostToolUse   → ✅ 循环检测
 Stop          → ❌ 无
 SessionEnd    → ❌ 无
 PreCompact    → ❌ 无
+commit-msg    → ✅ 提交消息格式校验 (REQ-2026-041)
 ```
 
 ### 四层架构诊断（元反思评分）

@@ -60,3 +60,11 @@
   - 3 个 slash command 简化为薄壳（收集信息 → req:create --type）
   - 消除模板源分裂（REQ_TEMPLATE.md / req-cli.mjs / slash command 三源 → req-cli.mjs 单源）
   - 路线图 Phase 2B 章节已更新反映新方案
+
+### 2026-04-25
+
+- 治理修补 (REQ-2026-041)：commit-msg hook 校验提交消息格式
+  - 新增 scripts/commit-msg-check.sh，符号链接到 .git/hooks/commit-msg
+  - 校验 CONTRIBUTING.md 规范：type/scope 必填、feat/fix 必须半角括号 REQ 编号
+  - 全角括号/缺 type/英文描述全拦截，merge/revert/fixup/squash 自动豁免
+  - 填补治理盲区：规范写了≠规范生效，commit 格式从"靠自觉"变为"代码强制"
