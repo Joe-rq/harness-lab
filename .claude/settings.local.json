@@ -87,7 +87,8 @@
       "Bash(echo \"$\\(date -Iseconds\\) | CREATE | REQ-2026-041-complete | roadmap sync\")",
       "Bash(echo \"---EXIT: $?\")",
       "Bash(echo \"$\\(date -Iseconds\\) | CREATE | REQ-2026-043-complete | update progress.txt and roadmap-status\")",
-      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | REQ-2026-044-complete | progress update\")"
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | REQ-2026-044-complete | progress update\")",
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | roadmap-status update after REQ-2026-046 complete\")"
     ]
   },
   "hooks": {
@@ -115,6 +116,16 @@
           {
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/scripts/scope-guard.mjs\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/review-gatekeeper.mjs\"",
             "timeout": 10
           }
         ]

@@ -23,6 +23,8 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-046-phase-4b4c-auto-review.md`（真实整改：Phase 4B+4C — Auto QA & Auto Review）
+- `REQ-2026-045-phase-4a-review-gatekeeper.md`（真实整改：Phase 4A — Review Agent Isolation）
 - `REQ-2026-044-phase-3c-risk-tracker.md`（真实整改：Phase 3C 风险追踪）
 - `REQ-2026-043-phase-3b-scope-guard.md`（真实整改：Phase 3B 范围强制（防越界））
 - `REQ-2026-042-phase-3a-stop-sessionend.md`（真实整改：Phase 3A: 基础安全模式（模式切换 + Stop 评估器 + SessionEnd 反思））

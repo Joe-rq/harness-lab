@@ -12,7 +12,7 @@
 | Phase 3A | completed | REQ-2026-042 | 全部通过 | 2026-04-26 |
 | Phase 3B | completed | REQ-2026-043 | 全部通过 | 2026-04-26 |
 | Phase 3C | completed | REQ-2026-044 | 全部通过 | 2026-04-26 |
-| Phase 4 | — | — | — | — |
+| Phase 4 | completed | REQ-2026-046 | 全部通过 | 2026-04-26 |
 | Phase 5 | — | — | — | — |
 | Phase 6 | — | — | — | — |
 
@@ -94,3 +94,12 @@
   - R3+ 操作触发 stderr 提醒
   - session-start.sh 显示当前会话风险等级
   - 与 loop-detection 共存于 PostToolUse，stderr vs stdout 隔离
+
+### 2026-04-26
+
+- Phase 4 完成 (REQ-2026-045 + REQ-2026-046)：自审查（审查隔离 + 自动 QA + 自动 Code Review）
+  - 新增 scripts/review-gatekeeper.mjs：PreToolUse Agent matcher，检测审查 Agent，强制使用只读 subagent_type
+  - 新增 scripts/auto-qa.mjs：自动执行 REQ 验证命令，生成 QA 报告
+  - 新增 scripts/auto-review.mjs：自动代码审查（范围合规 + 安全模式 + 基础检查），生成 Code Review 报告
+  - 新增 .claude/commands/self-review.md：/self-review slash command
+  - Hook 覆盖率新增：PreToolUse Agent matcher（审查隔离）
