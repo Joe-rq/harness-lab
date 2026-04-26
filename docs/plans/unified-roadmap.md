@@ -47,8 +47,8 @@ Phase 0    →  Phase 1   →  Phase 2A    →  Phase 2B   →  Phase 3A   →  
 SessionStart  → ✅ 状态恢复
 PreToolUse    → ✅ REQ 强制 + 不变量提醒
 PostToolUse   → ✅ 循环检测
-Stop          → ❌ 无
-SessionEnd    → ❌ 无
+Stop          → ✅ 防假完成评估器 (REQ-2026-042)
+SessionEnd    → ✅ 会话反思 + progress.txt 更新 (REQ-2026-042)
 PreCompact    → ❌ 无
 commit-msg    → ✅ 提交消息格式校验 (REQ-2026-041)
 ```

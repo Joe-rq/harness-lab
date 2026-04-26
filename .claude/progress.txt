@@ -1,15 +1,20 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-04-25
+Last updated: 2026-04-26
 
 Summary:
-- ✅ Phase 2B 补充完成 (REQ-2026-040)：req-cli --type 参数化，模板源统一回代码
+- ✅ Phase 3A 完成 (REQ-2026-042)：Stop 评估器 + SessionEnd 反思 + harnessMode 模式切换
 - ✅ 11 个现有测试全部通过
-- ✅ /bugfix、/feature、/refactor slash command 简化为薄壳
+- Hook 覆盖率：SessionStart/PreToolUse/PostToolUse/Stop/SessionEnd/commit-msg 全部 ✅
 
 Next steps:
-- 路线图下一步：Phase 3A（基础安全模式：模式切换 + Stop + SessionEnd）
-- 适配器延后项可随时启动
+- 路线图下一步：Phase 3B（范围强制 scope-guard）
+
+Open questions:
+- 无
+
+Blockers:
+- None.
 
 Open questions:
 - 项目适配器是否需要单独开 REQ

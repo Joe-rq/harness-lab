@@ -9,7 +9,7 @@
 | Phase 1 | completed | REQ-2026-037 | 全部通过 | 2026-04-25 |
 | Phase 2A | completed | REQ-2026-038 | 全部通过 | 2026-04-25 |
 | Phase 2B | completed | REQ-2026-040 | 全部通过 | 2026-04-25 |
-| Phase 3A | — | — | — | — |
+| Phase 3A | completed | REQ-2026-042 | 全部通过 | 2026-04-26 |
 | Phase 3B | — | — | — | — |
 | Phase 3C | — | — | — | — |
 | Phase 4 | — | — | — | — |
@@ -68,3 +68,12 @@
   - 校验 CONTRIBUTING.md 规范：type/scope 必填、feat/fix 必须半角括号 REQ 编号
   - 全角括号/缺 type/英文描述全拦截，merge/revert/fixup/squash 自动豁免
   - 填补治理盲区：规范写了≠规范生效，commit 格式从"靠自觉"变为"代码强制"
+
+### 2026-04-26
+
+- Phase 3A 完成 (REQ-2026-042)：基础安全模式（模式切换 + Stop 评估器 + SessionEnd 反思）
+  - 新增 .claude/harness-mode 配置文件（collaborative/supervised/autonomous）
+  - 新增 scripts/stop-evaluator.mjs：Stop hook 交叉检查验收标准 vs git diff，未覆盖则阻断
+  - 新增 scripts/session-reflect.mjs：SessionEnd hook 自动生成会话摘要 + 更新 progress.txt
+  - session-start.sh 显示当前模式
+  - Hook 覆盖率：Stop 和 SessionEnd 从 ❌ 变为 ✅

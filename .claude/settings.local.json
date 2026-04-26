@@ -68,7 +68,24 @@
       "Bash(touch /Users/qrq/Documents/code/03-development-tools/harness-lab/.claude/.req-exempt)",
       "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | update roadmap-status after REQ-2026-037 complete\")",
       "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | 路线图文档修订：Phase 2B 方案更新（非代码改动）\")",
-      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | 更新路线图状态和进度文件（文档维护）\")"
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | 更新路线图状态和进度文件（文档维护）\")",
+      "Bash(rm -f .claude/.req-complete-status)",
+      "Bash(rm -f /tmp/type-test -rf /tmp/type-test2)",
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | REQ-2026-040-complete | progress update\")",
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | REQ-2026-040-complete | roadmap doc sync\")",
+      "Bash(ln -sf \"$\\(git rev-parse --show-toplevel\\)/scripts/commit-msg-check.sh\" \"$\\(git rev-parse --show-toplevel\\)/.git/hooks/commit-msg\")",
+      "Bash(echo \"feat\\(req\\): 新增功能 \\(REQ-2026-041\\)\")",
+      "Bash(echo \"docs: 更新文档\")",
+      "Bash(echo \"chore: 更新依赖\")",
+      "Bash(echo \"Merge branch 'feature'\")",
+      "Bash(echo \"fix\\(hook\\): 修复绕过漏洞 \\(REQ-2026-017\\)\")",
+      "Bash(echo \"Add new feature\")",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(echo \"feat\\(req\\): 新增功能（REQ-2026-041）\")",
+      "Bash(echo \"fix: 修复bug\")",
+      "Bash(echo \"修复bug\")",
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | REQ-2026-041-complete | roadmap sync\")",
+      "Bash(echo \"---EXIT: $?\")"
     ]
   },
   "hooks": {
@@ -104,6 +121,30 @@
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/scripts/loop-detection.mjs\"",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/stop-evaluator.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/session-reflect.mjs\"",
+            "timeout": 10
           }
         ]
       }

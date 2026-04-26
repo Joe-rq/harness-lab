@@ -22,6 +22,16 @@ echo "════════════════════════�
 echo "🔄 Harness Lab 会话启动"
 echo "════════════════════════════════════════════════════════════"
 
+# 显示当前模式
+MODE_FILE="$ROOT_DIR/.claude/harness-mode"
+if [ -f "$MODE_FILE" ]; then
+  HARNESS_MODE=$(cat "$MODE_FILE" | tr -d '[:space:]')
+else
+  HARNESS_MODE="collaborative"
+fi
+echo ""
+echo "🛡️ 模式: ${HARNESS_MODE}"
+
 # 检查豁免文件 TTL
 EXEMPT_FILE="$ROOT_DIR/.claude/.req-exempt"
 EXEMPT_TTL_SECONDS=7200  # 2 小时
