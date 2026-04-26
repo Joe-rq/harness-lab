@@ -3,21 +3,17 @@ Current phase: idle
 Last updated: 2026-04-26
 
 Summary:
-- ✅ Phase 3A 完成 (REQ-2026-042)：Stop 评估器 + SessionEnd 反思 + harnessMode 模式切换
+- ✅ Phase 3C 完成 (REQ-2026-044)：risk-tracker 风险追踪 + 棘轮机制 + session-start 风险显示
+- ✅ Phase 3B 完成 (REQ-2026-043)：scope-guard 范围强制
+- ✅ Phase 3A 完成 (REQ-2026-042)：基础安全模式
 - ✅ 11 个现有测试全部通过
-- Hook 覆盖率：SessionStart/PreToolUse/PostToolUse/Stop/SessionEnd/commit-msg 全部 ✅
+- Hook 覆盖率：SessionStart/PreToolUse(REQ+scope)/PostToolUse(loop+risk)/Stop/SessionEnd/commit-msg 全部 ✅
 
 Next steps:
-- 路线图下一步：Phase 3B（范围强制 scope-guard）
+- 路线图下一步：Phase 4（自审查 review-gatekeeper + auto-qa + auto-review）
 
 Open questions:
 - 无
-
-Blockers:
-- None.
-
-Open questions:
-- 项目适配器是否需要单独开 REQ
 
 Blockers:
 - None.

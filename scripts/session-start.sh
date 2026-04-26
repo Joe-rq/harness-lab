@@ -32,6 +32,15 @@ fi
 echo ""
 echo "🛡️ 模式: ${HARNESS_MODE}"
 
+# 显示当前会话风险等级
+RATCHET_FILE="$ROOT_DIR/.claude/.risk-ratchet"
+if [ -f "$RATCHET_FILE" ]; then
+  RISK_LEVEL=$(cat "$RATCHET_FILE" | tr -d '[:space:]')
+  if [ -n "$RISK_LEVEL" ]; then
+    echo "⚠️ 风险: R${RISK_LEVEL}"
+  fi
+fi
+
 # 检查豁免文件 TTL
 EXEMPT_FILE="$ROOT_DIR/.claude/.req-exempt"
 EXEMPT_TTL_SECONDS=7200  # 2 小时

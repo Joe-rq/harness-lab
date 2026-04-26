@@ -10,8 +10,8 @@
 | Phase 2A | completed | REQ-2026-038 | 全部通过 | 2026-04-25 |
 | Phase 2B | completed | REQ-2026-040 | 全部通过 | 2026-04-25 |
 | Phase 3A | completed | REQ-2026-042 | 全部通过 | 2026-04-26 |
-| Phase 3B | — | — | — | — |
-| Phase 3C | — | — | — | — |
+| Phase 3B | completed | REQ-2026-043 | 全部通过 | 2026-04-26 |
+| Phase 3C | completed | REQ-2026-044 | 全部通过 | 2026-04-26 |
 | Phase 4 | — | — | — | — |
 | Phase 5 | — | — | — | — |
 | Phase 6 | — | — | — | — |
@@ -77,3 +77,20 @@
   - 新增 scripts/session-reflect.mjs：SessionEnd hook 自动生成会话摘要 + 更新 progress.txt
   - session-start.sh 显示当前模式
   - Hook 覆盖率：Stop 和 SessionEnd 从 ❌ 变为 ✅
+
+### 2026-04-26
+
+- Phase 3B 完成 (REQ-2026-043)：范围强制（防越界）
+  - 新增 scripts/scope-guard.mjs：PreToolUse hook 检查写入目标是否在 REQ 范围内
+  - REQ_TEMPLATE.md 范围章节升级为结构化文件列表（支持 glob 模式）
+  - 越界操作记录到 .claude/scope-violations.log
+  - 与 req-check.sh 共存于 PreToolUse，职责分离：REQ 检查 vs 范围检查
+
+### 2026-04-26
+
+- Phase 3C 完成 (REQ-2026-044)：风险追踪
+  - 新增 scripts/risk-tracker.mjs：PostToolUse hook 根据文件路径评估风险等级（R0-R4）
+  - 棘轮机制：风险等级只升不降，持久化到 .claude/.risk-ratchet
+  - R3+ 操作触发 stderr 提醒
+  - session-start.sh 显示当前会话风险等级
+  - 与 loop-detection 共存于 PostToolUse，stderr vs stdout 隔离
