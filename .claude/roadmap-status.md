@@ -15,7 +15,7 @@
 | Phase 4 | completed | REQ-2026-046 | 全部通过 | 2026-04-26 |
 | Phase 5.1 | completed | REQ-2026-047 | 全部通过 | 2026-04-27 |
 | Phase 5.2 | completed | REQ-2026-048 | 全部通过 | 2026-04-27 |
-| Phase 5.3 | — | — | — | — |
+| Phase 5.3 | completed | REQ-2026-049 | 全部通过 | 2026-04-27 |
 | Phase 5.4 | — | — | — | — |
 | Phase 5.5 | — | — | — | — |
 | Phase 5.6 | — | — | — | — |
@@ -141,3 +141,10 @@
   - 新增 /resume slash command：读取 progress.txt + watchdog-state → 建议下一步
   - 本质是 prompt 层面的决策指南，非新脚本——hook 架构决定了决策逻辑必须在 AI 的行为指令里
   - 关键决策：hook 只能 inject 不能执行动作，所以 5.2/5.3 的核心是 CLAUDE.md 指令而非新脚本
+
+### 2026-04-27
+
+- Phase 5.3 完成 (REQ-2026-049)：上下文续传
+  - session-start.sh 增强：检测未完成 REQ → 展示最近 session-log 摘要 + git diff 未提交改动
+  - CLAUDE.md 新增"续传协议"章节：AI 启动时发现未完成 REQ → 主动询问，不自动继续
+  - 降级处理：无 in-progress REQ 时跳过中断点展示；session-log 无匹配时只展示 git diff

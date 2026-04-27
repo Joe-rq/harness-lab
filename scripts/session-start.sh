@@ -118,6 +118,45 @@ if [ -d "$INV_DIR" ]; then
   echo "🛡️ 不变量: ${INV_TOTAL} 条 (active: ${INV_ACTIVE} / draft: ${INV_DRAFT} / deprecated: ${INV_DEPRECATED})"
 fi
 
+# 检测未完成 REQ 并展示中断点
+ACTIVE_REQ=""
+if [ -f "$PROGRESS_FILE" ]; then
+  ACTIVE_REQ=$(grep "^Current active REQ:" "$PROGRESS_FILE" | sed 's/Current active REQ: *//' | tr -d '[:space:]')
+fi
+
+if [ -n "$ACTIVE_REQ" ] && [ "$ACTIVE_REQ" != "none" ] && [ "$ACTIVE_REQ" != "无" ]; then
+  # 检查 REQ 是否仍在 in-progress 目录
+  REQ_IN_PROGRESS=$(ls "$ROOT_DIR"/requirements/in-progress/${ACTIVE_REQ}*.md 2>/dev/null | head -1)
+  if [ -n "$REQ_IN_PROGRESS" ]; then
+    echo ""
+    echo "📎 中断点恢复："
+
+    # 展示最近 session-log（最近一条）
+    LATEST_LOG=$(ls -t "$ROOT_DIR"/.claude/session-log/session-*.md 2>/dev/null | head -1)
+    if [ -n "$LATEST_LOG" ]; then
+      # 提取该 log 中的改动文件
+      LOG_REQ=$(grep "^- 活跃 REQ:" "$LATEST_LOG" | sed 's/- 活跃 REQ: *//')
+      if [ "$LOG_REQ" = "$ACTIVE_REQ" ]; then
+        echo "  📋 上次会话摘要："
+        sed -n '/^## 改动文件/,/^## /p' "$LATEST_LOG" | grep "^- " | head -5 | while read -r line; do
+          echo "    $line"
+        done
+      fi
+    fi
+
+    # 展示 git diff 中与该 REQ 相关的未提交文件
+    UNCOMMITTED=$(git -C "$ROOT_DIR" diff --name-only HEAD 2>/dev/null | head -5)
+    if [ -n "$UNCOMMITTED" ]; then
+      echo "  📝 未提交改动："
+      echo "$UNCOMMITTED" | while read -r line; do
+        echo "    - $line"
+      done
+    fi
+
+    echo "  💡 询问用户：是否继续 ${ACTIVE_REQ}？"
+  fi
+fi
+
 echo ""
 echo "════════════════════════════════════════════════════════════"
 echo "✅ 请根据上述状态继续工作，或询问用户需要做什么"

@@ -3,11 +3,11 @@ Current phase: idle
 Last updated: 2026-04-27
 
 Summary:
-- ✅ Phase 5.2 完成 (REQ-2026-048)：自恢复指令
-- CLAUDE.md 新增"异常响应协议"章节：停滞/循环/R3+ 三种异常的标准响应流程
-- 新增 /resume slash command：读取 progress.txt + watchdog-state → 建议下一步
+- ✅ Phase 5.3 完成 (REQ-2026-049)：上下文续传
+- session-start.sh 增强：检测未完成 REQ → 展示 session-log + git diff 中断点
+- CLAUDE.md 新增"续传协议"：AI 启动时发现未完成 REQ 应主动询问
 - ✅ 11 个现有测试全部通过
-- Hook 覆盖率：SessionStart/PreToolUse(REQ+scope+review)/PostToolUse(loop+risk+watchdog)/Stop/SessionEnd/commit-msg 全部 ✅
+- Hook 覆盖率：SessionStart(续传)/PreToolUse(REQ+scope+review)/PostToolUse(loop+risk+watchdog)/Stop/SessionEnd/commit-msg 全部 ✅
 
 Next steps:
 - 更新路线图状态
