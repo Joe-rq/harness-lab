@@ -16,7 +16,7 @@
 | Phase 5.1 | completed | REQ-2026-047 | 全部通过 | 2026-04-27 |
 | Phase 5.2 | completed | REQ-2026-048 | 全部通过 | 2026-04-27 |
 | Phase 5.3 | completed | REQ-2026-049 | 全部通过 | 2026-04-27 |
-| Phase 5.4 | — | — | — | — |
+| Phase 5.4 | completed | REQ-2026-050 | 全部通过 | 2026-04-27 |
 | Phase 5.5 | — | — | — | — |
 | Phase 5.6 | — | — | — | — |
 | Phase 6 | — | — | — | — |
@@ -148,3 +148,12 @@
   - session-start.sh 增强：检测未完成 REQ → 展示最近 session-log 摘要 + git diff 未提交改动
   - CLAUDE.md 新增"续传协议"章节：AI 启动时发现未完成 REQ → 主动询问，不自动继续
   - 降级处理：无 in-progress REQ 时跳过中断点展示；session-log 无匹配时只展示 git diff
+
+### 2026-04-27
+
+- Phase 5.4 完成 (REQ-2026-050)：autonomous 模式实质化
+  - watchdog: autonomous=静默恢复+日志, supervised=强选策略, collaborative=友好提醒
+  - risk-tracker: autonomous=允许+日志, supervised=强警告, collaborative=stderr 提醒
+  - stop-evaluator: collaborative 改为提醒不阻断；supervised/autonomous 阻断（安全边界）
+  - session-start: autonomous 自动续传+日志
+  - scope-guard 未修改：三种模式都阻断（安全边界不可绕过）

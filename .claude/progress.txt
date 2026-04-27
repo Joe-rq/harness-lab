@@ -3,11 +3,12 @@ Current phase: idle
 Last updated: 2026-04-27
 
 Summary:
-- ✅ Phase 5.3 完成 (REQ-2026-049)：上下文续传
-- session-start.sh 增强：检测未完成 REQ → 展示 session-log + git diff 中断点
-- CLAUDE.md 新增"续传协议"：AI 启动时发现未完成 REQ 应主动询问
+- ✅ Phase 5.4 完成 (REQ-2026-050)：autonomous 模式实质化
+- watchdog: autonomous=静默恢复+日志, supervised=强选策略, collaborative=友好提醒
+- risk-tracker: autonomous=允许+日志, supervised=强警告, collaborative=stderr 提醒
+- stop-evaluator: collaborative 改为提醒不阻断；supervised/autonomous 阻断
+- session-start: autonomous 自动续传+日志
 - ✅ 11 个现有测试全部通过
-- Hook 覆盖率：SessionStart(续传)/PreToolUse(REQ+scope+review)/PostToolUse(loop+risk+watchdog)/Stop/SessionEnd/commit-msg 全部 ✅
 
 Next steps:
 - 更新路线图状态

@@ -95,6 +95,16 @@ function getHarnessMode(rootDir) {
   }
 }
 
+function logAction(rootDir, action) {
+  const logFile = path.join(rootDir, '.claude', '.watchdog-actions.log');
+  const line = `${new Date().toISOString()} | ${action}\n`;
+  try {
+    fs.appendFileSync(logFile, line);
+  } catch {
+    // 日志写入失败不影响主流程
+  }
+}
+
 function updateReqState(state, reqId, currentPhase) {
   if (!state.reqs[reqId]) {
     state.reqs[reqId] = {
@@ -205,15 +215,39 @@ async function runAsHook(rootDir) {
   }
 
   const mode = getHarnessMode(rootDir);
-  const prefix = mode === 'supervised' ? '[Watchdog] ⚠️' : '[Watchdog] 💡';
 
-  console.log(JSON.stringify({
-    decision: 'allow',
-    hookSpecificOutput: {
-      hookEventName: 'PostToolUse',
-      additionalContext: `${prefix} ${warnings.join(' ')}`
-    }
-  }));
+  if (mode === 'autonomous') {
+    // 静默执行恢复策略 + 记录到日志
+    const action = isStagnant
+      ? `停滞恢复：REQ ${reqId} 在 "${req.phase}" 阶段已编辑 ${req.editCount} 次未推进，执行拆分或标记 blocked`
+      : `循环恢复：REQ ${reqId} 状态 ${loopPair} 反复切换，记录根因到 REQ 阻塞说明`;
+    logAction(rootDir, action);
+    console.log(JSON.stringify({
+      decision: 'allow',
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: `[Watchdog] 🔄 ${isStagnant ? `停滞恢复：拆分 REQ ${reqId} 或标记 blocked` : `循环恢复：记录 ${loopPair} 根因到 REQ 阻塞说明`}`
+      }
+    }));
+  } else if (mode === 'supervised') {
+    // 强制选择恢复策略
+    console.log(JSON.stringify({
+      decision: 'allow',
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: `[Watchdog] ⚠️ 必须选择恢复策略：${warnings.join(' ')}`
+      }
+    }));
+  } else {
+    // collaborative：友好提醒
+    console.log(JSON.stringify({
+      decision: 'allow',
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: `[Watchdog] 💡 ${warnings.join(' ')}`
+      }
+    }));
+  }
 }
 
 function runDiagnose(rootDir) {

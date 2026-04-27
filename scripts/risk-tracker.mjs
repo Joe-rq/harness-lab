@@ -100,6 +100,25 @@ function writeRatchet(level) {
   }
 }
 
+function getHarnessMode(rootDir) {
+  const modeFile = path.join(rootDir, '.claude', 'harness-mode');
+  try {
+    return fs.readFileSync(modeFile, 'utf-8').trim() || 'collaborative';
+  } catch {
+    return 'collaborative';
+  }
+}
+
+function logRiskAction(rootDir, level, label, relPath) {
+  const logFile = path.join(rootDir, '.claude', '.risk-actions.log');
+  const line = `${new Date().toISOString()} | R${level} ${label}: ${relPath} | allowed (autonomous mode)\n`;
+  try {
+    fs.appendFileSync(logFile, line);
+  } catch {
+    // 日志写入失败不影响主流程
+  }
+}
+
 async function main() {
   let event;
   try {
@@ -137,13 +156,29 @@ async function main() {
     writeRatchet(level);
   }
 
-  // R3+ reminder
+  // R3+ handling with mode differentiation
   if (level >= 3) {
     const ratchetLevel = Math.max(level, currentMax);
-    const warning = `[RiskTracker] ⚠️ R${level} ${label}: ${relPath}\n` +
-      `当前会话最高风险: R${ratchetLevel}\n` +
-      `提醒: 修改此文件后，请务必运行 \`npm test\` 验证治理系统完整性。`;
-    process.stderr.write(warning + '\n');
+    const mode = getHarnessMode(rootDir);
+
+    if (mode === 'autonomous') {
+      // 允许 + 记录到日志
+      logRiskAction(rootDir, level, label, relPath);
+      const info = `[RiskTracker] ℹ️ R${level} ${label}: ${relPath} (autonomous: 允许，已记录)`;
+      process.stderr.write(info + '\n');
+    } else if (mode === 'supervised') {
+      // 强警告（PostToolUse 无法阻断，5.5 Deploy Guard 补位）
+      const warning = `[RiskTracker] 🚫 R${level} ${label}: ${relPath}\n` +
+        `当前会话最高风险: R${ratchetLevel}\n` +
+        `supervised 模式：R3+ 操作需要人工确认。请运行 \`npm test\` 验证。`;
+      process.stderr.write(warning + '\n');
+    } else {
+      // collaborative：stderr 提醒
+      const warning = `[RiskTracker] ⚠️ R${level} ${label}: ${relPath}\n` +
+        `当前会话最高风险: R${ratchetLevel}\n` +
+        `提醒: 修改此文件后，请务必运行 \`npm test\` 验证治理系统完整性。`;
+      process.stderr.write(warning + '\n');
+    }
   }
 }
 

@@ -164,16 +164,20 @@ async function main() {
   const mode = getHarnessMode(rootDir);
   const uncoveredList = uncovered.map((c, i) => `${i + 1}. ${c}`).join('\n');
 
-  if (mode === 'supervised') {
+  if (mode === 'supervised' || mode === 'autonomous') {
+    // supervised 和 autonomous 模式：阻断（安全边界）
     console.log(JSON.stringify({
       decision: 'block',
       reason: `[StopEvaluator] 以下验收标准可能未覆盖：\n${uncoveredList}\n\n请继续工作覆盖这些标准，或在 REQ 中标记为已完成。`
     }));
   } else {
-    // collaborative 模式：提醒但不阻断
+    // collaborative 模式：提醒不阻断
     console.log(JSON.stringify({
-      decision: 'block',
-      reason: `[StopEvaluator] 提醒：以下验收标准可能未覆盖：\n${uncoveredList}\n\n如果确实已完成，可以再次尝试停止。`
+      decision: 'allow',
+      hookSpecificOutput: {
+        hookEventName: 'Stop',
+        additionalContext: `[StopEvaluator] 💡 提醒：以下验收标准可能未覆盖：\n${uncoveredList}\n\n如果确实已完成，可以继续停止。`
+      }
     }));
   }
 }
