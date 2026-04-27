@@ -89,7 +89,9 @@
       "Bash(echo \"$\\(date -Iseconds\\) | CREATE | REQ-2026-043-complete | update progress.txt and roadmap-status\")",
       "Bash(echo \"$\\(date -Iseconds\\) | CREATE | REQ-2026-044-complete | progress update\")",
       "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | roadmap-status update after REQ-2026-046 complete\")",
-      "Bash(rm -f /Users/qrq/Documents/code/03-development-tools/harness-lab/.claude/.watchdog-state)"
+      "Bash(rm -f /Users/qrq/Documents/code/03-development-tools/harness-lab/.claude/.watchdog-state)",
+      "Bash(sort -t'-' -k2 -n)",
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | roadmap-status update after REQ-2026-048 complete\")"
     ]
   },
   "hooks": {

@@ -3,7 +3,9 @@ Current phase: idle
 Last updated: 2026-04-27
 
 Summary:
-- ✅ Phase 5.1 完成 (REQ-2026-047)：Watchdog 看门狗
+- ✅ Phase 5.2 完成 (REQ-2026-048)：自恢复指令
+- CLAUDE.md 新增"异常响应协议"章节：停滞/循环/R3+ 三种异常的标准响应流程
+- 新增 /resume slash command：读取 progress.txt + watchdog-state → 建议下一步
 - ✅ 11 个现有测试全部通过
 - Hook 覆盖率：SessionStart/PreToolUse(REQ+scope+review)/PostToolUse(loop+risk+watchdog)/Stop/SessionEnd/commit-msg 全部 ✅
 
