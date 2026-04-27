@@ -17,6 +17,8 @@
 | Phase 5.2 | — | — | — | — |
 | Phase 5.3 | — | — | — | — |
 | Phase 5.4 | — | — | — | — |
+| Phase 5.5 | — | — | — | — |
+| Phase 5.6 | — | — | — | — |
 | Phase 6 | — | — | — | — |
 
 
@@ -118,3 +120,17 @@
   - 状态持久化到 .claude/.watchdog-state，支持跨会话续传
   - CLI 诊断模式：`node scripts/watchdog.mjs --diagnose`
   - 与 loop-detection、risk-tracker 共存于 PostToolUse
+
+### 2026-04-27
+
+- Phase 5 路线图修正（5.1 已完成，5.2-5.6 重新规划）
+  - 原因：原 5.2 Context Router 和 5.3 Deploy Guard 是护栏打磨，不解决"AI 卡住了怎么办"
+  - 核心思路：将"自驱动"拆解为"自恢复"（AI 遇错能自救）而非"自启动"（AI 自己取任务开始跑）
+  - 修正后子阶段：
+    - 5.1 看门狗 ✅（不变）
+    - 5.2 自恢复指令（CLAUDE.md 增强 + /resume command）— 替代原 Context Router
+    - 5.3 上下文续传（session-start.sh 增强 + CLAUDE.md 续传协议）— 替代原 Deploy Guard
+    - 5.4 autonomous 模式实质化（hook 行为分化）— 新增
+    - 5.5 部署守卫（保留，自恢复能力越强刹车越重要）— 从原 5.3 顺延
+    - 5.6 不变量清理（去重+频率追踪+自动废弃）— 从原 5.4 升级
+  - 关键决策：hook 只能 inject 不能执行动作，所以 5.2/5.3 的核心是 CLAUDE.md 指令而非新脚本
