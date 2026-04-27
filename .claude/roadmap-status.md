@@ -13,8 +13,13 @@
 | Phase 3B | completed | REQ-2026-043 | 全部通过 | 2026-04-26 |
 | Phase 3C | completed | REQ-2026-044 | 全部通过 | 2026-04-26 |
 | Phase 4 | completed | REQ-2026-046 | 全部通过 | 2026-04-26 |
-| Phase 5 | — | — | — | — |
+| Phase 5.1 | completed | REQ-2026-047 | 全部通过 | 2026-04-27 |
+| Phase 5.2 | — | — | — | — |
+| Phase 5.3 | — | — | — | — |
+| Phase 5.4 | — | — | — | — |
 | Phase 6 | — | — | — | — |
+
+
 
 ---
 
@@ -103,3 +108,13 @@
   - 新增 scripts/auto-review.mjs：自动代码审查（范围合规 + 安全模式 + 基础检查），生成 Code Review 报告
   - 新增 .claude/commands/self-review.md：/self-review slash command
   - Hook 覆盖率新增：PreToolUse Agent matcher（审查隔离）
+
+### 2026-04-27
+
+- Phase 5.1 完成 (REQ-2026-047)：Watchdog 看门狗
+  - 新增 scripts/watchdog.mjs：PostToolUse hook 检测 REQ 停滞和状态循环
+  - 停滞检测：同一 REQ 编辑超过阈值(10)次无阶段推进 → 注入提醒
+  - 循环检测：同一 REQ 状态反复切换(阈值3次) → 注入提醒
+  - 状态持久化到 .claude/.watchdog-state，支持跨会话续传
+  - CLI 诊断模式：`node scripts/watchdog.mjs --diagnose`
+  - 与 loop-detection、risk-tracker 共存于 PostToolUse

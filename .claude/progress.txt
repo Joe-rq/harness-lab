@@ -1,12 +1,11 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-04-26
+Last updated: 2026-04-27
 
 Summary:
-- ✅ Phase 4A 完成 (REQ-2026-045)：review-gatekeeper 审查 Agent 隔离
-- ✅ Phase 4B+4C 完成 (REQ-2026-046)：auto-qa + auto-review + /self-review
+- ✅ Phase 5.1 完成 (REQ-2026-047)：Watchdog 看门狗
 - ✅ 11 个现有测试全部通过
-- Hook 覆盖率：SessionStart/PreToolUse(REQ+scope+review)/PostToolUse(loop+risk)/Stop/SessionEnd/commit-msg 全部 ✅
+- Hook 覆盖率：SessionStart/PreToolUse(REQ+scope+review)/PostToolUse(loop+risk+watchdog)/Stop/SessionEnd/commit-msg 全部 ✅
 
 Next steps:
 - 更新路线图状态

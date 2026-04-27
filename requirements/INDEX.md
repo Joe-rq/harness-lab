@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-047-phase-51-watchdog.md`（真实整改：Phase 5.1 Watchdog（看门狗））
 - `REQ-2026-046-phase-4b4c-auto-review.md`（真实整改：Phase 4B+4C — Auto QA & Auto Review）
 - `REQ-2026-045-phase-4a-review-gatekeeper.md`（真实整改：Phase 4A — Review Agent Isolation）
 - `REQ-2026-044-phase-3c-risk-tracker.md`（真实整改：Phase 3C 风险追踪）
