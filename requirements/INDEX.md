@@ -23,6 +23,8 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-052-phase-5-6.md`（真实整改：Phase 5.6 不变量清理）
+- `REQ-2026-051-phase-5-5.md`（真实整改：Phase 5.5 部署守卫）
 - `REQ-2026-050-phase-5-4-autonomous.md`（真实整改：Phase 5.4 autonomous 模式实质化）
 - `REQ-2026-049-phase-5-3.md`（真实整改：Phase 5.3 上下文续传）
 - `REQ-2026-048-phase-5-2.md`（真实整改：Phase 5.2 自恢复指令）

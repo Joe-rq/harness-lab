@@ -17,8 +17,8 @@
 | Phase 5.2 | completed | REQ-2026-048 | 全部通过 | 2026-04-27 |
 | Phase 5.3 | completed | REQ-2026-049 | 全部通过 | 2026-04-27 |
 | Phase 5.4 | completed | REQ-2026-050 | 全部通过 | 2026-04-27 |
-| Phase 5.5 | — | — | — | — |
-| Phase 5.6 | — | — | — | — |
+| Phase 5.5 | completed | REQ-2026-051 | 全部通过 | 2026-04-28 |
+| Phase 5.6 | completed | REQ-2026-052 | 全部通过 | 2026-04-28 |
 | Phase 6 | — | — | — | — |
 
 
@@ -157,3 +157,21 @@
   - stop-evaluator: collaborative 改为提醒不阻断；supervised/autonomous 阻断（安全边界）
   - session-start: autonomous 自动续传+日志
   - scope-guard 未修改：三种模式都阻断（安全边界不可绕过）
+
+### 2026-04-28
+
+- Phase 5.5 完成 (REQ-2026-051)：部署守卫
+  - 新增 scripts/deploy-guard.mjs：PreToolUse Bash hook，17 种危险命令模式
+  - collaborative=提醒（allow+additionalContext），supervised=阻断，autonomous=阻断
+  - 覆盖：rm -rf/r、force push、git reset --hard、git clean -f、git checkout .、drop/truncate table、delete from、fork bomb、磁盘写入、远程脚本执行、chmod 777、npm publish、docker rm -f/rmi -f
+  - rm -f 单文件删除安全放行
+  - 阻断日志持久化到 .claude/.deploy-guard.log
+  - 补位 risk-tracker 在 supervised 模式下无法真正阻断 R3+ 操作的缺陷
+
+### 2026-04-28
+
+- Phase 5.6 完成 (REQ-2026-052)：不变量清理
+  - invariant-extractor.mjs：去重（标题+触发路径组合 → 保留 ID 最小）+ 频率追踪（--check 写 .inv-usage.json）+ 自动废弃（90 天未触发的 draft → deprecated）+ 高频升级（触发 ≥10 次 → medium→high）
+  - invariant-gate.mjs：新增 --deprecate-stale 和 --upgrade-frequent 独立命令
+  - --scan --dedup 清理：359 → 38 个不变量（删除 330 条重复 + 跳过 17 条 + 提取 9 条新候选）
+  - Phase 5 全部完成

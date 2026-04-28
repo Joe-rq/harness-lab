@@ -1,18 +1,18 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-04-27
+Last updated: 2026-04-28
 
 Summary:
-- ✅ Phase 5.4 完成 (REQ-2026-050)：autonomous 模式实质化
-- watchdog: autonomous=静默恢复+日志, supervised=强选策略, collaborative=友好提醒
-- risk-tracker: autonomous=允许+日志, supervised=强警告, collaborative=stderr 提醒
-- stop-evaluator: collaborative 改为提醒不阻断；supervised/autonomous 阻断
-- session-start: autonomous 自动续传+日志
-- ✅ 11 个现有测试全部通过
+- ✅ Phase 5.5 完成 (REQ-2026-051)：部署守卫
+- ✅ Phase 5.6 完成 (REQ-2026-052)：不变量清理
+- invariant-extractor.mjs：去重(dedup)+频率追踪(inv-usage.json)+自动废弃(90天)+高频升级
+- invariant-gate.mjs：新增 --deprecate-stale 和 --upgrade-frequent 命令
+- 不变量从 359 个收缩到 38 个（3 active / 34 draft / 1 deprecated）
+- ✅ 11 个治理测试全部通过
 
 Next steps:
 - 更新路线图状态
-- 提交并推送
+- 提交
 
 Open questions:
 - 无

@@ -2,18 +2,24 @@
 // invariant-gate.mjs — 不变量质量门禁
 // 检查不变量是否满足结构化字段要求
 // 用法：
-//   node scripts/invariant-gate.mjs --scan          # 扫描所有不变量，报告质量不达标条目
-//   node scripts/invariant-gate.mjs --mark-draft     # 将缺失字段的不变量标记为 draft
+//   node scripts/invariant-gate.mjs --scan              # 扫描所有不变量，报告质量不达标条目
+//   node scripts/invariant-gate.mjs --mark-draft         # 将缺失字段的不变量标记为 draft
+//   node scripts/invariant-gate.mjs --deprecate-stale    # 将 90 天未触发的 draft 标记为 deprecated
+//   node scripts/invariant-gate.mjs --upgrade-frequent   # 将高频触发的 INV 升级 severity
 
-import { readFileSync, writeFileSync, existsSync, readdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 
 const ROOT = process.cwd();
 const INVARIANTS_DIR = join(ROOT, "context", "invariants");
+const USAGE_FILE = join(ROOT, ".claude", ".inv-usage.json");
 
 const REQUIRED_FIELDS = ["status", "severity"];
 const VALID_STATUSES = ["draft", "active", "deprecated"];
 const VALID_SEVERITIES = ["low", "medium", "high", "critical"];
+
+const DEPRECATION_THRESHOLD_DAYS = 90;
+const HIGH_FREQ_THRESHOLD = 10;
 
 function log(msg) {
   process.stderr.write(msg + "\n");
@@ -47,6 +53,16 @@ function loadInvariants() {
       return { file: f, path: filePath, fm, content };
     });
 }
+
+function readUsage() {
+  try {
+    return JSON.parse(readFileSync(USAGE_FILE, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+// ── 质量扫描 ──────────────────────────────────────────────
 
 function scanInvariants() {
   const invariants = loadInvariants();
@@ -90,9 +106,8 @@ function markDraft() {
   let count = 0;
 
   for (const inv of invariants) {
-    if (inv.fm.status) continue; // 已有 status，跳过
+    if (inv.fm.status) continue;
 
-    // 在 confidence 行前插入 status: draft
     const updated = inv.content.replace(
       /^(confidence:)/m,
       "status: draft\n$1"
@@ -104,6 +119,71 @@ function markDraft() {
 
   log(`📋 标记完成: ${count} 条不变量设为 draft`);
 }
+
+// ── 自动废弃 ──────────────────────────────────────────────
+
+function deprecateStale() {
+  const usage = readUsage();
+  const invariants = loadInvariants().filter(inv => inv.fm.status === "draft");
+  const now = Date.now();
+  const threshold = DEPRECATION_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
+  let count = 0;
+
+  for (const inv of invariants) {
+    const invId = inv.fm.id;
+    const lastTriggered = usage[invId]?.lastTriggered;
+
+    let lastActivity;
+    if (lastTriggered) {
+      lastActivity = new Date(lastTriggered).getTime();
+    } else {
+      try {
+        lastActivity = statSync(inv.path).mtimeMs;
+      } catch {
+        lastActivity = now;
+      }
+    }
+
+    if (now - lastActivity > threshold) {
+      const updated = inv.content.replace(/^status:\s*\w+/m, "status: deprecated");
+      if (updated !== inv.content) {
+        writeFileSync(inv.path, updated, "utf-8");
+        log(`  🏷️ ${invId || inv.file} → deprecated (超过 ${DEPRECATION_THRESHOLD_DAYS} 天未触发)`);
+        count++;
+      }
+    }
+  }
+
+  log(`📋 自动废弃完成: ${count} 条`);
+  return count;
+}
+
+// ── 高频升级 ──────────────────────────────────────────────
+
+function upgradeFrequent() {
+  const usage = readUsage();
+  const invariants = loadInvariants().filter(inv => inv.fm.status !== "deprecated");
+  let count = 0;
+
+  for (const inv of invariants) {
+    const invId = inv.fm.id;
+    const triggerCount = usage[invId]?.count || 0;
+
+    if (triggerCount >= HIGH_FREQ_THRESHOLD && inv.fm.severity === "medium") {
+      const updated = inv.content.replace(/^severity:\s*medium/m, "severity: high");
+      if (updated !== inv.content) {
+        writeFileSync(inv.path, updated, "utf-8");
+        log(`  ⬆️ ${invId || inv.file} → severity: high (${triggerCount} 次触发)`);
+        count++;
+      }
+    }
+  }
+
+  log(`📋 高频升级完成: ${count} 条`);
+  return count;
+}
+
+// ── CLI 入口 ──────────────────────────────────────────────
 
 const args = process.argv.slice(2);
 
@@ -122,7 +202,6 @@ if (args.includes("--scan")) {
     }
   }
 
-  // 输出汇总
   const invariants = loadInvariants();
   const byStatus = { active: 0, draft: 0, deprecated: 0, none: 0 };
   for (const inv of invariants) {
@@ -134,9 +213,17 @@ if (args.includes("--scan")) {
 } else if (args.includes("--mark-draft")) {
   log("🏷️ 将缺失 status 的不变量标记为 draft...");
   markDraft();
+} else if (args.includes("--deprecate-stale")) {
+  log(`🏷️ 将超过 ${DEPRECATION_THRESHOLD_DAYS} 天未触发的 draft 标记为 deprecated...`);
+  deprecateStale();
+} else if (args.includes("--upgrade-frequent")) {
+  log("⬆️ 将高频触发的 INV 升级 severity...");
+  upgradeFrequent();
 } else {
   log("用法:");
-  log("  node scripts/invariant-gate.mjs --scan         # 扫描质量");
-  log("  node scripts/invariant-gate.mjs --mark-draft   # 标记缺失字段为 draft");
+  log("  node scripts/invariant-gate.mjs --scan              # 扫描质量");
+  log("  node scripts/invariant-gate.mjs --mark-draft         # 标记缺失字段为 draft");
+  log("  node scripts/invariant-gate.mjs --deprecate-stale    # 自动废弃 90 天未触发的 draft");
+  log("  node scripts/invariant-gate.mjs --upgrade-frequent   # 高频 INV 升级 severity");
   process.exit(1);
 }
