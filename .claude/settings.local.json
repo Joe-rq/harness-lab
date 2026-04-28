@@ -91,7 +91,8 @@
       "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | roadmap-status update after REQ-2026-046 complete\")",
       "Bash(rm -f /Users/qrq/Documents/code/03-development-tools/harness-lab/.claude/.watchdog-state)",
       "Bash(sort -t'-' -k2 -n)",
-      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | roadmap-status update after REQ-2026-048 complete\")"
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | roadmap-status update after REQ-2026-048 complete\")",
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | Phase 5 集成验证完成，更新 progress 和 roadmap-status\")"
     ]
   },
   "hooks": {
@@ -162,6 +163,18 @@
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/scripts/watchdog.mjs\"",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/precompact-notify.mjs\"",
+            "timeout": 10
           }
         ]
       }

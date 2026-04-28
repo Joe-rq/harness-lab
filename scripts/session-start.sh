@@ -118,6 +118,21 @@ if [ -d "$INV_DIR" ]; then
   echo "🛡️ 不变量: ${INV_TOTAL} 条 (active: ${INV_ACTIVE} / draft: ${INV_DRAFT} / deprecated: ${INV_DEPRECATED})"
 fi
 
+# Hook 覆盖率检查
+SETTINGS_FILE="$ROOT_DIR/.claude/settings.local.json"
+if [ -f "$SETTINGS_FILE" ]; then
+  HOOK_COVERAGE=""
+  for hook in SessionStart PreToolUse PostToolUse PreCompact Stop SessionEnd; do
+    if grep -q "\"$hook\"" "$SETTINGS_FILE" 2>/dev/null; then
+      HOOK_COVERAGE="${HOOK_COVERAGE}✅${hook} "
+    else
+      HOOK_COVERAGE="${HOOK_COVERAGE}❌${hook} "
+    fi
+  done
+  echo ""
+  echo "🪝 Hook 覆盖: ${HOOK_COVERAGE}"
+fi
+
 # 检测未完成 REQ 并展示中断点
 ACTIVE_REQ=""
 if [ -f "$PROGRESS_FILE" ]; then

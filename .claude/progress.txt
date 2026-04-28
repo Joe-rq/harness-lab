@@ -3,19 +3,21 @@ Current phase: idle
 Last updated: 2026-04-28
 
 Summary:
-- ✅ Phase 5.5 完成 (REQ-2026-051)：部署守卫
-- ✅ Phase 5.6 完成 (REQ-2026-052)：不变量清理
-- invariant-extractor.mjs：去重(dedup)+频率追踪(inv-usage.json)+自动废弃(90天)+高频升级
-- invariant-gate.mjs：新增 --deprecate-stale 和 --upgrade-frequent 命令
-- 不变量从 359 个收缩到 38 个（3 active / 34 draft / 1 deprecated）
+- ✅ Phase 5 集成验证完成 (REQ-2026-053)：PreCompact hook + autonomous 端到端
+- 新增 scripts/precompact-notify.mjs：PreCompact hook 保存快照 + systemMessage 提醒
+- 新增 CLAUDE.md 压缩恢复协议
+- session-start.sh 新增 Hook 覆盖率显示（6/6 ✅）
+- autonomous 模式行为验证通过：deploy-guard 拦截 + 自恢复
+- Phase 5 全部退出标准已验证
 - ✅ 11 个治理测试全部通过
 
 Next steps:
+- 定义 Phase 6 内容
 - 更新路线图状态
 - 提交
 
 Open questions:
-- 无
+- Phase 6 定义：原始"跨项目共享"方案太虚，需根据实战经验重新定义
 
 Blockers:
 - None.

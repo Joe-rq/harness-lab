@@ -19,6 +19,7 @@
 | Phase 5.4 | completed | REQ-2026-050 | 全部通过 | 2026-04-27 |
 | Phase 5.5 | completed | REQ-2026-051 | 全部通过 | 2026-04-28 |
 | Phase 5.6 | completed | REQ-2026-052 | 全部通过 | 2026-04-28 |
+| Phase 5 集成验证 | completed | REQ-2026-053 | 全部通过 | 2026-04-28 |
 | Phase 6 | — | — | — | — |
 
 
@@ -175,3 +176,12 @@
   - invariant-gate.mjs：新增 --deprecate-stale 和 --upgrade-frequent 独立命令
   - --scan --dedup 清理：359 → 38 个不变量（删除 330 条重复 + 跳过 17 条 + 提取 9 条新候选）
   - Phase 5 全部完成
+
+### 2026-04-28
+
+- Phase 5 集成验证完成 (REQ-2026-053)：PreCompact hook + autonomous 端到端
+  - 新增 scripts/precompact-notify.mjs：PreCompact hook，压缩前保存快照 + systemMessage 提醒
+  - 新增 CLAUDE.md 压缩恢复协议：压缩后必须读取 .compact-snapshot.md 恢复上下文
+  - session-start.sh 新增 Hook 覆盖率检查（6/6 ✅）
+  - autonomous 模式行为验证：deploy-guard 正确拦截危险命令 + 自恢复
+  - Phase 5 全部退出标准已验证，包括"autonomous 模式下完成 REQ + 遇异常自恢复"

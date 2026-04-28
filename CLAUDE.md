@@ -235,3 +235,16 @@ rm .claude/.req-exempt
 - 不得跳过确认自动继续（autonomous 模式除外，见路线图 5.4）
 - 不得忽略未完成 REQ 直接开始新任务
 - 不得在未读取 REQ 文件的情况下凭记忆继续
+
+## 📦 压缩恢复协议
+
+当收到 PreCompact hook 的压缩提醒时（`📋 上下文压缩`），**必须**按以下协议响应：
+
+1. 压缩前：确认 `.claude/.compact-snapshot.md` 已生成（PreCompact hook 自动写入）
+2. 压缩后：立即读取 `.claude/.compact-snapshot.md` 恢复 REQ 上下文
+3. 恢复后：继续从快照中记录的阶段推进，不重新开始
+
+### 禁止
+
+- 不得忽略压缩提醒直接继续
+- 不得在压缩后假设上下文完整，必须读取快照文件
