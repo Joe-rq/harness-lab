@@ -92,7 +92,14 @@
       "Bash(rm -f /Users/qrq/Documents/code/03-development-tools/harness-lab/.claude/.watchdog-state)",
       "Bash(sort -t'-' -k2 -n)",
       "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | roadmap-status update after REQ-2026-048 complete\")",
-      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | Phase 5 集成验证完成，更新 progress 和 roadmap-status\")"
+      "Bash(echo \"$\\(date -Iseconds\\) | CREATE | manual | Phase 5 集成验证完成，更新 progress 和 roadmap-status\")",
+      "Bash(sed -i '' 's|  - `requirements/`|  - `requirements/**`|' requirements/in-progress/REQ-2026-054-phase-6a-req-status-json-external-mappings.md)",
+      "Bash(sed -i '' 's|  - `context/invariants/`|  - `context/invariants/**`|' requirements/in-progress/REQ-2026-054-phase-6a-req-status-json-external-mappings.md)",
+      "Bash(sed -i '' 's|  - `scripts/`|  - `scripts/**`|' requirements/in-progress/REQ-2026-054-phase-6a-req-status-json-external-mappings.md)",
+      "Bash(sed -i '' 's|  - `tests/`|  - `tests/**`|' requirements/in-progress/REQ-2026-054-phase-6a-req-status-json-external-mappings.md)",
+      "Bash(echo \"$\\(date -u +%Y-%m-%dT%H:%M:%SZ\\) | CREATE | manual | post-completion fixes for REQ-2026-054\")",
+      "Bash(rm -f .claude/.req-exempt)",
+      "Bash(echo \"$\\(date -u +%Y-%m-%dT%H:%M:%SZ\\) | DELETE | manual | post-completion fixes done\")"
     ]
   },
   "hooks": {

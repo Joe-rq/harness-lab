@@ -23,6 +23,8 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-055-phase-6a-req-status-by-id.md`（真实整改：Phase 6a: req:status --id 按 REQ ID 查询状态）
+- `REQ-2026-054-phase-6a-req-status-json-external-mappings.md`（真实整改：Phase 6a: req status --json + external mappings）
 - `REQ-2026-053-phase-5-precompact-hook-autonomous.md`（真实整改：Phase 5 集成验证 — PreCompact hook + autonomous 端到端）
 - `REQ-2026-052-phase-5-6.md`（真实整改：Phase 5.6 不变量清理）
 - `REQ-2026-051-phase-5-5.md`（真实整改：Phase 5.5 部署守卫）

@@ -15,7 +15,7 @@ const expectedGovernanceScript =
   'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.check-governance-status && node scripts/check-governance.mjs --status-file .claude/.check-governance-status';
 const expectedReqCompleteScript =
   'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.req-complete-status && node scripts/req-cli.mjs complete --status-file .claude/.req-complete-status';
-const expectedTestScript = 'node tests/governance.test.mjs';
+const expectedTestScriptPrefix = 'node tests/governance.test.mjs';
 const expectedLintScript = 'node scripts/template-guard.mjs lint';
 const expectedBuildScript = 'node scripts/template-guard.mjs build';
 const expectedVerifyScript = 'node scripts/template-guard.mjs verify';
@@ -139,8 +139,8 @@ requireText('skills/README.md', [
 requireText('.claude/settings.local.json', ['node scripts/check-governance.mjs']);
 
 const packageJson = JSON.parse(read('package.json'));
-if (packageJson.scripts?.test !== expectedTestScript) {
-  errors.push(`package.json must expose "test": "${expectedTestScript}"`);
+if (!packageJson.scripts?.test?.startsWith(expectedTestScriptPrefix)) {
+  errors.push(`package.json "test" script must start with "${expectedTestScriptPrefix}"`);
 }
 if (packageJson.scripts?.lint !== expectedLintScript) {
   errors.push(`package.json must expose "lint": "${expectedLintScript}"`);

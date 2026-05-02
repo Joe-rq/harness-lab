@@ -169,6 +169,15 @@ npm run req:start -- --id REQ-YYYY-NNN
 # 阻塞（可选）
 npm run req:block -- --id REQ-YYYY-NNN --reason "等待依赖"
 
+# 查看当前 REQ 状态（人类可读）
+npm run req:status
+
+# 查看当前 REQ 状态（JSON，供外部编排器消费）
+npm run req:status -- --json
+
+# 按 REQ ID 查询任意 REQ 状态（含 completed / blocked）
+npm run req:status -- --json --id REQ-YYYY-NNN
+
 # 创建经验文档（完成前必须）
 npm run req:experience -- --id REQ-YYYY-NNN
 

@@ -812,6 +812,213 @@ function buildRefactorReqContent(reqId, title, slug) {
   ].join('\n');
 }
 
+/**
+ * Read and parse requirements/external-mappings.json
+ * Returns { mappings: array | null, warnings: string[] }
+ */
+function readExternalMappings() {
+  const mappingPath = toFullPath('requirements/external-mappings.json');
+  const warnings = [];
+
+  if (!existsSync(mappingPath)) {
+    return { mappings: null, warnings };
+  }
+
+  try {
+    const raw = readFileSync(mappingPath, 'utf8');
+    const data = JSON.parse(raw);
+
+    if (!data || typeof data !== 'object' || !Array.isArray(data.mappings)) {
+      warnings.push('external-mappings.json: invalid format, expected { "version": 1, "mappings": [...] }');
+      return { mappings: null, warnings };
+    }
+
+    // Validate unique constraints
+    const reqIdSet = new Set();
+    const externalKeySet = new Set();
+    for (const mapping of data.mappings) {
+      if (mapping.req_id) {
+        if (reqIdSet.has(mapping.req_id)) {
+          warnings.push(`external-mappings.json: duplicate req_id "${mapping.req_id}"`);
+        }
+        reqIdSet.add(mapping.req_id);
+      }
+      if (mapping.external_source && mapping.external_id) {
+        const key = `${mapping.external_source}:${mapping.external_id}`;
+        if (externalKeySet.has(key)) {
+          warnings.push(`external-mappings.json: duplicate external key "${key}"`);
+        }
+        externalKeySet.add(key);
+      }
+    }
+
+    return { mappings: data.mappings, warnings };
+  } catch {
+    warnings.push('external-mappings.json: file exists but is not valid JSON');
+    return { mappings: null, warnings };
+  }
+}
+
+/**
+ * Find external mapping for a specific REQ ID
+ */
+function findExternalMapping(mappings, reqId) {
+  if (!mappings) return null;
+  return mappings.find((m) => m.req_id === reqId) || null;
+}
+
+function buildReqStatusObject(req) {
+  const content = req.content;
+
+  const blockSection = content.match(/## 阻塞 \/ 搁置说明（可选）\n+([\s\S]*?)(?=\n## |$)/);
+  const blockReason = blockSection
+    ? (blockSection[1].match(/^- 原因：(.+)$/m)?.[1]?.trim() || '无')
+    : '无';
+
+  const criteriaSection = content.match(/## 验收标准\n+([\s\S]*?)(?=\n## |$)/);
+  const criteria = criteriaSection
+    ? parseBulletLines(criteriaSection[1])
+    : [];
+
+  const createdAtMatch = content.match(/^## 关键决策\n+- (\d{4}-\d{2}-\d{2})/m);
+  const createdAt = createdAtMatch ? createdAtMatch[1] : null;
+
+  const priorityMatch = content.match(/^- 优先级：(.+)$/m);
+  const priority = priorityMatch ? priorityMatch[1].trim() : null;
+
+  let readiness = 'unknown';
+  if (req.status === 'in-progress') {
+    readiness = 'in_progress';
+  } else if (req.status === 'blocked') {
+    readiness = 'blocked';
+  } else if (req.status === 'draft') {
+    const validation = validateReqDocument(req.content, { allowDraftStatus: true });
+    readiness = validation.issues.length > 0 ? 'not_ready' : 'ready_to_start';
+  } else if (req.status === 'completed') {
+    readiness = 'completed';
+  }
+
+  const missingReports = [];
+  const reportTypes = ['code-review', 'qa'];
+  for (const reportType of reportTypes) {
+    const reportPath = `requirements/reports/${req.reqId}-${reportType}.md`;
+    if (!existsSync(toFullPath(reportPath))) {
+      missingReports.push(reportType);
+    }
+  }
+
+  return {
+    req_id: req.reqId,
+    title: req.title,
+    status: req.status,
+    phase: req.phase,
+    readiness,
+    priority,
+    created_at: createdAt,
+    updated_at: null,
+    file: req.relPath,
+    block_reason: blockReason !== '无' ? blockReason : null,
+    missing_reports: missingReports.length > 0 ? missingReports : [],
+    verification_criteria: criteria.length > 0 ? criteria : [],
+  };
+}
+
+export function statusCommand(options) {
+  const jsonMode = options.json === true;
+  const targetId = options.id || null;
+
+  // --id mode: query specific REQ regardless of active status
+  if (targetId) {
+    const relPath = getReqPathById(targetId);
+    if (!relPath) {
+      if (jsonMode) {
+        console.log(JSON.stringify({ req: null, error: 'not_found' }, null, 2));
+      } else {
+        console.log(`REQ not found: ${targetId}`);
+      }
+      return;
+    }
+
+    const req = readReq(targetId);
+
+    if (!jsonMode) {
+      console.log(`REQ: ${req.reqId}`);
+      console.log(`  Title: ${req.title}`);
+      console.log(`  Status: ${req.status}`);
+      console.log(`  Phase: ${req.phase}`);
+      console.log(`  File: ${req.relPath}`);
+      return;
+    }
+
+    const { mappings, warnings } = readExternalMappings();
+    const external = findExternalMapping(mappings, targetId);
+    const reqStatus = buildReqStatusObject(req);
+
+    const result = {
+      req: reqStatus,
+      external,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  // Default mode: show current active REQ
+  const index = read('requirements/INDEX.md');
+  const activeLines = parseBulletLines(getSection(index, '## 当前活跃 REQ')).filter((line) => line !== '- 无');
+
+  if (!jsonMode) {
+    if (activeLines.length === 0) {
+      console.log('No active REQ.');
+    } else {
+      const reqId = extractReqId(activeLines[0]);
+      if (reqId) {
+        const req = readReq(reqId);
+        console.log(`Active REQ: ${req.reqId}`);
+        console.log(`  Title: ${req.title}`);
+        console.log(`  Status: ${req.status}`);
+        console.log(`  Phase: ${req.phase}`);
+        console.log(`  File: ${req.relPath}`);
+      } else {
+        console.log(activeLines[0]);
+      }
+    }
+    return;
+  }
+
+  const { mappings, warnings } = readExternalMappings();
+
+  if (activeLines.length === 0) {
+    const result = { active_req: null, external: null, warnings: warnings.length > 0 ? warnings : undefined };
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  const reqId = extractReqId(activeLines[0]);
+  if (!reqId) {
+    const result = {
+      active_req: null,
+      external: null,
+      error: 'Could not extract REQ ID from index',
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  const req = readReq(reqId);
+  const external = findExternalMapping(mappings, reqId);
+  const reqStatus = buildReqStatusObject(req);
+
+  const result = {
+    active_req: reqStatus,
+    external,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
+
+  console.log(JSON.stringify(result, null, 2));
+}
+
 function buildDesignContent(reqId, title) {
   return [
     `# ${reqId} Design`,
@@ -1185,6 +1392,7 @@ export function printHelp() {
   console.log('  start --id REQ-2026-002 [--phase implementation]');
   console.log('  block --id REQ-2026-002 --reason "..." --condition "..." --next "..." [--phase implementation]');
   console.log('  complete --id REQ-2026-002 [--phase qa] [--status-file .claude/.req-complete-status] [--no-docs-gate] [--skip-experience "reason"]');
+  console.log('  status [--json] [--id REQ-ID]');
   console.log('  experience --id REQ-2026-002');
 }
 
@@ -1208,6 +1416,9 @@ if (isMainModule) {
       break;
     case 'block':
       blockCommand(options);
+      break;
+    case 'status':
+      statusCommand(options);
       break;
     case 'complete':
       completeCommand(options);
