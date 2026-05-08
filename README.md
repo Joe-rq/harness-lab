@@ -48,6 +48,13 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 # PreToolUse 为硬阻断：无活跃 REQ 时禁止 Write/Edit
 ```
 
+如果通过包分发方式安装，`package.json` 已暴露 `harness-install` bin，可使用：
+
+```bash
+npx harness-install --defaults
+npx harness-install --defaults --with-hook
+```
+
 **平台支持**：
 - 支持 Windows、macOS、Linux
 - Windows 环境使用 Node.js 跨平台脚本（无需 bash）
@@ -220,6 +227,7 @@ npm run req:align -- --id REQ-YYYY-NNN
 这些命令会结合当前 git 改动做 `diff-aware` 文档同步检查，用来约束入口文档、治理脚本和交付物说明保持一致。
 GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`npm run docs:verify` 和 `npm run check:governance`，把仓库级治理检查变成默认门禁。
 对于目标项目，`harness-install` 现在会尝试自动绑定已有真实 `lint / test / build`，并在缺失时写入 placeholder guard，避免接入后只剩 README 提示。
+`npm test` 还覆盖 `/harness-setup` command、`source-command-harness-setup` skill 和 `harness-install` package bin 的契约同步，防止一键接入说明与真实分发入口漂移。
 
 ### 模板仓库 vs 目标项目
 
@@ -302,7 +310,7 @@ GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`n
 提交前：
 - 说明要解决的模板问题或使用痛点
 - 优先修改索引、模板、skills，而非引入业务特化假设
-- 影响接入方式时同步更新 `README.md`、`AGENTS.md`、`CLAUDE.md`
+- 影响接入方式时同步更新 `README.md`、`AGENTS.md`、`CLAUDE.md`、`.claude/commands/harness-setup.md` 和 `.agents/skills/source-command-harness-setup/SKILL.md`
 - 新增脚本或命令后运行 `npm run docs:verify`
 
 详见 [CONTRIBUTING.md](./CONTRIBUTING.md)。

@@ -435,6 +435,53 @@ async function testPackageBindingFallsBackToPlaceholderGuards() {
   }
 }
 
+function testHarnessSetupCommandSkillAndBinStayAligned() {
+  const commandPath = path.join(repoRoot, '.claude', 'commands', 'harness-setup.md');
+  const skillPath = path.join(repoRoot, '.agents', 'skills', 'source-command-harness-setup', 'SKILL.md');
+  const packageJsonPath = path.join(repoRoot, 'package.json');
+
+  assert.ok(existsSync(commandPath), 'harness-setup command should exist');
+  assert.ok(existsSync(skillPath), 'source-command-harness-setup skill should exist');
+
+  const command = readFileSync(commandPath, 'utf8');
+  const skill = readFileSync(skillPath, 'utf8');
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+
+  const requiredPhrases = [
+    '默认跳过已有文件',
+    '.claude/progress.txt',
+    '.claude/settings.local.json',
+    'scripts/session-start.js',
+    'scripts/req-check.js',
+    'node /path/to/harness-lab/scripts/harness-install.mjs --defaults',
+    'npx harness-install --defaults',
+    'req:create` 只会生成骨架',
+    '自动绑定只会复用标准脚本名',
+  ];
+
+  for (const phrase of requiredPhrases) {
+    assert.ok(command.includes(phrase), `command should include: ${phrase}`);
+    assert.ok(skill.includes(phrase), `skill should include: ${phrase}`);
+  }
+
+  const forbiddenPhrases = [
+    '.Codex',
+    '环境变量 `HARNESS_LAB_SOURCE`',
+    '当前项目的 `node_modules/harness-lab/`',
+    '覆盖已有文件',
+    '取消安装',
+    '`AGENTS.md` - 会话入口协议',
+  ];
+
+  for (const phrase of forbiddenPhrases) {
+    assert.ok(!command.includes(phrase), `command should not include stale phrase: ${phrase}`);
+    assert.ok(!skill.includes(phrase), `skill should not include stale phrase: ${phrase}`);
+  }
+
+  assert.equal(packageJson.bin?.['harness-install'], 'scripts/harness-install.mjs');
+  assert.ok(existsSync(path.join(repoRoot, packageJson.bin['harness-install'])));
+}
+
 async function testDesignDocExemptionMechanism() {
   // Test checkbox format exemption
   const reqWithCheckboxExemption = `# REQ-2026-999: Example
@@ -768,6 +815,7 @@ const tests = [
   ['req validation detects template placeholders and draft status', testReqValidationDetectsTemplateAndDraftIssues],
   ['harness-install copies governance files and writes hook config', testHarnessInstallArtifacts],
   ['package binding falls back to placeholder guards when commands are missing', testPackageBindingFallsBackToPlaceholderGuards],
+  ['harness-setup command, skill, and bin stay aligned', testHarnessSetupCommandSkillAndBinStayAligned],
   ['design doc exemption mechanism works with checkbox and legacy formats', testDesignDocExemptionMechanism],
   ['setReqStatusAndPhase only replaces within status section', testSetReqStatusAndPhaseBoundary],
   ['req:block command works correctly', testReqBlockCommand],

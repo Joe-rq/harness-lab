@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-056-feat-harness-setup-skill.md`（真实整改：feat: 完善 harness-setup skill 与一键迁移分发契约）
 - `REQ-2026-055-phase-6a-req-status-by-id.md`（真实整改：Phase 6a: req:status --id 按 REQ ID 查询状态）
 - `REQ-2026-054-phase-6a-req-status-json-external-mappings.md`（真实整改：Phase 6a: req status --json + external mappings）
 - `REQ-2026-053-phase-5-precompact-hook-autonomous.md`（真实整改：Phase 5 集成验证 — PreCompact hook + autonomous 端到端）

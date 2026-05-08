@@ -2,6 +2,9 @@
   "name": "harness-lab",
   "version": "1.1.0",
   "description": "AI 项目的研发治理层模板",
+  "bin": {
+    "harness-install": "scripts/harness-install.mjs"
+  },
   "scripts": {
     "docs:impact": "git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-status --impact-only",
     "docs:impact:json": "git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-json-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-json-status --impact-only --format json",

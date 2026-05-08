@@ -1,7 +1,13 @@
 ---
-name: harness-setup
-description: 一键将 harness-lab 治理框架接入到当前项目。支持模块选择、冲突检测、PreToolUse hook 配置和 CLI 安装回退。适用于已有项目快速接入治理框架。
+name: "source-command-harness-setup"
+description: "一键将 harness-lab 治理框架接入到当前项目。支持模块选择、冲突检测、PreToolUse hook 配置和 CLI 安装回退。适用于已有项目快速接入治理框架。"
 ---
+
+# source-command-harness-setup
+
+Use this skill when the user asks to run the migrated source command `harness-setup`.
+
+## Command Template
 
 # /harness-setup
 
