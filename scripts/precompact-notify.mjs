@@ -14,6 +14,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getProgressPath, extractActiveReq } from './worktree-utils.mjs';
 
 function getGitRoot() {
   try {
@@ -33,7 +34,7 @@ function getHarnessMode(rootDir) {
 }
 
 function readProgress(rootDir) {
-  const file = path.join(rootDir, '.claude', 'progress.txt');
+  const file = getProgressPath(rootDir);
   try {
     return fs.readFileSync(file, 'utf-8').trim();
   } catch {
@@ -43,10 +44,7 @@ function readProgress(rootDir) {
 
 function readActiveReq(rootDir) {
   const progress = readProgress(rootDir);
-  if (!progress) return null;
-  const match = progress.match(/Current active REQ:\s*(\S+)/);
-  if (!match || match[1] === 'none' || match[1] === '无') return null;
-  return match[1];
+  return extractActiveReq(progress);
 }
 
 function readReqStatus(rootDir, reqId) {

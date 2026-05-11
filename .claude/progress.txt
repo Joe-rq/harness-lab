@@ -1,8 +1,9 @@
-Current active REQ: none
-Current phase: idle
-Last updated: 2026-05-08
+Current active REQ: REQ-2026-057
+Current phase: implementation
+Last updated: 2026-05-11
 
 Summary:
+- Active REQ: REQ-2026-057 (implementation)
 - ✅ REQ-2026-056 完成：完善 harness-setup skill 与一键迁移分发契约
 - `.agents/skills/source-command-harness-setup/SKILL.md` 与 `.claude/commands/harness-setup.md` 已对齐真实安装器行为
 - `package.json` 新增 `bin.harness-install`，支撑 `npx harness-install`
@@ -10,6 +11,7 @@ Summary:
 - npm test、docs:verify、check:governance 通过
 
 Next steps:
+- Continue active REQ: REQ-2026-057
 - 用 Harness Lab 连续跑 3-5 个真实 REQ，记录编排器字段缺口
 - Phase 6b：基于 6a 证据写 orchestrator-compatibility.md + req:import
 

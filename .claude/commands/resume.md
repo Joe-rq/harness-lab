@@ -4,8 +4,8 @@
 
 ## 执行步骤
 
-1. 读取 `.claude/progress.txt` 获取当前 REQ 和阶段
-2. 读取 `requirements/INDEX.md` 确认活跃 REQ 列表
+1. 运行 `npm run req -- status` 获取当前 worktree 的活跃 REQ 和阶段
+2. 读取 `requirements/INDEX.md` 确认全局活跃 REQ 列表
 3. 如果有 `.claude/.watchdog-state`，读取停滞/循环追踪数据
 4. 读取最近一个 REQ 的当前内容（如有活跃 REQ）
 5. 综合以上信息，输出状态摘要和建议

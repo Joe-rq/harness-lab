@@ -10,6 +10,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getProgressPath } from './worktree-utils.mjs';
 
 const colors = {
   reset: '\x1b[0m',
@@ -33,7 +34,7 @@ function getGitRoot() {
 }
 
 function readProgressFile(rootDir) {
-  const progressPath = path.join(rootDir, '.claude', 'progress.txt');
+  const progressPath = getProgressPath(rootDir);
   if (!fs.existsSync(progressPath)) {
     return null;
   }
@@ -117,13 +118,17 @@ function printReqIndex(rootDir) {
 
   const content = fs.readFileSync(indexPath, 'utf-8');
 
-  // 提取当前活跃 REQ
-  const activeMatch = content.match(/## 当前活跃 REQ\s*\n\s*- (.+)/);
-  if (activeMatch && activeMatch[1] && !activeMatch[1].includes('无')) {
-    const reqInfo = activeMatch[1].trim();
-    log('\n📌 需求索引：', 'yellow');
-    log(`## 当前活跃 REQ`, 'gray');
-    log(`- ${reqInfo}`, 'green');
+  // 提取当前活跃 REQ（允许多个）
+  const activeMatch = content.match(/## 当前活跃 REQ\s*\n([\s\S]*?)(?=\n## |$)/);
+  if (activeMatch) {
+    const activeLines = activeMatch[1].split('\n').filter(l => l.trim().startsWith('- ') && !l.includes('无'));
+    if (activeLines.length > 0) {
+      log('\n📌 需求索引：', 'yellow');
+      log(`## 当前活跃 REQ`, 'gray');
+      for (const line of activeLines) {
+        log(line.trim(), 'green');
+      }
+    }
   }
 
   // 提取搁置 REQ

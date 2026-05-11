@@ -15,7 +15,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 当前活跃 REQ
 
-- 无
+- `REQ-2026-057-worktree-local-isolation.md`（真实整改：支持 worktree 本地隔离模式）
 
 ## 当前搁置 REQ
 

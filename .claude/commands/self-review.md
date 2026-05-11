@@ -4,7 +4,7 @@
 
 ## 执行步骤
 
-1. 读取 `.claude/progress.txt` 获取当前活跃 REQ 编号
+1. 运行 `npm run req -- status` 获取当前 worktree 的活跃 REQ 编号
 2. 运行 `node scripts/auto-qa.mjs --req $REQ_ID`
 3. 运行 `node scripts/auto-review.mjs --req $REQ_ID`
 4. 读取生成的两份报告，向用户呈现摘要

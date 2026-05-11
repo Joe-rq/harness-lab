@@ -152,7 +152,8 @@ npx harness-install --defaults --with-hook
 ├── skills/                # 阶段导航技能
 ├── scripts/               # CLI 工具
 ├── .claude/commands/      # 可调用 skills
-└── .claude/progress.txt   # 跨会话进度
+├── .claude/progress.txt   # 跨会话进度（主仓库）
+└── .claude/worktrees/     # worktree 本地进度隔离
 ```
 
 ## 默认工作方式
@@ -280,6 +281,12 @@ GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`n
 **已知限制**：
 - 单用户设计：无多租户/权限系统，不适合多人同时操作同一仓库
 - 无并发控制：文件系统存储，多人/多 agent 同时写入可能导致数据丢失
+
+**worktree 支持**：
+- 可用 `git worktree` 为每个 REQ 创建独立工作目录并行推进
+- 每个 worktree 拥有独立的 `.claude/worktrees/{branch}/progress.txt`
+- `INDEX.md` 可同时记录多个活跃 REQ
+- 主仓库（非 worktree）模式行为完全不变
 
 ## 成功标准
 

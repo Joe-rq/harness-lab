@@ -14,6 +14,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getProgressPath, extractActiveReq } from './worktree-utils.mjs';
 
 function getGitRoot() {
   try {
@@ -24,13 +25,10 @@ function getGitRoot() {
 }
 
 function getActiveReqId(rootDir) {
-  const progress = path.join(rootDir, '.claude', 'progress.txt');
+  const progressFile = getProgressPath(rootDir);
   try {
-    const content = fs.readFileSync(progress, 'utf-8');
-    const match = content.match(/^Current active REQ:\s*(.+)/m);
-    const val = match ? match[1].trim() : '';
-    if (!val || val === 'none' || val === '无') return null;
-    return val;
+    const content = fs.readFileSync(progressFile, 'utf-8');
+    return extractActiveReq(content);
   } catch {
     return null;
   }
@@ -67,7 +65,7 @@ function getSessionLogDir(rootDir) {
 }
 
 function updateProgressTxt(rootDir, _reqId, summary) {
-  const progressFile = path.join(rootDir, '.claude', 'progress.txt');
+  const progressFile = getProgressPath(rootDir);
   let content = '';
   try {
     content = fs.readFileSync(progressFile, 'utf-8');

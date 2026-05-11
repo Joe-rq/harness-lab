@@ -19,6 +19,12 @@ import {
 } from './req-validation.mjs';
 import { formatErrorBlock, logError } from './error-classifier.mjs';
 import { execSync } from 'node:child_process';
+import {
+  ensureWorktreeDir,
+  getDefaultProgressContent,
+  getProgressPath,
+  getWorktreeId,
+} from './worktree-utils.mjs';
 
 const root = process.cwd();
 const today = new Date().toISOString().slice(0, 10);
@@ -135,6 +141,9 @@ function escapeRegExp(value) {
 }
 
 function toFullPath(relPath) {
+  if (path.isAbsolute(relPath)) {
+    return relPath;
+  }
   return path.join(root, relPath);
 }
 
@@ -350,7 +359,20 @@ function setBlockDetails(content, reason, condition, nextStep) {
 }
 
 function updateProgress(mode, reqId, phase) {
-  let progress = read('.claude/progress.txt');
+  const progressPath = getProgressPath(root);
+  // Ensure worktree local dir exists if in worktree
+  const worktreeId = getWorktreeId(root);
+  if (worktreeId) {
+    ensureWorktreeDir(root, worktreeId);
+  }
+
+  let progress;
+  try {
+    progress = read(progressPath);
+  } catch {
+    progress = getDefaultProgressContent();
+  }
+
   const summaryLines = parseBulletLines(getProgressSection(progress, 'Summary:')).filter(
     (line) => !line.startsWith('- Active REQ:') && !line.startsWith('- Blocked REQ:')
   );
@@ -376,13 +398,23 @@ function updateProgress(mode, reqId, phase) {
   progress = setLine(progress, 'Last updated: ', today);
   progress = replaceProgressSection(progress, 'Summary:', summaryLines.join('\n'));
   progress = replaceProgressSection(progress, 'Next steps:', nextLines.join('\n'));
-  write('.claude/progress.txt', progress);
+  write(progressPath, progress);
 }
 
-function updateIndex({ active, removeBlockedId, addBlocked, addCompleted }) {
+function updateIndex({ active, removeActiveId, removeBlockedId, addBlocked, addCompleted }) {
   let index = read('requirements/INDEX.md');
+  const activeLines = parseBulletLines(getSection(index, '## 当前活跃 REQ')).filter((line) => line !== '- 无');
   const blockedLines = parseBulletLines(getSection(index, '## 当前搁置 REQ')).filter((line) => line !== '- 无');
   const completedLines = parseBulletLines(getSection(index, '## 最近完成 REQ')).filter((line) => line !== '- 无');
+
+  let nextActive = activeLines;
+  if (removeActiveId) {
+    nextActive = nextActive.filter((line) => extractReqId(line) !== removeActiveId);
+  }
+  if (active) {
+    const fileName = extractFileName(active);
+    nextActive = [...nextActive.filter((line) => extractFileName(line) !== fileName), active];
+  }
 
   let nextBlocked = blockedLines;
   if (removeBlockedId) {
@@ -399,7 +431,7 @@ function updateIndex({ active, removeBlockedId, addBlocked, addCompleted }) {
     nextCompleted = [addCompleted, ...nextCompleted.filter((line) => extractFileName(line) !== fileName)];
   }
 
-  const activeBody = active ? active : '- 无';
+  const activeBody = nextActive.length > 0 ? nextActive.join('\n') : '- 无';
   const blockedBody = nextBlocked.length > 0 ? nextBlocked.join('\n') : '- 无';
   const completedBody = nextCompleted.length > 0 ? nextCompleted.join('\n') : '- 无';
 
@@ -926,6 +958,7 @@ function buildReqStatusObject(req) {
 export function statusCommand(options) {
   const jsonMode = options.json === true;
   const targetId = options.id || null;
+  const allMode = options.all === true;
 
   // --id mode: query specific REQ regardless of active status
   if (targetId) {
@@ -963,52 +996,76 @@ export function statusCommand(options) {
     return;
   }
 
-  // Default mode: show current active REQ
-  const index = read('requirements/INDEX.md');
-  const activeLines = parseBulletLines(getSection(index, '## 当前活跃 REQ')).filter((line) => line !== '- 无');
+  // --all mode: show all active REQs from INDEX.md
+  if (allMode) {
+    const index = read('requirements/INDEX.md');
+    const activeLines = parseBulletLines(getSection(index, '## 当前活跃 REQ')).filter((line) => line !== '- 无');
 
-  if (!jsonMode) {
+    if (jsonMode) {
+      const reqs = activeLines.map((line) => {
+        const reqId = extractReqId(line);
+        return reqId ? buildReqStatusObject(readReq(reqId)) : null;
+      }).filter(Boolean);
+      console.log(JSON.stringify({ active_reqs: reqs }, null, 2));
+      return;
+    }
+
     if (activeLines.length === 0) {
       console.log('No active REQ.');
     } else {
-      const reqId = extractReqId(activeLines[0]);
-      if (reqId) {
-        const req = readReq(reqId);
-        console.log(`Active REQ: ${req.reqId}`);
-        console.log(`  Title: ${req.title}`);
-        console.log(`  Status: ${req.status}`);
-        console.log(`  Phase: ${req.phase}`);
-        console.log(`  File: ${req.relPath}`);
-      } else {
-        console.log(activeLines[0]);
+      console.log(`Active REQs (${activeLines.length}):`);
+      for (const line of activeLines) {
+        const reqId = extractReqId(line);
+        if (reqId) {
+          const req = readReq(reqId);
+          console.log(`  ${req.reqId}: ${req.title} (${req.status} / ${req.phase})`);
+        } else {
+          console.log(`  ${line}`);
+        }
       }
     }
     return;
   }
 
+  // Default mode: show current worktree's active REQ (from progress.txt)
+  const progressPath = getProgressPath(root);
+  let progressContent = '';
+  try {
+    progressContent = read(progressPath);
+  } catch {
+    progressContent = '';
+  }
+  const activeMatch = progressContent.match(/^Current active REQ:\s*(\S+)/m);
+  const activeId = activeMatch ? activeMatch[1].trim() : null;
+
+  if (!activeId || activeId === 'none' || activeId === '无') {
+    if (jsonMode) {
+      const { warnings } = readExternalMappings();
+      const result = {
+        active_req: null,
+        external: null,
+        warnings: warnings.length > 0 ? warnings : undefined,
+      };
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log('No active REQ in this worktree.');
+    }
+    return;
+  }
+
+  const req = readReq(activeId);
   const { mappings, warnings } = readExternalMappings();
-
-  if (activeLines.length === 0) {
-    const result = { active_req: null, external: null, warnings: warnings.length > 0 ? warnings : undefined };
-    console.log(JSON.stringify(result, null, 2));
-    return;
-  }
-
-  const reqId = extractReqId(activeLines[0]);
-  if (!reqId) {
-    const result = {
-      active_req: null,
-      external: null,
-      error: 'Could not extract REQ ID from index',
-      warnings: warnings.length > 0 ? warnings : undefined,
-    };
-    console.log(JSON.stringify(result, null, 2));
-    return;
-  }
-
-  const req = readReq(reqId);
-  const external = findExternalMapping(mappings, reqId);
+  const external = findExternalMapping(mappings, activeId);
   const reqStatus = buildReqStatusObject(req);
+
+  if (!jsonMode) {
+    console.log(`Active REQ: ${req.reqId}`);
+    console.log(`  Title: ${req.title}`);
+    console.log(`  Status: ${req.status}`);
+    console.log(`  Phase: ${req.phase}`);
+    console.log(`  File: ${req.relPath}`);
+    return;
+  }
 
   const result = {
     active_req: reqStatus,
@@ -1075,10 +1132,18 @@ export function createCommand(options) {
     fail('create requires --title');
   }
 
-  const index = read('requirements/INDEX.md');
-  const activeReqs = parseBulletLines(getSection(index, '## 当前活跃 REQ')).filter((line) => line !== '- 无');
-  if (activeReqs.length > 0) {
-    fail(`Cannot create a new active REQ while another active REQ exists: ${activeReqs[0]}`);
+  // Check active REQ in current worktree (not globally)
+  const progressPath = getProgressPath(root);
+  let currentProgress = '';
+  try {
+    currentProgress = read(progressPath);
+  } catch {
+    currentProgress = '';
+  }
+  const activeMatch = currentProgress.match(/^Current active REQ:\s*(\S+)/m);
+  const activeId = activeMatch ? activeMatch[1].trim() : null;
+  if (activeId && activeId !== 'none' && activeId !== '无') {
+    fail(`Cannot create a new active REQ while another active REQ exists in this worktree: ${activeId}`);
   }
 
   const year = String(options.year ?? new Date().getFullYear());
@@ -1103,12 +1168,17 @@ export function createCommand(options) {
   updateProgress('active', reqId, 'design');
 
   // Create exempt file to allow filling REQ content
-  writeFileSync(toFullPath('.claude/.req-exempt'), '', 'utf8');
+  // In worktree mode, write to local worktree dir
+  const worktreeId = getWorktreeId(root);
+  const exemptPath = worktreeId
+    ? path.join(root, '.claude', 'worktrees', getWorktreeId(root).replace(/\//g, '--'), '.req-exempt')
+    : toFullPath('.claude/.req-exempt');
+  writeFileSync(exemptPath, '', 'utf8');
   appendExemptAuditLog('CREATE', reqId, 'req:create command');
 
   console.log(`Created ${reqId}`);
   console.log(`- ${reqPath}`);
-  console.log('- .claude/.req-exempt (fill REQ content, then run req:start)');
+  console.log(`- ${exemptPath} (fill REQ content, then run req:start)`);
   console.log('');
   console.log('Note: Design document is not created automatically.');
   console.log('If this REQ requires design documentation, create it manually:');
@@ -1149,11 +1219,18 @@ export function startCommand(options) {
     console.log('Design document validation skipped (exemption marked).');
   }
 
-  const index = read('requirements/INDEX.md');
-  const activeReqs = parseBulletLines(getSection(index, '## 当前活跃 REQ')).filter((line) => line !== '- 无');
-  const activeId = activeReqs.length > 0 ? extractReqId(activeReqs[0]) : null;
-  if (activeId && activeId !== reqId) {
-    fail(`Another active REQ already exists: ${activeId}`);
+  // Check active REQ in current worktree (not globally)
+  const progressPath = getProgressPath(root);
+  let currentProgress = '';
+  try {
+    currentProgress = read(progressPath);
+  } catch {
+    currentProgress = '';
+  }
+  const activeMatch = currentProgress.match(/^Current active REQ:\s*(\S+)/m);
+  const activeId = activeMatch ? activeMatch[1].trim() : null;
+  if (activeId && activeId !== 'none' && activeId !== '无' && activeId !== reqId) {
+    fail(`Another active REQ already exists in this worktree: ${activeId}`);
   }
 
   let nextReq = setReqStatusAndPhase(req.content, 'in-progress', phase);
@@ -1166,10 +1243,18 @@ export function startCommand(options) {
   updateProgress('active', reqId, phase);
 
   // Remove exempt file after successful start
-  const exemptPath = toFullPath('.claude/.req-exempt');
-  if (existsSync(exemptPath)) {
-    unlinkSync(exemptPath);
-    appendExemptAuditLog('DELETE', reqId, 'req:start success');
+  // In worktree mode, look for local exempt file first
+  const worktreeId = getWorktreeId(root);
+  let exemptPaths = [toFullPath('.claude/.req-exempt')];
+  if (worktreeId) {
+    exemptPaths.unshift(path.join(root, '.claude', 'worktrees', worktreeId.replace(/\//g, '--'), '.req-exempt'));
+  }
+  for (const exemptPath of exemptPaths) {
+    if (existsSync(exemptPath)) {
+      unlinkSync(exemptPath);
+      appendExemptAuditLog('DELETE', reqId, 'req:start success');
+      break;
+    }
   }
 
   console.log(`Started ${reqId} -> ${phase}`);
@@ -1196,7 +1281,7 @@ export function blockCommand(options) {
   nextReq = setBlockDetails(nextReq, options.reason, options.condition, options.next);
   write(req.relPath, nextReq);
   updateIndex({
-    active: null,
+    removeActiveId: reqId,
     removeBlockedId: reqId,
     addBlocked: parseIndexItem(req.fileName, req.title),
   });
@@ -1287,7 +1372,7 @@ export function completeCommand(options) {
   write(req.relPath, nextReq);
   renameSync(toFullPath(req.relPath), toFullPath(completedPath));
   updateIndex({
-    active: null,
+    removeActiveId: reqId,
     removeBlockedId: reqId,
     addCompleted: parseIndexItem(req.fileName, req.title),
   });
@@ -1392,7 +1477,7 @@ export function printHelp() {
   console.log('  start --id REQ-2026-002 [--phase implementation]');
   console.log('  block --id REQ-2026-002 --reason "..." --condition "..." --next "..." [--phase implementation]');
   console.log('  complete --id REQ-2026-002 [--phase qa] [--status-file .claude/.req-complete-status] [--no-docs-gate] [--skip-experience "reason"]');
-  console.log('  status [--json] [--id REQ-ID]');
+  console.log('  status [--json] [--id REQ-ID] [--all]');
   console.log('  experience --id REQ-2026-002');
 }
 
