@@ -1,8 +1,8 @@
 # REQ-2026-058: 支持 worktree 本地隔离模式
 
 ## 状态
-- 当前状态：in-progress
-- 当前阶段：implementation
+- 当前状态：completed
+- 当前阶段：ship
 
 ## 背景
 用户希望用 git worktree 方式为每个 REQ 创建独立工作目录并行推进。当前 Harness Lab 的进度追踪（progress.txt）、REQ 活跃状态（INDEX.md）、豁免机制（.req-exempt）均为"全局单例"设计，与 worktree 的物理隔离理念冲突：
