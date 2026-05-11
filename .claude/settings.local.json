@@ -99,7 +99,10 @@
       "Bash(sed -i '' 's|  - `tests/`|  - `tests/**`|' requirements/in-progress/REQ-2026-054-phase-6a-req-status-json-external-mappings.md)",
       "Bash(echo \"$\\(date -u +%Y-%m-%dT%H:%M:%SZ\\) | CREATE | manual | post-completion fixes for REQ-2026-054\")",
       "Bash(rm -f .claude/.req-exempt)",
-      "Bash(echo \"$\\(date -u +%Y-%m-%dT%H:%M:%SZ\\) | DELETE | manual | post-completion fixes done\")"
+      "Bash(echo \"$\\(date -u +%Y-%m-%dT%H:%M:%SZ\\) | DELETE | manual | post-completion fixes done\")",
+      "Bash(ping:*)",
+      "Bash(gh auth:*)",
+      "Bash(gh repo:*)"
     ]
   },
   "hooks": {

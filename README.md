@@ -42,6 +42,9 @@ GitHub: [Joe-rq/harness-lab](https://github.com/Joe-rq/harness-lab)
 # 在目标项目中运行
 node /path/to/harness-lab/scripts/harness-install.mjs --defaults
 
+# 如果 package.json 位于 app/ 子目录，仍在 Git 根目录运行安装器
+node /path/to/harness-lab/scripts/harness-install.mjs --defaults --package-dir app
+
 # 包含 PreToolUse hook
 node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 # --with-hook 会配置 SessionStart + PreToolUse hooks
@@ -52,8 +55,11 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 
 ```bash
 npx harness-install --defaults
+npx harness-install --defaults --package-dir app
 npx harness-install --defaults --with-hook
 ```
+
+默认安装是治理引导，不是完整镜像；高级治理脚本、测试、CI 和 `.claude/commands/` 不在默认安装清单中。
 
 **平台支持**：
 - 支持 Windows、macOS、Linux
@@ -76,13 +82,20 @@ npx harness-install --defaults --with-hook
 
 1. **检查自动绑定结果**：如果目标项目已有 `lint`、`test`、`build`，安装器会尽量复用，并自动组合 `verify`
 
-2. **替换 placeholder guard**：如果安装器没有找到真实命令，会在 `package.json` 中写入 `node scripts/template-guard.mjs <name>` 作为占位提示；这些脚本需要后续替换成真实链路
+2. **确认 package 绑定位置**：默认绑定根目录 `package.json`；如果业务包在 `app/package.json`，使用 `--package-dir app` 或 `--package-json app/package.json`
 
-3. **确认 hook 行为**：如果启用了 `--with-hook`，目标项目会在无活跃 REQ 时阻止文件修改；紧急小改动可用 `.claude/.req-exempt` 临时豁免
+3. **替换 placeholder guard**：如果安装器没有找到真实命令，会在目标 `package.json` 中写入 `node scripts/template-guard.mjs <name>` 作为占位提示；这些脚本需要后续替换成真实链路
 
-4. **创建第一个 REQ**：
+4. **确认 hook 行为**：如果启用了 `--with-hook`，目标项目会在无活跃 REQ 时阻止文件修改；紧急小改动可用 `.claude/.req-exempt` 临时豁免
+
+5. **创建第一个 REQ**：
    ```bash
    npm run req:create -- --title "Your first requirement"
+   ```
+
+   没有可绑定 `package.json` 时，使用直接入口：
+   ```bash
+   node scripts/req-cli.mjs create --title "Your first requirement"
    ```
 
    或使用交互式向导（Claude Code 环境）：
@@ -90,15 +103,15 @@ npx harness-install --defaults --with-hook
    /first-req
    ```
 
-5. **写实 REQ 内容**：`req:create` 只会生成骨架。开始实施前，需要先补齐真实背景、目标、验收标准
+6. **写实 REQ 内容**：`req:create` 只会生成骨架。开始实施前，需要先补齐真实背景、目标、验收标准
 
-6. **开始治理流程**
+7. **开始治理流程**
 
 #### 自动绑定结果怎么看
 
 安装完成后，优先检查这两个地方：
 
-- `package.json` 里的 `scripts`
+- 目标 `package.json` 里的 `scripts`，例如根目录 `package.json` 或 `app/package.json`
 - `requirements/reports/harness-setup-report.md`
 
 常见结果有两种：

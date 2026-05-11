@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-057-feat-harness-setup-execution-optimization.md`（真实整改：feat: harness setup execution optimization）
 - `REQ-2026-056-feat-harness-setup-skill.md`（真实整改：feat: 完善 harness-setup skill 与一键迁移分发契约）
 - `REQ-2026-055-phase-6a-req-status-by-id.md`（真实整改：Phase 6a: req:status --id 按 REQ ID 查询状态）
 - `REQ-2026-054-phase-6a-req-status-json-external-mappings.md`（真实整改：Phase 6a: req status --json + external mappings）

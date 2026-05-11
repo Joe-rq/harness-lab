@@ -435,6 +435,105 @@ async function testPackageBindingFallsBackToPlaceholderGuards() {
   }
 }
 
+async function testPackageBindingSupportsPackageDir() {
+  const tempDir = createTempDir('harness-install-package-dir');
+  try {
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+
+    writeFile(
+      tempDir,
+      'app/package.json',
+      JSON.stringify(
+        {
+          name: 'fixture-app',
+          scripts: {
+            test: 'vitest run',
+          },
+        },
+        null,
+        2
+      )
+    );
+
+    const packageUpdate = harnessInstall.updateTargetPackageJson(tempDir, { packageDir: 'app' });
+    const packageJson = JSON.parse(readFileSync(path.join(tempDir, 'app', 'package.json'), 'utf8'));
+
+    assert.equal(packageUpdate.exists, true);
+    assert.equal(packageUpdate.relPath, 'app/package.json');
+    assert.equal(packageUpdate.packageDirRel, 'app');
+    assert.equal(packageJson.scripts.lint, 'cd .. && node scripts/template-guard.mjs lint');
+    assert.equal(packageJson.scripts.test, 'vitest run');
+    assert.equal(packageJson.scripts.build, 'cd .. && node scripts/template-guard.mjs build');
+    assert.equal(packageJson.scripts.verify, 'npm run test');
+    assert.equal(packageJson.scripts['req:create'], 'cd .. && node scripts/req-cli.mjs create');
+    assert.equal(packageJson.scripts['docs:verify'], 'cd .. && node scripts/docs-verify.mjs');
+
+    writeFile(
+      tempDir,
+      'api/package.json',
+      JSON.stringify({ name: 'fixture-api', scripts: {} }, null, 2)
+    );
+    const packageJsonUpdate = harnessInstall.updateTargetPackageJson(tempDir, {
+      packageJson: 'api/package.json',
+    });
+    const apiPackageJson = JSON.parse(readFileSync(path.join(tempDir, 'api', 'package.json'), 'utf8'));
+    assert.equal(packageJsonUpdate.relPath, 'api/package.json');
+    assert.equal(packageJsonUpdate.source, 'package-json');
+    assert.equal(apiPackageJson.scripts['req:start'], 'cd .. && node scripts/req-cli.mjs start');
+
+    const reportPath = harnessInstall.generateReport(
+      tempDir,
+      ['core', 'docs', 'context', 'skills', 'cli'],
+      { copied: [], skipped: [], failed: [] },
+      false,
+      packageUpdate
+    );
+    const report = readFileSync(reportPath, 'utf8');
+    assert.match(report, /目标 package\*\*：`app\/package\.json`/);
+    assert.match(report, /npm --prefix app run req:create/);
+    assert.match(report, /只改变 package scripts 绑定位置/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testMissingRootPackageReportsCandidatesAndNodeFallback() {
+  const tempDir = createTempDir('harness-install-missing-package');
+  try {
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+
+    writeFile(
+      tempDir,
+      'app/package.json',
+      JSON.stringify({ name: 'fixture-app', scripts: { test: 'vitest run' } }, null, 2)
+    );
+
+    const packageUpdate = harnessInstall.updateTargetPackageJson(tempDir);
+    assert.equal(packageUpdate.exists, false);
+    assert.equal(packageUpdate.requestedPath, 'package.json');
+    assert.ok(packageUpdate.candidates.some((candidate) => candidate.relPath === 'app/package.json'));
+
+    const packageJson = JSON.parse(readFileSync(path.join(tempDir, 'app', 'package.json'), 'utf8'));
+    assert.deepEqual(packageJson.scripts, { test: 'vitest run' });
+
+    const reportPath = harnessInstall.generateReport(
+      tempDir,
+      ['core', 'docs', 'context', 'skills', 'cli'],
+      { copied: [], skipped: [], failed: [] },
+      false,
+      packageUpdate
+    );
+    const report = readFileSync(reportPath, 'utf8');
+    assert.match(report, /未绑定 package scripts/);
+    assert.match(report, /app\/package\.json/);
+    assert.match(report, /--package-dir app/);
+    assert.match(report, /node scripts\/req-cli\.mjs create/);
+    assert.match(report, /默认安装是治理引导，不是完整镜像/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 function testHarnessSetupCommandSkillAndBinStayAligned() {
   const commandPath = path.join(repoRoot, '.claude', 'commands', 'harness-setup.md');
   const skillPath = path.join(repoRoot, '.agents', 'skills', 'source-command-harness-setup', 'SKILL.md');
@@ -455,6 +554,8 @@ function testHarnessSetupCommandSkillAndBinStayAligned() {
     'scripts/req-check.js',
     'node /path/to/harness-lab/scripts/harness-install.mjs --defaults',
     'npx harness-install --defaults',
+    '--package-dir app',
+    '默认安装是治理引导，不是完整镜像',
     'req:create` 只会生成骨架',
     '自动绑定只会复用标准脚本名',
   ];
@@ -815,6 +916,8 @@ const tests = [
   ['req validation detects template placeholders and draft status', testReqValidationDetectsTemplateAndDraftIssues],
   ['harness-install copies governance files and writes hook config', testHarnessInstallArtifacts],
   ['package binding falls back to placeholder guards when commands are missing', testPackageBindingFallsBackToPlaceholderGuards],
+  ['package binding supports package-dir targets', testPackageBindingSupportsPackageDir],
+  ['missing root package reports candidates and node fallback', testMissingRootPackageReportsCandidatesAndNodeFallback],
   ['harness-setup command, skill, and bin stay aligned', testHarnessSetupCommandSkillAndBinStayAligned],
   ['design doc exemption mechanism works with checkbox and legacy formats', testDesignDocExemptionMechanism],
   ['setReqStatusAndPhase only replaces within status section', testSetReqStatusAndPhaseBoundary],
