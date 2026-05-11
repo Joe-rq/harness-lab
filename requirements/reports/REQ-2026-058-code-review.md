@@ -6,17 +6,27 @@
 
 ## Review Notes
 
-- `scripts/harness-install.mjs` 新增 `--package-dir` / `--package-json` 后，治理文件安装目录仍保持为当前 Git 项目根目录，避免把 harness 文件复制到业务包子目录。
-- 子目录 package 的治理脚本通过 `cd .. && node scripts/...` 回到根目录执行，避免 `req-cli.mjs`、`docs-verify.mjs` 把 `app/` 误判为治理根。
-- 根目录缺失 `package.json` 时不再假装 npm scripts 已可用，报告会给出 `node scripts/req-cli.mjs` fallback 和检测到的候选 package。
-- `.claude/commands/harness-setup.md` 与 `.agents/skills/source-command-harness-setup/SKILL.md` 保持同步，新增参数和默认安装边界一致。
-- 顺手修复 `tests/req-status-json.test.mjs` 的 Windows file URL 路径转换问题，避免 `D:\D:\...` 导致完整 `npm test` 失败。
+- `scripts/worktree-utils.mjs` 新增 worktree 检测和本地进度路径解析，API 简洁集中：`getWorktreeId`、`getProgressPath`、`safeBranchName`、`readProgressContent`、`extractActiveReq`。
+- `req-cli.mjs` 改造彻底：
+  - `toFullPath()` 增加 `path.isAbsolute()` 防护，避免 `getProgressPath()` 返回绝对路径时被重复拼接
+  - `updateProgress()` 使用 `getProgressPath(root)` 替代硬编码 `.claude/progress.txt`
+  - `updateIndex()` 从单活跃 REQ 改为列表式管理，支持 `removeActiveId` 参数
+  - `createCommand()` / `startCommand()` 改为检查**本 worktree** 的活跃 REQ，允许多 worktree 并行启动不同 REQ
+  - `statusCommand()` 默认读取本地 progress，`--all` 才展示 INDEX 全局视图
+- `session-start.js`、`precompact-notify.mjs`、`session-reflect.mjs` 均通过 `getProgressPath()` 读取正确的本地进度文件。
+- `.claude/commands/resume.md` 和 `self-review.md` 将第 1 步从直接读取 `progress.txt` 改为运行 `npm run req -- status`，避免 worktree 路径感知泄漏到命令文档。
+- `README.md` 新增 worktree 支持章节和 `.claude/worktrees/` 目录说明。
+- 向后兼容：主仓库（非 worktree）`getWorktreeId()` 返回 `null`，`getProgressPath()` 回退到原有 `.claude/progress.txt` 路径，行为 100% 不变。
+
+## Review Notes（补充修复项）
+
+- `session-start.sh` 和 `req-check.sh` 已通过 `node --input-type=module -e` 调用 `worktree-utils.mjs` 的 `getProgressPath()`，动态获取 worktree 对应的 progress.txt 路径。
+- 同理，`.req-exempt` 豁免路径也通过 `getExemptPath()` 实现 worktree 本地隔离：worktree 场景下优先检查 `.claude/worktrees/{id}/.req-exempt`，回退到全局 `.claude/.req-exempt`。
 
 ## Residual Risk
 
-- `--package-dir` 只扫描和示例一层子目录；复杂 monorepo 可使用 `--package-json` 显式指定更深层 package。
-- 子目录 package 中的 placeholder guard 会先 `cd` 到治理根再执行，这符合当前治理脚本依赖根目录的设计，但用户后续替换真实 lint/test/build 时应改回业务包自己的命令。
+- 分支名安全化仅替换 `/`，其他特殊字符（如 `\`、空格）在极端场景可能产生不合法目录名，但这类分支名在 git worktree 创建时通常已被拒绝。
 
 ## Conclusion
 
-改动符合设计，新增测试覆盖根 package、子目录 package、缺 package fallback、command/skill 文档同步和 Windows 测试路径修复。可以进入 QA。
+改动符合方案 A（本地隔离），核心路径覆盖完整，hook 脚本和豁免机制均已适配 worktree，向后兼容有保障。

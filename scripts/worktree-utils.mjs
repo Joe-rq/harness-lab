@@ -108,6 +108,16 @@ export function extractActiveReq(content) {
 }
 
 /**
+ * 获取当前环境对应的 .req-exempt 豁免文件路径
+ * @param {string} root - 仓库根目录
+ * @returns {string}
+ */
+export function getExemptPath(root) {
+  const progressPath = getProgressPath(root);
+  return progressPath.replace(/progress\.txt$/, '.req-exempt');
+}
+
+/**
  * 获取默认的 progress.txt 模板内容
  * @returns {string}
  */

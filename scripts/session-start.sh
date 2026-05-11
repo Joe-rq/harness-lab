@@ -41,8 +41,14 @@ if [ -f "$RATCHET_FILE" ]; then
   fi
 fi
 
-# 检查豁免文件 TTL
-EXEMPT_FILE="$ROOT_DIR/.claude/.req-exempt"
+# 检查豁免文件 TTL（worktree-specific or global）
+EXEMPT_FILE=$(cd "$ROOT_DIR" && node --input-type=module --eval "
+  import { getExemptPath } from './scripts/worktree-utils.mjs';
+  console.log(getExemptPath('${ROOT_DIR}'));
+" 2>/dev/null)
+if [ -z "$EXEMPT_FILE" ]; then
+  EXEMPT_FILE="$ROOT_DIR/.claude/.req-exempt"
+fi
 EXEMPT_TTL_SECONDS=7200  # 2 小时
 
 if [ -f "$EXEMPT_FILE" ]; then
@@ -85,8 +91,15 @@ if [ -f "$EXEMPT_FILE" ]; then
   fi
 fi
 
-# 读取 progress.txt
-PROGRESS_FILE="$ROOT_DIR/.claude/progress.txt"
+# 获取当前环境（主仓库或 worktree）对应的 progress.txt 路径
+PROGRESS_FILE=$(cd "$ROOT_DIR" && node --input-type=module --eval "
+  import { getProgressPath } from './scripts/worktree-utils.mjs';
+  console.log(getProgressPath('${ROOT_DIR}'));
+" 2>/dev/null)
+if [ -z "$PROGRESS_FILE" ]; then
+  PROGRESS_FILE="$ROOT_DIR/.claude/progress.txt"
+fi
+
 if [ -f "$PROGRESS_FILE" ]; then
   echo ""
   echo "📋 当前进度："

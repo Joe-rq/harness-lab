@@ -1,15 +1,16 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-05-11
+Last updated: 2026-05-12
 
 Summary:
-- ✅ REQ-2026-057 完成：harness-install 支持 --package-dir / --package-json
-- ✅ REQ-2026-058 进行中：worktree 本地隔离模式已实现并验证
-- 远程 REQ-2026-057 与本地方案撞号，已迁移至 REQ-2026-058
+- ✅ REQ-2026-058 完成：worktree 本地隔离模式
+- ✅ 补漏修复：hook 脚本 session-start.sh / req-check.sh 已适配 worktree 路径
+- ✅ 报告修复：Code Review / QA / Ship 报告已重写并补齐
+- ✅ 验收标准已勾选
 
 Next steps:
-- 完成 REQ-2026-058（报告已生成，等待最终提交）
 - 用 Harness Lab 连续跑 3-5 个真实 REQ，记录编排器字段缺口
+- 评估 Phase 6b 时机
 
 Open questions:
 - Phase 6b 时机：是否需要先积累真实 REQ 队列消费经验

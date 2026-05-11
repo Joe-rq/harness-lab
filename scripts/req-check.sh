@@ -7,8 +7,15 @@ if [ -z "$ROOT" ]; then
   exit 0
 fi
 
-# Bypass if exempt file exists
-if [ -f "$ROOT/.claude/.req-exempt" ]; then
+# Bypass if exempt file exists (worktree-specific or global)
+EXEMPT_FILE=$(cd "$ROOT" && node --input-type=module --eval "
+  import { getExemptPath } from './scripts/worktree-utils.mjs';
+  console.log(getExemptPath('${ROOT}'));
+" 2>/dev/null)
+if [ -z "$EXEMPT_FILE" ]; then
+  EXEMPT_FILE="$ROOT/.claude/.req-exempt"
+fi
+if [ -f "$EXEMPT_FILE" ]; then
   exit 0
 fi
 
@@ -43,8 +50,15 @@ if [ -n "$TARGET_FILE" ]; then
   fi
 fi
 
-# Read active REQ from progress.txt
-PROGRESS="$ROOT/.claude/progress.txt"
+# 获取当前环境（主仓库或 worktree）对应的 progress.txt 路径
+PROGRESS=$(cd "$ROOT" && node --input-type=module --eval "
+  import { getProgressPath } from './scripts/worktree-utils.mjs';
+  console.log(getProgressPath('${ROOT}'));
+" 2>/dev/null)
+if [ -z "$PROGRESS" ]; then
+  PROGRESS="$ROOT/.claude/progress.txt"
+fi
+
 if [ ! -f "$PROGRESS" ]; then
   exit 0
 fi

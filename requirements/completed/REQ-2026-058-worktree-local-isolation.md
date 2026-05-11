@@ -54,13 +54,13 @@
 - 主仓库（非 worktree）行为必须 100% 不变
 
 ## 验收标准
-- [ ] 在 git worktree 中执行 req:start 能成功启动 REQ，进度写入 .claude/worktrees/{branch}/progress.txt
-- [ ] 在 git worktree 中 req:status 能正确读取本 worktree 的活跃 REQ
-- [ ] 多个 worktree 可同时有活跃 REQ，INDEX.md 正确列出所有活跃 REQ
-- [ ] 非 worktree 环境（主仓库直接工作）行为与改动前完全一致
-- [ ] session-start 在 worktree 中启动时能恢复本 worktree 的 REQ 上下文
-- [ ] PreCompact hook 和 SessionEnd hook 在 worktree 中读取正确的 progress.txt
-- [ ] npm test 通过，npm run docs:verify 通过
+- [x] 在 git worktree 中执行 req:start 能成功启动 REQ，进度写入 .claude/worktrees/{branch}/progress.txt
+- [x] 在 git worktree 中 req:status 能正确读取本 worktree 的活跃 REQ
+- [x] 多个 worktree 可同时有活跃 REQ，INDEX.md 正确列出所有活跃 REQ
+- [x] 非 worktree 环境（主仓库直接工作）行为与改动前完全一致
+- [x] session-start 在 worktree 中启动时能恢复本 worktree 的 REQ 上下文
+- [x] PreCompact hook 和 SessionEnd hook 在 worktree 中读取正确的 progress.txt
+- [x] npm test 通过，npm run docs:verify 通过
 
 ## 设计与实现链接
 - 设计稿：`docs/plans/REQ-2026-058-design.md`
@@ -79,16 +79,16 @@
 ### 反馈与质量检查
 
 #### 元反思检查（verify 阶段）
-- [ ] 目标实现：worktree 检测 + 本地进度隔离是否完整？
-- [ ] 旧功能保护：主仓库模式是否完全不受影响？
-- [ ] 逻辑正确性：分支名安全化、路径处理边界是否正确？
-- [ ] 完整性：所有读取 progress.txt 的入口是否都改造了？
-- [ ] 可维护性：worktree 工具函数是否集中、复用？
+- [x] 目标实现：worktree 检测 + 本地进度隔离是否完整？
+- [x] 旧功能保护：主仓库模式是否完全不受影响？
+- [x] 逻辑正确性：分支名安全化、路径处理边界是否正确？
+- [x] 完整性：所有读取 progress.txt 的入口是否都改造了？
+- [x] 可维护性：worktree 工具函数是否集中、复用？
 
 #### 对齐检查（record 阶段）
-- [ ] 目标对齐：实现是否解决了 worktree 并行推进 REQ 的问题？
-- [ ] 设计对齐：实现是否符合方案 A（本地隔离）？
-- [ ] 验收标准对齐：所有验收标准是否满足？
+- [x] 目标对齐：实现是否解决了 worktree 并行推进 REQ 的问题？
+- [x] 设计对齐：实现是否符合方案 A（本地隔离）？
+- [x] 验收标准对齐：所有验收标准是否满足？
 
 ## 阻塞 / 搁置说明（可选）
 - 原因：无

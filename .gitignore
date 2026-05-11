@@ -38,6 +38,9 @@ context/session/*.md
 .claude/.req-exempt
 .claude/.loop-state/
 .claude/.invariant-injections/
+.claude/.risk-ratchet
+.claude/.watchdog-state
+.claude/.compact-snapshot.md
 
 # 临时文件和草稿
 chats/
