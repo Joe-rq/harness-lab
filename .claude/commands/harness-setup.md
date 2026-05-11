@@ -28,6 +28,12 @@ description: 一键将 harness-lab 治理框架接入到当前项目。支持模
 node /path/to/harness-lab/scripts/harness-install.mjs --defaults
 ```
 
+如果目标项目的 `package.json` 在子目录（例如 `app/package.json`），仍在 Git 根目录运行安装器，并显式指定脚本绑定位置：
+
+```bash
+node /path/to/harness-lab/scripts/harness-install.mjs --defaults --package-dir app
+```
+
 包含治理 hooks：
 
 ```bash
@@ -38,6 +44,7 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 
 ```bash
 npx harness-install --defaults
+npx harness-install --defaults --package-dir app
 npx harness-install --defaults --with-hook
 ```
 
@@ -87,6 +94,9 @@ npx harness-install --defaults --with-hook
    - 如果 `verify` 缺失，按已有真实脚本自动组合可行的 `npm run lint && npm run test && npm run build` 子集
    - 对缺失的标准命令写入 `node scripts/template-guard.mjs <name>` placeholder guard
    - 自动补齐 `req:*`, `docs:*`, `check:governance` 等治理脚本
+   - 默认只绑定根目录 `package.json`
+   - 可通过 `--package-dir app` 或 `--package-json app/package.json` 绑定子目录 package；治理文件仍安装在当前 Git 项目根目录
+   - 如果未检测到可绑定 package，会在报告中给出 `node scripts/req-cli.mjs` fallback 和候选 package 建议
 
 ## 接入后检查
 
@@ -102,6 +112,12 @@ npx harness-install --defaults --with-hook
 npm run req:create -- --title "Your first requirement"
 ```
 
+如果没有可绑定的 `package.json`，使用：
+
+```bash
+node scripts/req-cli.mjs create --title "Your first requirement"
+```
+
 然后补齐 REQ 的真实背景、目标、验收标准，再执行：
 
 ```bash
@@ -115,3 +131,4 @@ npm run req:start -- --id REQ-YYYY-NNN --phase implementation
 - 紧急小改动可用 `.claude/.req-exempt` 临时豁免，完成后应删除
 - 自动绑定只会复用标准脚本名，不猜测 `test:unit`、`check`、`build:prod` 等非标准脚本语义
 - `npx harness-install` 依赖包分发时暴露 `bin`，本地开发时优先使用 `node scripts/harness-install.mjs`
+- 默认安装是治理引导，不是完整镜像；`scope-guard`、`watchdog`、`risk-tracker`、测试、CI 和 `.claude/commands/` 不在默认安装清单中

@@ -11,6 +11,7 @@
  *   node harness-install.mjs --core-only        # 仅安装核心模块
  *   node harness-install.mjs --with-hook        # 包含 PreToolUse hook
  *   node harness-install.mjs --source ./path    # 指定源目录
+ *   node harness-install.mjs --package-dir app  # 绑定 app/package.json
  */
 
 import fs from 'fs';
@@ -122,20 +123,51 @@ export const modules = {
   },
 };
 
-const targetProjectScripts = {
-  req: 'node scripts/req-cli.mjs',
-  'req:create': 'node scripts/req-cli.mjs create',
-  'req:start': 'node scripts/req-cli.mjs start',
-  'req:block': 'node scripts/req-cli.mjs block',
-  'req:complete': 'node scripts/req-cli.mjs complete',
-  'docs:verify': 'node scripts/docs-verify.mjs',
-  'docs:impact': 'node scripts/docs-verify.mjs --impact-only',
-  'docs:impact:json': 'node scripts/docs-verify.mjs --impact-only --format json',
-  'check:governance': 'node scripts/check-governance.mjs',
-};
+function toPosixPath(value) {
+  return value.split(path.sep).join('/');
+}
 
-function guardScript(name) {
-  return `node scripts/template-guard.mjs ${name}`;
+function formatNpmPath(value) {
+  const normalized = toPosixPath(value);
+  return /\s/.test(normalized) ? `"${normalized}"` : normalized;
+}
+
+function isWithinDir(parentDir, childPath) {
+  const relative = path.relative(parentDir, childPath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function resolveFromTarget(targetDir, inputPath) {
+  return path.isAbsolute(inputPath)
+    ? path.resolve(inputPath)
+    : path.resolve(targetDir, inputPath);
+}
+
+function governanceCommand(targetDir, packageDir, command) {
+  const rootFromPackage = path.relative(packageDir, targetDir);
+  if (!rootFromPackage) {
+    return command;
+  }
+
+  return `cd ${formatNpmPath(rootFromPackage)} && ${command}`;
+}
+
+function buildTargetProjectScripts(targetDir, packageDir) {
+  return {
+    req: governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs'),
+    'req:create': governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs create'),
+    'req:start': governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs start'),
+    'req:block': governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs block'),
+    'req:complete': governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs complete'),
+    'docs:verify': governanceCommand(targetDir, packageDir, 'node scripts/docs-verify.mjs'),
+    'docs:impact': governanceCommand(targetDir, packageDir, 'node scripts/docs-verify.mjs --impact-only'),
+    'docs:impact:json': governanceCommand(targetDir, packageDir, 'node scripts/docs-verify.mjs --impact-only --format json'),
+    'check:governance': governanceCommand(targetDir, packageDir, 'node scripts/check-governance.mjs'),
+  };
+}
+
+function guardScript(name, targetDir, packageDir) {
+  return governanceCommand(targetDir, packageDir, `node scripts/template-guard.mjs ${name}`);
 }
 
 function isPlaceholderScript(command) {
@@ -144,7 +176,7 @@ function isPlaceholderScript(command) {
   }
 
   return (
-    command.startsWith('node scripts/template-guard.mjs ') ||
+    command.includes('template-guard.mjs ') ||
     command.includes('Harness Lab keeps') ||
     command.includes('template guard')
   );
@@ -163,13 +195,104 @@ function inferVerifyScript(scripts) {
   return realScripts.map((name) => `npm run ${name}`).join(' && ');
 }
 
-export function updateTargetPackageJson(targetDir) {
-  const packageJsonPath = path.join(targetDir, 'package.json');
+export function detectPackageJsonCandidates(targetDir) {
+  const ignoredDirs = new Set([
+    '.git',
+    '.claude',
+    '.agents',
+    'node_modules',
+    'requirements',
+    'docs',
+    'context',
+    'scripts',
+    'skills',
+    'tests',
+  ]);
+  const candidates = [];
+
+  const rootPackageJson = path.join(targetDir, 'package.json');
+  if (fs.existsSync(rootPackageJson)) {
+    candidates.push({ path: rootPackageJson, relPath: 'package.json' });
+  }
+
+  let entries = [];
+  try {
+    entries = fs.readdirSync(targetDir, { withFileTypes: true });
+  } catch {
+    return candidates;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || ignoredDirs.has(entry.name)) {
+      continue;
+    }
+
+    const candidatePath = path.join(targetDir, entry.name, 'package.json');
+    if (fs.existsSync(candidatePath)) {
+      candidates.push({
+        path: candidatePath,
+        relPath: toPosixPath(path.relative(targetDir, candidatePath)),
+      });
+    }
+  }
+
+  return candidates;
+}
+
+export function resolvePackageJsonTarget(targetDir, options = {}) {
+  const packageDir = options.packageDir || null;
+  const packageJson = options.packageJson || null;
+
+  if (packageDir && packageJson) {
+    throw new Error('Use either --package-dir or --package-json, not both');
+  }
+
+  let packageJsonPath;
+  let source = 'root';
+  if (packageJson) {
+    packageJsonPath = resolveFromTarget(targetDir, packageJson);
+    source = 'package-json';
+  } else if (packageDir) {
+    packageJsonPath = path.join(resolveFromTarget(targetDir, packageDir), 'package.json');
+    source = 'package-dir';
+  } else {
+    packageJsonPath = path.join(targetDir, 'package.json');
+  }
+
+  if (!isWithinDir(targetDir, packageJsonPath)) {
+    throw new Error('The selected package.json must stay inside the target project');
+  }
+
+  const packageDirPath = path.dirname(packageJsonPath);
+  const relPath = toPosixPath(path.relative(targetDir, packageJsonPath)) || 'package.json';
+  const relDir = toPosixPath(path.relative(targetDir, packageDirPath)) || '.';
+
+  return {
+    path: packageJsonPath,
+    relPath,
+    packageDir: packageDirPath,
+    packageDirRel: relDir,
+    source,
+    explicit: Boolean(packageDir || packageJson),
+  };
+}
+
+export function updateTargetPackageJson(targetDir, options = {}) {
+  const packageTarget = resolvePackageJsonTarget(targetDir, options);
+  const packageJsonPath = packageTarget.path;
+  const candidates = detectPackageJsonCandidates(targetDir)
+    .filter((candidate) => candidate.relPath !== packageTarget.relPath);
+
   if (!fs.existsSync(packageJsonPath)) {
     return {
       updated: false,
       exists: false,
       path: null,
+      requestedPath: packageTarget.relPath,
+      packageDirRel: packageTarget.packageDirRel,
+      source: packageTarget.source,
+      explicit: packageTarget.explicit,
+      candidates,
       bindingStatus: [],
       addedScripts: [],
       preservedScripts: [],
@@ -185,6 +308,11 @@ export function updateTargetPackageJson(targetDir) {
       updated: false,
       exists: true,
       path: packageJsonPath,
+      relPath: packageTarget.relPath,
+      packageDirRel: packageTarget.packageDirRel,
+      source: packageTarget.source,
+      explicit: packageTarget.explicit,
+      candidates,
       parseError: error.message,
       bindingStatus: [],
       addedScripts: [],
@@ -202,6 +330,7 @@ export function updateTargetPackageJson(targetDir) {
   const preservedScripts = [];
   const bindingStatus = [];
   let generatedVerify = false;
+  const targetProjectScripts = buildTargetProjectScripts(targetDir, packageTarget.packageDir);
 
   for (const name of ['lint', 'test', 'build']) {
     const current = scripts[name];
@@ -211,7 +340,7 @@ export function updateTargetPackageJson(targetDir) {
       continue;
     }
 
-    const placeholder = guardScript(name);
+    const placeholder = guardScript(name, targetDir, packageTarget.packageDir);
     scripts[name] = placeholder;
     addedScripts.push(name);
     bindingStatus.push({
@@ -233,7 +362,7 @@ export function updateTargetPackageJson(targetDir) {
       generatedVerify = true;
       bindingStatus.push({ name: 'verify', status: 'generated', command: inferredVerify });
     } else {
-      const placeholder = guardScript('verify');
+      const placeholder = guardScript('verify', targetDir, packageTarget.packageDir);
       scripts.verify = placeholder;
       addedScripts.push('verify');
       bindingStatus.push({
@@ -260,6 +389,11 @@ export function updateTargetPackageJson(targetDir) {
     updated: true,
     exists: true,
     path: packageJsonPath,
+    relPath: packageTarget.relPath,
+    packageDirRel: packageTarget.packageDirRel,
+    source: packageTarget.source,
+    explicit: packageTarget.explicit,
+    candidates,
     bindingStatus,
     addedScripts,
     preservedScripts,
@@ -571,7 +705,7 @@ export function configureHook(targetDir) {
 }
 
 // 安装后验证
-export function verifyInstallation(targetDir, selectedModules, hookEnabled) {
+export function verifyInstallation(targetDir, selectedModules, hookEnabled, packageUpdate = null) {
   const results = {
     passed: [],
     failed: [],
@@ -597,7 +731,9 @@ export function verifyInstallation(targetDir, selectedModules, hookEnabled) {
   }
 
   // 2. 验证 package.json 脚本
-  const packageJsonPath = path.join(targetDir, 'package.json');
+  const packageJsonPath = packageUpdate?.exists && packageUpdate.path
+    ? packageUpdate.path
+    : path.join(targetDir, 'package.json');
   if (fs.existsSync(packageJsonPath)) {
     try {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
@@ -672,6 +808,99 @@ export function verifyInstallation(targetDir, selectedModules, hookEnabled) {
   return results;
 }
 
+function packageRunPrefix(packageUpdate) {
+  if (!packageUpdate?.exists || packageUpdate.parseError) {
+    return null;
+  }
+
+  if (!packageUpdate.packageDirRel || packageUpdate.packageDirRel === '.') {
+    return 'npm run';
+  }
+
+  return `npm --prefix ${formatNpmPath(packageUpdate.packageDirRel)} run`;
+}
+
+function reqCreateCommand(packageUpdate) {
+  const runPrefix = packageRunPrefix(packageUpdate);
+  if (runPrefix) {
+    return `${runPrefix} req:create -- --title "Your first requirement"`;
+  }
+
+  return 'node scripts/req-cli.mjs create --title "Your first requirement"';
+}
+
+function reqStartCommand(packageUpdate) {
+  const runPrefix = packageRunPrefix(packageUpdate);
+  if (runPrefix) {
+    return `${runPrefix} req:start -- --id REQ-YYYY-NNN --phase implementation`;
+  }
+
+  return 'node scripts/req-cli.mjs start --id REQ-YYYY-NNN --phase implementation';
+}
+
+function packageReviewStep(packageUpdate) {
+  if (!packageUpdate?.exists || packageUpdate.parseError) {
+    return '未绑定 package scripts；如需 npm scripts，请使用 `--package-dir` / `--package-json` 重新运行安装器。';
+  }
+
+  return `检查 \`${packageUpdate.relPath}\` 中自动绑定的命令，必要时替换 placeholder guard：`;
+}
+
+function formatPackageCandidates(packageUpdate) {
+  const candidates = packageUpdate?.candidates || [];
+  if (candidates.length === 0) {
+    return '';
+  }
+
+  return `\n检测到可选 package：\n${candidates.map((candidate) => `- \`${candidate.relPath}\``).join('\n')}\n\n如需绑定其中一个 package，可重新运行：\n\n\`\`\`bash\nnode /path/to/harness-lab/scripts/harness-install.mjs --defaults --package-dir ${path.dirname(candidates[0].relPath)}\n\`\`\`\n`;
+}
+
+function formatPackageBindingStatus(packageUpdate) {
+  if (!packageUpdate || !packageUpdate.exists) {
+    const requestedPath = packageUpdate?.requestedPath || 'package.json';
+    return `**目标 package**：\`${requestedPath}\`\n\n⚠️ 未绑定 package scripts：未检测到目标 \`package.json\`。\n${formatPackageCandidates(packageUpdate)}`;
+  }
+
+  if (packageUpdate.parseError) {
+    return `**目标 package**：\`${packageUpdate.relPath}\`\n\n❌ 读取 \`package.json\` 失败：${packageUpdate.parseError}`;
+  }
+
+  const statusLines = packageUpdate.bindingStatus.length === 0
+    ? 'ℹ️ 未修改标准命令绑定。'
+    : packageUpdate.bindingStatus
+        .map((item) => `- \`${item.name}\`：${item.status} -> \`${item.command}\``)
+        .join('\n');
+
+  const generatedVerify = packageUpdate.generatedVerify
+    ? '\n已根据目标项目已有真实命令自动生成 `verify`。\n'
+    : '';
+  const placeholderNotice = packageUpdate.bindingStatus.some((item) => item.status.startsWith('placeholder'))
+    ? '\n仍有 placeholder guard，说明这些命令需要目标项目后续替换为真实链路。\n'
+    : '';
+  const packageDirNotice = packageUpdate.packageDirRel && packageUpdate.packageDirRel !== '.'
+    ? `\n注意：治理文件安装在当前 Git 项目根目录，只有 npm scripts 绑定到了 \`${packageUpdate.relPath}\`。\n`
+    : '';
+
+  return `**目标 package**：\`${packageUpdate.relPath}\`\n\n${statusLines}\n${generatedVerify}${placeholderNotice}${packageDirNotice}`;
+}
+
+function formatCapabilityGaps(selectedModules, packageUpdate) {
+  const gaps = [];
+
+  if (!selectedModules.includes('hook')) {
+    gaps.push('- 治理 hooks 未安装：默认安装不启用硬阻断；需要时使用 `--with-hook`。');
+  }
+
+  if (!packageUpdate?.exists || packageUpdate.parseError) {
+    gaps.push('- package scripts 未绑定：当前只能直接运行 `node scripts/req-cli.mjs ...`，或指定 `--package-dir` / `--package-json` 后重新安装。');
+  }
+
+  gaps.push('- 高级治理脚本未安装：`scope-guard`、`watchdog`、`risk-tracker`、`auto-review` 等不属于默认迁移模块，需后续按需迁移。');
+  gaps.push('- 测试、CI、`.claude/commands/` 不属于默认安装清单；默认安装是治理引导，不是完整镜像。');
+
+  return gaps.join('\n');
+}
+
 // 生成接入报告
 export function generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate = null, verifyResults = null) {
   const reportDir = path.join(targetDir, 'requirements', 'reports');
@@ -719,23 +948,11 @@ ${hookEnabled ? '✅ 已配置（SessionStart + PreToolUse command hooks，PreTo
 
 ## 命令绑定状态
 
-${!packageUpdate || !packageUpdate.exists
-    ? '⚠️ 未检测到 `package.json`，未自动绑定 `lint / test / build / verify`。'
-    : packageUpdate.parseError
-      ? `❌ 读取 \`package.json\` 失败：${packageUpdate.parseError}`
-      : packageUpdate.bindingStatus.length === 0
-        ? 'ℹ️ 未修改标准命令绑定。'
-        : packageUpdate.bindingStatus
-            .map((item) => `- \`${item.name}\`：${item.status} -> \`${item.command}\``)
-            .join('\n')}
+${formatPackageBindingStatus(packageUpdate)}
 
-${packageUpdate && packageUpdate.exists && !packageUpdate.parseError
-    ? `${packageUpdate.generatedVerify ? '\n已根据目标项目已有真实命令自动生成 `verify`。\n' : ''}${
-        packageUpdate.bindingStatus.some((item) => item.status.startsWith('placeholder'))
-          ? '\n仍有 placeholder guard，说明这些命令需要目标项目后续替换为真实链路。\n'
-          : ''
-      }`
-    : ''}
+## 能力差距与未安装项说明
+
+${formatCapabilityGaps(selectedModules, packageUpdate)}
 
 ${verifyResults ? `## 安装验证结果
 
@@ -755,7 +972,7 @@ ${verifyResults.passed.slice(0, 10).map(item => `- ${item}`).join('\n')}${verify
 
 ## 后续步骤
 
-1. 检查 \`package.json\` 中自动绑定的命令，必要时替换 placeholder guard：
+1. ${packageReviewStep(packageUpdate)}
    \`\`\`json
    {
      "scripts": {
@@ -769,12 +986,12 @@ ${verifyResults.passed.slice(0, 10).map(item => `- ${item}`).join('\n')}${verify
 
 2. 创建第一个 REQ：
    \`\`\`bash
-   npm run req:create -- --title "Your first requirement"
+   ${reqCreateCommand(packageUpdate)}
    \`\`\`
 
 3. 补齐 REQ 的真实背景、目标、验收标准，再执行：
    \`\`\`bash
-   npm run req:start -- --id REQ-YYYY-NNN --phase implementation
+   ${reqStartCommand(packageUpdate)}
    \`\`\`
 
 4. 开始使用治理流程
@@ -785,6 +1002,7 @@ ${verifyResults.passed.slice(0, 10).map(item => `- ${item}`).join('\n')}${verify
 - \`req:create\` 只会生成骨架，不代表 REQ 已经可以直接实施
 - 可以使用 \`.claude/.req-exempt\` 临时豁免检查
 - 自动绑定只会复用目标项目已存在的标准脚本名，不会猜测非标准脚本语义
+- \`--package-dir\` / \`--package-json\` 只改变 package scripts 绑定位置，不改变治理文件安装位置
 `;
 
   fs.writeFileSync(reportPath, content);
@@ -800,6 +1018,20 @@ export async function question(rl, prompt) {
   });
 }
 
+function getArgValue(args, name) {
+  const index = args.indexOf(name);
+  if (index === -1) {
+    return null;
+  }
+
+  const value = args[index + 1];
+  if (!value || value.startsWith('--')) {
+    throw new Error(`${name} requires a value`);
+  }
+
+  return value;
+}
+
 // 主函数
 export async function main() {
   const args = process.argv.slice(2);
@@ -808,13 +1040,14 @@ export async function main() {
     coreOnly: args.includes('--core-only'),
     withHook: args.includes('--with-hook'),
     source: null,
+    packageDir: null,
+    packageJson: null,
   };
 
   // 解析 --source 参数
-  const sourceIndex = args.indexOf('--source');
-  if (sourceIndex !== -1 && args[sourceIndex + 1]) {
-    options.source = args[sourceIndex + 1];
-  }
+  options.source = getArgValue(args, '--source');
+  options.packageDir = getArgValue(args, '--package-dir');
+  options.packageJson = getArgValue(args, '--package-json');
 
   const targetDir = process.cwd();
   const sourceDir = options.source || path.resolve(__dirname, '..');
@@ -942,11 +1175,14 @@ export async function main() {
     log('   ✅ 已配置', 'green');
   }
 
-  const packageUpdate = updateTargetPackageJson(targetDir);
+  const packageUpdate = updateTargetPackageJson(targetDir, {
+    packageDir: options.packageDir,
+    packageJson: options.packageJson,
+  });
 
   // 安装后验证
   log('\n🔍 安装后验证...', 'blue');
-  const verifyResults = verifyInstallation(targetDir, selectedModules, hookEnabled);
+  const verifyResults = verifyInstallation(targetDir, selectedModules, hookEnabled, packageUpdate);
   log(`   ✅ 通过: ${verifyResults.passed.length} 项`, 'green');
   if (verifyResults.warnings.length > 0) {
     log(`   ⚠️  警告: ${verifyResults.warnings.length} 项`, 'yellow');
@@ -966,9 +1202,13 @@ export async function main() {
   log('═══════════════════════════════════════════════════════════\n', 'green');
 
   log('📚 后续步骤：\n');
-  log('   1. 在 package.json 中绑定真实命令 (lint, test, build)');
-  log('   2. 创建第一个 REQ: npm run req:create -- --title "..."');
-  log('   3. 补齐 REQ 内容后再执行: npm run req:start -- --id REQ-YYYY-NNN --phase implementation');
+  if (!packageUpdate.exists || packageUpdate.parseError) {
+    log('   1. 未绑定 package scripts；可直接使用 node scripts/req-cli.mjs，或用 --package-dir/--package-json 重新绑定');
+  } else {
+    log(`   1. 检查 ${packageUpdate.relPath} 中自动绑定的命令，必要时替换 placeholder guard`);
+  }
+  log(`   2. 创建第一个 REQ: ${reqCreateCommand(packageUpdate)}`);
+  log(`   3. 补齐 REQ 内容后再执行: ${reqStartCommand(packageUpdate)}`);
   log('   4. 查看接入报告: requirements/reports/harness-setup-report.md\n');
 }
 

@@ -1,4 +1,4 @@
-# REQ-2026-057: 支持 worktree 本地隔离模式
+# REQ-2026-058: 支持 worktree 本地隔离模式
 
 ## 状态
 - 当前状态：in-progress
@@ -63,13 +63,13 @@
 - [ ] npm test 通过，npm run docs:verify 通过
 
 ## 设计与实现链接
-- 设计稿：`docs/plans/REQ-2026-057-design.md`
+- 设计稿：`docs/plans/REQ-2026-058-design.md`
 - 相关规范：CLAUDE.md 续传协议、压缩恢复协议
 
 ## 报告链接
-- Code Review：`requirements/reports/REQ-2026-057-code-review.md`
-- QA：`requirements/reports/REQ-2026-057-qa.md`
-- Ship：`requirements/reports/REQ-2026-057-ship.md`
+- Code Review：`requirements/reports/REQ-2026-058-code-review.md`
+- QA：`requirements/reports/REQ-2026-058-qa.md`
+- Ship：`requirements/reports/REQ-2026-058-ship.md`
 
 ## 验证计划
 - 计划执行的命令：`npm test && npm run docs:verify && npm run check:governance`

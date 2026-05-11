@@ -8,10 +8,11 @@ import {
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const __filename = import.meta.url;
-const repoRoot = path.resolve(path.dirname(new URL(__filename).pathname), '..');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, '..');
 
 function createTempDir(prefix) {
   return mkdtempSync(path.join(os.tmpdir(), `${prefix}-`));
