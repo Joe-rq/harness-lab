@@ -3,10 +3,9 @@ Current phase: idle
 Last updated: 2026-05-12
 
 Summary:
+- ✅ REQ-2026-059 完成：迁移命令补齐 worktree 运行时依赖与 hook 实跑回归
 - ✅ REQ-2026-058 完成：worktree 本地隔离模式
-- ✅ 补漏修复：hook 脚本 session-start.sh / req-check.sh 已适配 worktree 路径
-- ✅ 报告修复：Code Review / QA / Ship 报告已重写并补齐
-- ✅ 验收标准已勾选
+- ✅ 验证通过：npm test、docs:verify、check:governance
 
 Next steps:
 - 用 Harness Lab 连续跑 3-5 个真实 REQ，记录编排器字段缺口

@@ -11,6 +11,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getExemptPath, getProgressPath } from './worktree-utils.mjs';
 
 const colors = {
   reset: '\x1b[0m',
@@ -32,7 +33,7 @@ function getGitRoot() {
 }
 
 function readProgressFile(rootDir) {
-  const progressPath = path.join(rootDir, '.claude', 'progress.txt');
+  const progressPath = getProgressPath(rootDir);
   if (!fs.existsSync(progressPath)) {
     return null;
   }
@@ -46,8 +47,9 @@ function parseActiveReq(content) {
 }
 
 function isExempt(rootDir) {
-  const exemptPath = path.join(rootDir, '.claude', '.req-exempt');
-  return fs.existsSync(exemptPath);
+  const exemptPath = getExemptPath(rootDir);
+  const globalExemptPath = path.join(rootDir, '.claude', '.req-exempt');
+  return fs.existsSync(exemptPath) || fs.existsSync(globalExemptPath);
 }
 
 function isRequirementsOrDocsFile(targetFile, rootDir) {

@@ -69,7 +69,7 @@ npx harness-install --defaults --with-hook
 | `docs/` | 设计稿和规范目录 | yes |
 | `context/` | 业务/技术/经验索引 | yes |
 | `skills/` | 阶段导航技能 | yes |
-| CLI 脚本 | `req-cli.mjs`, `req-validation.mjs`, `docs-verify.mjs`, `check-governance.mjs`, `template-guard.mjs` | yes |
+| CLI 脚本 | `req-cli.mjs`, `req-validation.mjs`, `error-classifier.mjs`, `worktree-utils.mjs`, `docs-verify.mjs`, `check-governance.mjs`, `template-guard.mjs` | yes |
 | 治理 hooks | `.claude/settings.example.json`, `scripts/session-start.sh`, `scripts/session-start.js`, `scripts/req-check.sh`, `scripts/req-check.js`, 本地 hook 配置 | no，需 `--with-hook` |
 
 ## 安装器真实行为

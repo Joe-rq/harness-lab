@@ -60,6 +60,7 @@ npx harness-install --defaults --with-hook
 ```
 
 默认安装是治理引导，不是完整镜像；高级治理脚本、测试、CI 和 `.claude/commands/` 不在默认安装清单中。
+默认 CLI 清单包含 `worktree-utils.mjs` 等运行时依赖，安装器回归测试会在迁移后的临时项目中实际执行 `req-cli.mjs` 与跨平台 hook，避免只复制入口脚本却遗漏依赖。
 
 **平台支持**：
 - 支持 Windows、macOS、Linux
@@ -242,6 +243,7 @@ npm run req:align -- --id REQ-YYYY-NNN
 GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`npm run docs:verify` 和 `npm run check:governance`，把仓库级治理检查变成默认门禁。
 对于目标项目，`harness-install` 现在会尝试自动绑定已有真实 `lint / test / build`，并在缺失时写入 placeholder guard，避免接入后只剩 README 提示。
 `npm test` 还覆盖 `/harness-setup` command、`source-command-harness-setup` skill 和 `harness-install` package bin 的契约同步，防止一键接入说明与真实分发入口漂移。
+安装器测试会在复制完成后的 fixture 中实际运行 `node scripts/req-cli.mjs status`、`node scripts/session-start.js` 和带豁免的 `node scripts/req-check.js`，确保迁移结果不是只有文件存在，而是核心入口可执行。
 
 ### 模板仓库 vs 目标项目
 
@@ -298,6 +300,7 @@ GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`n
 **worktree 支持**：
 - 可用 `git worktree` 为每个 REQ 创建独立工作目录并行推进
 - 每个 worktree 拥有独立的 `.claude/worktrees/{branch}/progress.txt`
+- `harness-install` 默认会迁移 `worktree-utils.mjs`，启用 hook 时跨平台 `session-start.js` / `req-check.js` 也能读取 worktree 专属 progress 与 `.req-exempt`
 - `INDEX.md` 可同时记录多个活跃 REQ
 - 主仓库（非 worktree）模式行为完全不变
 

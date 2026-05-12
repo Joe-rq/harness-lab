@@ -92,6 +92,8 @@ export const modules = {
     files: [
       'scripts/req-cli.mjs',
       'scripts/req-validation.mjs',
+      'scripts/error-classifier.mjs',
+      'scripts/worktree-utils.mjs',
       'scripts/docs-verify.mjs',
       'scripts/check-governance.mjs',
       'scripts/docs-sync-rules.json',

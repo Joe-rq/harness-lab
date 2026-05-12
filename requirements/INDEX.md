@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-059-fix-include-worktree-support-in-harness-install.md`（真实整改：fix: include worktree support in harness install）
 - `REQ-2026-058-worktree-local-isolation.md`（真实整改：支持 worktree 本地隔离模式）
 - `REQ-2026-057-feat-harness-setup-execution-optimization.md`（真实整改：feat: harness setup execution optimization）
 - `REQ-2026-056-feat-harness-setup-skill.md`（真实整改：feat: 完善 harness-setup skill 与一键迁移分发契约）

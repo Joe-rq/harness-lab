@@ -10,6 +10,7 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { verifyDocs } from '../scripts/docs-verify.mjs';
 import { validateReqDocument, validateDesignDocument } from '../scripts/req-validation.mjs';
 import {
@@ -324,6 +325,8 @@ async function testHarnessInstallArtifacts() {
     const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/check-governance.mjs'));
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/req-validation.mjs'));
+    assert.ok(harnessInstall.modules.cli.files.includes('scripts/error-classifier.mjs'));
+    assert.ok(harnessInstall.modules.cli.files.includes('scripts/worktree-utils.mjs'));
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/template-guard.mjs'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/session-start.sh'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/req-check.sh'));
@@ -354,6 +357,8 @@ async function testHarnessInstallArtifacts() {
 
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'check-governance.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-validation.mjs')));
+    assert.ok(existsSync(path.join(tempDir, 'scripts', 'error-classifier.mjs')));
+    assert.ok(existsSync(path.join(tempDir, 'scripts', 'worktree-utils.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-check.sh')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'session-start.sh')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-check.js')));
@@ -394,6 +399,24 @@ async function testHarnessInstallArtifacts() {
 
     const progress = readFileSync(path.join(tempDir, '.claude', 'progress.txt'), 'utf8');
     assert.match(progress, /补齐 REQ 的真实背景、目标、验收标准后再执行 req:start/);
+
+    const statusOutput = execFileSync(process.execPath, ['scripts/req-cli.mjs', 'status'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    assert.match(statusOutput, /No active REQ/);
+
+    const sessionOutput = execFileSync(process.execPath, ['scripts/session-start.js'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    assert.match(sessionOutput, /Harness Lab/);
+
+    writeFile(tempDir, '.claude/.req-exempt', '');
+    execFileSync(process.execPath, ['scripts/req-check.js'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -550,6 +573,7 @@ function testHarnessSetupCommandSkillAndBinStayAligned() {
     '默认跳过已有文件',
     '.claude/progress.txt',
     '.claude/settings.local.json',
+    'worktree-utils.mjs',
     'scripts/session-start.js',
     'scripts/req-check.js',
     'node /path/to/harness-lab/scripts/harness-install.mjs --defaults',
