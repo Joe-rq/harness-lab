@@ -7,15 +7,16 @@ if [ -z "$ROOT" ]; then
   exit 0
 fi
 
-# Bypass if exempt file exists (worktree-specific or global)
+# Bypass if exempt file exists (worktree-specific first, then global fallback)
 EXEMPT_FILE=$(cd "$ROOT" && node --input-type=module --eval "
   import { getExemptPath } from './scripts/worktree-utils.mjs';
   console.log(getExemptPath('${ROOT}'));
 " 2>/dev/null)
-if [ -z "$EXEMPT_FILE" ]; then
-  EXEMPT_FILE="$ROOT/.claude/.req-exempt"
+if [ -n "$EXEMPT_FILE" ] && [ -f "$EXEMPT_FILE" ]; then
+  exit 0
 fi
-if [ -f "$EXEMPT_FILE" ]; then
+# Fallback to global exempt
+if [ -f "$ROOT/.claude/.req-exempt" ]; then
   exit 0
 fi
 

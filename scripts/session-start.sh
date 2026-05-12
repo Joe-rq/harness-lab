@@ -41,12 +41,13 @@ if [ -f "$RATCHET_FILE" ]; then
   fi
 fi
 
-# 检查豁免文件 TTL（worktree-specific or global）
+# 检查豁免文件 TTL（worktree-specific first, then global fallback）
 EXEMPT_FILE=$(cd "$ROOT_DIR" && node --input-type=module --eval "
   import { getExemptPath } from './scripts/worktree-utils.mjs';
   console.log(getExemptPath('${ROOT_DIR}'));
 " 2>/dev/null)
-if [ -z "$EXEMPT_FILE" ]; then
+# If worktree-specific exempt doesn't exist, fallback to global
+if [ -z "$EXEMPT_FILE" ] || [ ! -f "$EXEMPT_FILE" ]; then
   EXEMPT_FILE="$ROOT_DIR/.claude/.req-exempt"
 fi
 EXEMPT_TTL_SECONDS=7200  # 2 小时
