@@ -365,6 +365,7 @@ async function testHarnessInstallArtifacts() {
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'session-start.js')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'template-guard.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'context', 'README.md')));
+    assert.ok(existsSync(path.join(tempDir, '.agents', 'skills', 'source-command-worktree-req', 'SKILL.md')));
 
     const settings = JSON.parse(
       readFileSync(path.join(tempDir, '.claude', 'settings.local.json'), 'utf8')
@@ -574,6 +575,8 @@ function testHarnessSetupCommandSkillAndBinStayAligned() {
     '.claude/progress.txt',
     '.claude/settings.local.json',
     'worktree-utils.mjs',
+    'source-command-worktree-req',
+    '一个 worktree 一个 active REQ',
     'scripts/session-start.js',
     'scripts/req-check.js',
     'node /path/to/harness-lab/scripts/harness-install.mjs --defaults',

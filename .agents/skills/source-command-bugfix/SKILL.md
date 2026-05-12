@@ -19,7 +19,8 @@ Use this skill when the user asks to run the migrated source command `bugfix`.
 
 1. 确认 `requirements/` 目录存在。不存在 → 提示先运行 `/harness-setup`
 2. 确认 `package.json` 中有 `req:create` 脚本。不存在 → 提示先运行 `/harness-setup`
-3. 确认当前无活跃 REQ（`requirements/INDEX.md` 中 `## 当前活跃 REQ` 下为"无"）。有活跃 REQ → 提示先完成或搁置当前 REQ
+3. 运行 `npm run req:status` 确认**当前 worktree** 无活跃 REQ。有活跃 REQ → 提示先完成或搁置当前 worktree 的 REQ；如需并行新开一条线，改用 `source-command-worktree-req`
+4. 如需查看全局并行状态，运行 `npm run req:status -- --all`
 
 ## 执行步骤
 

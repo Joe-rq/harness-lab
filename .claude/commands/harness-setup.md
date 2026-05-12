@@ -62,7 +62,7 @@ npx harness-install --defaults --with-hook
 |------|------|------|
 | `docs/` | 设计稿和规范目录 | yes |
 | `context/` | 业务/技术/经验索引 | yes |
-| `skills/` | 阶段导航技能 | yes |
+| `skills/` 与 `.agents/skills/source-command-*` | 阶段导航技能、Claude Code source-command skills（含 `worktree-req`） | yes |
 | CLI 脚本 | `req-cli.mjs`, `req-validation.mjs`, `error-classifier.mjs`, `worktree-utils.mjs`, `docs-verify.mjs`, `check-governance.mjs`, `template-guard.mjs` | yes |
 | 治理 hooks | `.claude/settings.example.json`, `scripts/session-start.sh`, `scripts/session-start.js`, `scripts/req-check.sh`, `scripts/req-check.js`, 本地 hook 配置 | no，需 `--with-hook` |
 
@@ -128,6 +128,7 @@ npm run req:start -- --id REQ-YYYY-NNN --phase implementation
 
 - `req:create` 只会生成骨架，不代表 REQ 已可直接实施
 - 如果启用 PreToolUse hook，无活跃 REQ、空模板 REQ 或 draft REQ 都会阻断 Write/Edit
+- Claude Code 下遵循“一个 worktree 一个 active REQ”；需要并行新开 REQ 时使用 `source-command-worktree-req`
 - 紧急小改动可用 `.claude/.req-exempt` 临时豁免，完成后应删除
 - 自动绑定只会复用标准脚本名，不猜测 `test:unit`、`check`、`build:prod` 等非标准脚本语义
 - `npx harness-install` 依赖包分发时暴露 `bin`，本地开发时优先使用 `node scripts/harness-install.mjs`

@@ -3,8 +3,8 @@ Current phase: idle
 Last updated: 2026-05-12
 
 Summary:
-- ✅ REQ-2026-059 完成：迁移命令补齐 worktree 运行时依赖与 hook 实跑回归
-- ✅ REQ-2026-058 完成：worktree 本地隔离模式
+- ✅ REQ-2026-061 完成：worktree 引导对齐 Claude Code 官方 `--worktree` 文档
+- ✅ REQ-2026-060 完成：Claude Code worktree REQ 引导 skill 与迁移分发
 - ✅ 验证通过：npm test、docs:verify、check:governance
 
 Next steps:

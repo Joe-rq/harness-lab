@@ -72,7 +72,7 @@ export const modules = {
     ],
   },
   skills: {
-    name: 'skills/ 目录',
+    name: 'skills/ 与 source-command skills',
     required: false,
     default: true,
     files: [
@@ -83,6 +83,12 @@ export const modules = {
       'skills/plan/ceo-review.md',
       'skills/plan/design-review.md',
       'skills/plan/eng-review.md',
+      '.agents/skills/source-command-bugfix/SKILL.md',
+      '.agents/skills/source-command-feature/SKILL.md',
+      '.agents/skills/source-command-first-req/SKILL.md',
+      '.agents/skills/source-command-harness-setup/SKILL.md',
+      '.agents/skills/source-command-refactor/SKILL.md',
+      '.agents/skills/source-command-worktree-req/SKILL.md',
     ],
   },
   cli: {

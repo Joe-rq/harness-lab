@@ -77,6 +77,7 @@ npx harness-install --defaults --with-hook
 - `requirements/`
 - `scripts/`
 - `skills/`
+- `.agents/skills/source-command-*`
 - `.claude/`
 
 ### 接入后配置
@@ -164,6 +165,7 @@ npx harness-install --defaults --with-hook
 ├── context/               # 业务/技术/经验索引
 │   └── invariants/        # 经验回流：结构化不变量规则
 ├── skills/                # 阶段导航技能
+├── .agents/skills/        # Claude Code source-command skills
 ├── scripts/               # CLI 工具
 ├── .claude/commands/      # 可调用 skills
 ├── .claude/progress.txt   # 跨会话进度（主仓库）
@@ -303,6 +305,15 @@ GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`n
 - `harness-install` 默认会迁移 `worktree-utils.mjs`，启用 hook 时跨平台 `session-start.js` / `req-check.js` 也能读取 worktree 专属 progress 与 `.req-exempt`
 - `INDEX.md` 可同时记录多个活跃 REQ
 - 主仓库（非 worktree）模式行为完全不变
+
+**Claude Code 使用约定**：
+- 一个 worktree 只能有一个 active REQ；多个并行 REQ 使用多个 worktree
+- 推荐优先用 Claude Code 原生入口：`claude --worktree {name}` 或 `claude -w {name}`
+- Claude Code 默认会在 `.claude/worktrees/{name}/` 下创建隔离 worktree；需要自定义目录或复用分支时再手动 `git worktree add`
+- 新 worktree 需要 `.env` 等 gitignored 本地文件时，使用 `.worktreeinclude` 声明要复制的文件
+- 日常 `feature` / `bugfix` / `refactor` source-command skills 只检查当前 worktree 的 `npm run req:status`
+- 需要并行新开 REQ 时使用 `source-command-worktree-req` 引导创建 worktree、创建 REQ、启动 REQ 和收尾
+- `npm run req:status -- --all` 用于查看所有 worktree / 全局索引中的活跃 REQ
 
 ## 成功标准
 
