@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-062-governance-framework-audit-and-installer-hardening.md`（真实整改：governance framework audit and installer hardening）
 - `REQ-2026-061-claude-code-worktree-docs-alignment.md`（真实整改：docs: align worktree guidance with Claude Code docs）
 - `REQ-2026-060-claude-code-worktree-req-guidance.md`（真实整改：feat: Claude Code worktree REQ guidance）
 - `REQ-2026-059-fix-include-worktree-support-in-harness-install.md`（真实整改：fix: include worktree support in harness install）

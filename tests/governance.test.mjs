@@ -168,8 +168,16 @@ async function testReqCliLifecycle() {
         .replace('说明为什么要做这件事。', '验证空模板 REQ 不得进入实施阶段。')
         .replace('- 目标 1', '- 阻止空模板 REQ 进入 in-progress')
         .replace('- 目标 2', '- 让 req:start 和 PreToolUse 复用同一套内容校验')
-        .replace('- [ ] 标准 1', '- [ ] 空模板 REQ 无法执行 req:start')
-        .replace('- [ ] 标准 2', '- [ ] 已填充 REQ 可以正常执行 req:start'),
+        .replace('- [ ] 标准 1', '- [x] 空模板 REQ 无法执行 req:start')
+        .replace('- [ ] 标准 2', '- [x] 已填充 REQ 可以正常执行 req:start')
+        .replace('- [ ] 目标实现', '- [x] 目标实现')
+        .replace('- [ ] 旧功能保护', '- [x] 旧功能保护')
+        .replace('- [ ] 逻辑正确性', '- [x] 逻辑正确性')
+        .replace('- [ ] 完整性', '- [x] 完整性')
+        .replace('- [ ] 可维护性', '- [x] 可维护性')
+        .replace('- [ ] 目标对齐', '- [x] 目标对齐')
+        .replace('- [ ] 设计对齐', '- [x] 设计对齐')
+        .replace('- [ ] 验收标准对齐', '- [x] 验收标准对齐'),
       'utf8'
     );
 
@@ -244,7 +252,7 @@ async function testReqCliLifecycle() {
     );
     writeFileSync(
       path.join(reportsDir, 'REQ-2026-001-qa.md'),
-      '# QA\n\n## 状态\n\n- ✅ 通过\n',
+      '# QA\n\n## 状态\n\n- ✅ 通过\n\n## 验证证据\n\n| 类型 | 项目 | 结果 | 摘要 |\n|------|------|------|------|\n| 命令 | `npm test` | PASS | fixture |\n| 人工/浏览器 | 无 | N/A | REQ 未要求人工验证 |\n',
       'utf8'
     );
 
@@ -490,7 +498,10 @@ async function testPackageBindingSupportsPackageDir() {
     assert.equal(packageJson.scripts.build, 'cd .. && node scripts/template-guard.mjs build');
     assert.equal(packageJson.scripts.verify, 'npm run test');
     assert.equal(packageJson.scripts['req:create'], 'cd .. && node scripts/req-cli.mjs create');
-    assert.equal(packageJson.scripts['docs:verify'], 'cd .. && node scripts/docs-verify.mjs');
+    assert.equal(
+      packageJson.scripts['docs:verify'],
+      'cd .. && git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-verify-status && node scripts/docs-verify.mjs --status-file .claude/.docs-verify-status'
+    );
 
     writeFile(
       tempDir,
@@ -750,6 +761,22 @@ async function testReqBlockCommand() {
     reqContent = reqContent.replace('- 目标 2', '- Real goal 2');
     reqContent = reqContent.replace('- [ ] 标准 1', '- [x] Real acceptance criteria 1');
     reqContent = reqContent.replace('- [ ] 标准 2', '- [x] Real acceptance criteria 2');
+    reqContent = reqContent.replace('- [ ] 目标实现', '- [x] 目标实现');
+    reqContent = reqContent.replace('- [ ] 旧功能保护', '- [x] 旧功能保护');
+    reqContent = reqContent.replace('- [ ] 逻辑正确性', '- [x] 逻辑正确性');
+    reqContent = reqContent.replace('- [ ] 完整性', '- [x] 完整性');
+    reqContent = reqContent.replace('- [ ] 可维护性', '- [x] 可维护性');
+    reqContent = reqContent.replace('- [ ] 目标对齐', '- [x] 目标对齐');
+    reqContent = reqContent.replace('- [ ] 设计对齐', '- [x] 设计对齐');
+    reqContent = reqContent.replace('- [ ] 验收标准对齐', '- [x] 验收标准对齐');
+    reqContent = reqContent.replace('- [ ] 目标实现', '- [x] 目标实现');
+    reqContent = reqContent.replace('- [ ] 旧功能保护', '- [x] 旧功能保护');
+    reqContent = reqContent.replace('- [ ] 逻辑正确性', '- [x] 逻辑正确性');
+    reqContent = reqContent.replace('- [ ] 完整性', '- [x] 完整性');
+    reqContent = reqContent.replace('- [ ] 可维护性', '- [x] 可维护性');
+    reqContent = reqContent.replace('- [ ] 目标对齐', '- [x] 目标对齐');
+    reqContent = reqContent.replace('- [ ] 设计对齐', '- [x] 设计对齐');
+    reqContent = reqContent.replace('- [ ] 验收标准对齐', '- [x] 验收标准对齐');
     // Add design doc exemption
     reqContent = reqContent.replace(
       '### 约束（Scope Control，可选）',
@@ -813,6 +840,14 @@ async function testReqCompleteWithDocsGate() {
     reqContent = reqContent.replace('- 目标 2', '- Real goal 2');
     reqContent = reqContent.replace('- [ ] 标准 1', '- [x] Real acceptance criteria 1');
     reqContent = reqContent.replace('- [ ] 标准 2', '- [x] Real acceptance criteria 2');
+    reqContent = reqContent.replace('- [ ] 目标实现', '- [x] 目标实现');
+    reqContent = reqContent.replace('- [ ] 旧功能保护', '- [x] 旧功能保护');
+    reqContent = reqContent.replace('- [ ] 逻辑正确性', '- [x] 逻辑正确性');
+    reqContent = reqContent.replace('- [ ] 完整性', '- [x] 完整性');
+    reqContent = reqContent.replace('- [ ] 可维护性', '- [x] 可维护性');
+    reqContent = reqContent.replace('- [ ] 目标对齐', '- [x] 目标对齐');
+    reqContent = reqContent.replace('- [ ] 设计对齐', '- [x] 设计对齐');
+    reqContent = reqContent.replace('- [ ] 验收标准对齐', '- [x] 验收标准对齐');
     // Add design doc exemption
     reqContent = reqContent.replace(
       '### 约束（Scope Control，可选）',
@@ -827,7 +862,7 @@ async function testReqCompleteWithDocsGate() {
     const reportsDir = path.join(tempDir, 'requirements', 'reports');
     mkdirSync(reportsDir, { recursive: true });
     writeFileSync(path.join(reportsDir, 'REQ-2026-001-code-review.md'), '# Code Review\n\nTest review.', 'utf8');
-    writeFileSync(path.join(reportsDir, 'REQ-2026-001-qa.md'), '# QA\n\nTest QA.', 'utf8');
+    writeFileSync(path.join(reportsDir, 'REQ-2026-001-qa.md'), '# QA\n\n## 验证证据\n\n| 类型 | 项目 | 结果 | 摘要 |\n|------|------|------|------|\n| 命令 | `npm test` | PASS | fixture |\n| 人工/浏览器 | 无 | N/A | REQ 未要求人工验证 |\n', 'utf8');
 
     // Create a status file (simulating git status)
     const statusFile = path.join(tempDir, '.claude', '.req-complete-status');

@@ -12,6 +12,7 @@
  *   node harness-install.mjs --with-hook        # 包含 PreToolUse hook
  *   node harness-install.mjs --source ./path    # 指定源目录
  *   node harness-install.mjs --package-dir app  # 绑定 app/package.json
+ *   node harness-install.mjs --dry-run          # 只输出安装计划，不写文件
  */
 
 import fs from 'fs';
@@ -97,6 +98,8 @@ export const modules = {
     default: true,
     files: [
       'scripts/req-cli.mjs',
+      'scripts/req-audit.mjs',
+      'scripts/governance-health.mjs',
       'scripts/req-validation.mjs',
       'scripts/error-classifier.mjs',
       'scripts/worktree-utils.mjs',
@@ -110,6 +113,8 @@ export const modules = {
       'req:start': 'node scripts/req-cli.mjs start',
       'req:block': 'node scripts/req-cli.mjs block',
       'req:complete': 'node scripts/req-cli.mjs complete',
+      'req:audit': 'node scripts/req-audit.mjs --all',
+      'governance:health': 'node scripts/governance-health.mjs',
       'docs:verify': 'node scripts/docs-verify.mjs',
       'docs:impact': 'node scripts/docs-verify.mjs --impact-only',
       'docs:impact:json': 'node scripts/docs-verify.mjs --impact-only --format json',
@@ -166,11 +171,13 @@ function buildTargetProjectScripts(targetDir, packageDir) {
     'req:create': governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs create'),
     'req:start': governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs start'),
     'req:block': governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs block'),
-    'req:complete': governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs complete'),
-    'docs:verify': governanceCommand(targetDir, packageDir, 'node scripts/docs-verify.mjs'),
-    'docs:impact': governanceCommand(targetDir, packageDir, 'node scripts/docs-verify.mjs --impact-only'),
-    'docs:impact:json': governanceCommand(targetDir, packageDir, 'node scripts/docs-verify.mjs --impact-only --format json'),
-    'check:governance': governanceCommand(targetDir, packageDir, 'node scripts/check-governance.mjs'),
+    'req:complete': governanceCommand(targetDir, packageDir, 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.req-complete-status && node scripts/req-cli.mjs complete --status-file .claude/.req-complete-status'),
+    'req:audit': governanceCommand(targetDir, packageDir, 'node scripts/req-audit.mjs --all'),
+    'governance:health': governanceCommand(targetDir, packageDir, 'node scripts/governance-health.mjs'),
+    'docs:verify': governanceCommand(targetDir, packageDir, 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-verify-status && node scripts/docs-verify.mjs --status-file .claude/.docs-verify-status'),
+    'docs:impact': governanceCommand(targetDir, packageDir, 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-status --impact-only'),
+    'docs:impact:json': governanceCommand(targetDir, packageDir, 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-json-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-json-status --impact-only --format json'),
+    'check:governance': governanceCommand(targetDir, packageDir, 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.check-governance-status && node scripts/check-governance.mjs --status-file .claude/.check-governance-status'),
   };
 }
 
@@ -430,7 +437,22 @@ export function detectExistingFiles(targetDir, selectedModules) {
 }
 
 // 清理框架自身的 REQ 数据
-export function sanitizeFrameworkData(targetDir) {
+function isTemplateHistoryFile(targetDir, relPath) {
+  const fullPath = path.join(targetDir, relPath);
+  if (!fs.existsSync(fullPath)) return false;
+  const content = fs.readFileSync(fullPath, 'utf-8');
+  return (
+    content.includes('Harness Lab 是一个 `研发治理层模板`') ||
+    content.includes('模板加固') ||
+    content.includes('example-status-filter') ||
+    content.includes('suspended-example') ||
+    content.includes('<!-- Harness Lab template history -->')
+  );
+}
+
+export function sanitizeFrameworkData(targetDir, options = {}) {
+  const cleanTemplateHistory = options.cleanTemplateHistory === true;
+  const copiedFiles = new Set(options.copiedFiles || []);
   const results = {
     removed: [],
     reset: [],
@@ -446,10 +468,9 @@ export function sanitizeFrameworkData(targetDir) {
       if (file === '.gitkeep' || file === 'README.md') {
         continue;
       }
-      // 删除框架历史 REQ (001-899 编号范围)
       if (/^REQ-2026-\d{3}/.test(file)) {
-        const reqNum = parseInt(file.match(/REQ-2026-(\d{3})/)?.[1], 10);
-        if (reqNum && reqNum < 900) {
+        const relPath = `requirements/completed/${file}`;
+        if (cleanTemplateHistory && isTemplateHistoryFile(targetDir, relPath)) {
           fs.unlinkSync(path.join(completedDir, file));
           results.removed.push(`completed/${file}`);
         } else {
@@ -469,8 +490,8 @@ export function sanitizeFrameworkData(targetDir) {
         continue;
       }
       if (/^REQ-2026-\d{3}/.test(file)) {
-        const reqNum = parseInt(file.match(/REQ-2026-(\d{3})/)?.[1], 10);
-        if (reqNum && reqNum < 900) {
+        const relPath = `requirements/in-progress/${file}`;
+        if (cleanTemplateHistory && isTemplateHistoryFile(targetDir, relPath)) {
           fs.unlinkSync(path.join(inProgressDir, file));
           results.removed.push(`in-progress/${file}`);
         } else {
@@ -489,17 +510,21 @@ export function sanitizeFrameworkData(targetDir) {
       if (file === '.gitkeep' || file === 'README.md') {
         continue;
       }
-      // 删除框架历史报告
       if (/^REQ-2026-\d{3}-/.test(file) || file === 'harness-setup-report.md') {
-        fs.unlinkSync(path.join(reportsDir, file));
-        results.removed.push(`reports/${file}`);
+        const relPath = `requirements/reports/${file}`;
+        if (cleanTemplateHistory && isTemplateHistoryFile(targetDir, relPath)) {
+          fs.unlinkSync(path.join(reportsDir, file));
+          results.removed.push(`reports/${file}`);
+        } else {
+          results.preserved.push(`reports/${file}`);
+        }
       }
     }
   }
 
   // 4. 重置 INDEX.md - 清空"最近完成"列表
   const indexPath = path.join(targetDir, 'requirements', 'INDEX.md');
-  if (fs.existsSync(indexPath)) {
+  if (fs.existsSync(indexPath) && (copiedFiles.has('requirements/INDEX.md') || cleanTemplateHistory)) {
     let content = fs.readFileSync(indexPath, 'utf-8');
 
     // 重置当前活跃 REQ 为无
@@ -747,7 +772,7 @@ export function verifyInstallation(targetDir, selectedModules, hookEnabled, pack
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
       const scripts = packageJson.scripts || {};
 
-      const requiredScripts = ['req:create', 'req:start', 'req:complete'];
+      const requiredScripts = ['req:create', 'req:start', 'req:complete', 'req:audit', 'governance:health'];
       for (const script of requiredScripts) {
         if (scripts[script]) {
           results.passed.push(`Script configured: ${script}`);
@@ -1050,6 +1075,8 @@ export async function main() {
     source: null,
     packageDir: null,
     packageJson: null,
+    dryRun: args.includes('--dry-run'),
+    cleanTemplateHistory: args.includes('--clean-template-history'),
   };
 
   // 解析 --source 参数
@@ -1073,6 +1100,9 @@ export async function main() {
 
   log(`📁 目标目录: ${targetDir}`, 'blue');
   log(`📦 源目录: ${sourceDir}\n`, 'blue');
+  if (options.dryRun) {
+    log('🧪 Dry run: 只输出安装计划，不写入文件\n', 'yellow');
+  }
 
   // 确定要安装的模块
   let selectedModules = ['core'];
@@ -1145,6 +1175,21 @@ export async function main() {
     log('\n   将跳过这些文件，避免覆盖。\n', 'yellow');
   }
 
+  if (options.dryRun) {
+    const plannedFiles = selectedModules.flatMap((key) => modules[key].files);
+    const plannedCopy = plannedFiles.filter((file) => !existingFiles.includes(file));
+    const plannedSkip = plannedFiles.filter((file) => existingFiles.includes(file));
+    log('📋 安装计划:', 'cyan');
+    log(`   将复制: ${plannedCopy.length} 个文件`);
+    plannedCopy.slice(0, 10).forEach((file) => log(`   + ${file}`));
+    if (plannedCopy.length > 10) log(`   ... 还有 ${plannedCopy.length - 10} 个文件`);
+    log(`   将跳过: ${plannedSkip.length} 个已有文件`);
+    if (plannedSkip.length > 0) plannedSkip.slice(0, 10).forEach((file) => log(`   = ${file}`));
+    log(`   模板历史清理: ${options.cleanTemplateHistory ? '显式启用（仅 marker 匹配）' : '禁用'}`);
+    log('   package scripts: 将按 git-status-backed 命令绑定（dry-run 未写入）');
+    return;
+  }
+
   // 复制文件
   log('📦 复制文件...', 'blue');
   const results = copyFiles(sourceDir, targetDir, selectedModules, true, existingFiles);
@@ -1159,7 +1204,10 @@ export async function main() {
 
   // 清理框架自身数据
   log('\n🧹 清理框架数据...', 'blue');
-  const sanitizeResults = sanitizeFrameworkData(targetDir);
+  const sanitizeResults = sanitizeFrameworkData(targetDir, {
+    cleanTemplateHistory: options.cleanTemplateHistory,
+    copiedFiles: results.copied,
+  });
   if (sanitizeResults.removed.length > 0) {
     log(`   ✅ 已移除: ${sanitizeResults.removed.length} 个框架文件`, 'green');
   }

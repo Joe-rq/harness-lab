@@ -25,6 +25,7 @@ import {
   getProgressPath,
   getWorktreeId,
 } from './worktree-utils.mjs';
+import { auditReqClosure, auditReqPostComplete } from './req-audit.mjs';
 
 const root = process.cwd();
 const today = new Date().toISOString().slice(0, 10);
@@ -468,12 +469,16 @@ function buildCommonSections(reqId) {
       '- 恢复条件：无',
       '- 下一步：无',
     ],
+    tempDebt: [
+      '## 临时实现与债务',
+      '- 无',
+    ],
   };
 }
 
 function buildGenericReqContent(reqId, title, slug) {
   const reqFile = `${reqId}-${slug}.md`;
-  const { reports, block } = buildCommonSections(reqId);
+  const { reports, block, tempDebt } = buildCommonSections(reqId);
   return [
     `# ${reqId}: ${title}`,
     '',
@@ -549,6 +554,8 @@ function buildGenericReqContent(reqId, title, slug) {
     '',
     ...block,
     '',
+    ...tempDebt,
+    '',
     '## 风险与回滚',
     '- 风险：',
     '- 回滚方式：',
@@ -562,7 +569,7 @@ function buildGenericReqContent(reqId, title, slug) {
 
 function buildBugfixReqContent(reqId, title, slug) {
   const reqFile = `${reqId}-${slug}.md`;
-  const { reports, block } = buildCommonSections(reqId);
+  const { reports, block, tempDebt } = buildCommonSections(reqId);
   return [
     `# ${reqId}: ${title}`,
     '',
@@ -642,6 +649,8 @@ function buildBugfixReqContent(reqId, title, slug) {
     '',
     ...block,
     '',
+    ...tempDebt,
+    '',
     '## 风险与回滚',
     '- 风险：低风险，Bug 修复范围小',
     '- 回滚方式：`git revert`',
@@ -655,7 +664,7 @@ function buildBugfixReqContent(reqId, title, slug) {
 
 function buildFeatureReqContent(reqId, title, slug) {
   const reqFile = `${reqId}-${slug}.md`;
-  const { reports, block } = buildCommonSections(reqId);
+  const { reports, block, tempDebt } = buildCommonSections(reqId);
   return [
     `# ${reqId}: ${title}`,
     '',
@@ -739,6 +748,8 @@ function buildFeatureReqContent(reqId, title, slug) {
     '',
     ...block,
     '',
+    ...tempDebt,
+    '',
     '## 风险与回滚',
     '- 风险：功能遗漏（对照验收标准检查）、与现有功能冲突',
     '- 回滚方式：`git revert` 或功能开关关闭',
@@ -752,7 +763,7 @@ function buildFeatureReqContent(reqId, title, slug) {
 
 function buildRefactorReqContent(reqId, title, slug) {
   const reqFile = `${reqId}-${slug}.md`;
-  const { reports, block } = buildCommonSections(reqId);
+  const { reports, block, tempDebt } = buildCommonSections(reqId);
   return [
     `# ${reqId}: ${title}`,
     '',
@@ -832,6 +843,8 @@ function buildRefactorReqContent(reqId, title, slug) {
     '- [ ] 验收标准对齐：所有验收标准是否满足？',
     '',
     ...block,
+    '',
+    ...tempDebt,
     '',
     '## 风险与回滚',
     '- 风险：重构引入行为变化（通过对比测试检测）、遗漏同步修改点',
@@ -1132,6 +1145,14 @@ export function createCommand(options) {
     fail('create requires --title');
   }
 
+  const explicitId = options.id || null;
+  if (explicitId && !/^REQ-\d{4}-\d{3}$/.test(explicitId)) {
+    fail('--id must match REQ-YYYY-NNN');
+  }
+  if (explicitId && getReqPathById(explicitId)) {
+    fail(`REQ ID already exists: ${explicitId}`);
+  }
+
   // Check active REQ in current worktree (not globally)
   const progressPath = getProgressPath(root);
   let currentProgress = '';
@@ -1146,12 +1167,15 @@ export function createCommand(options) {
     fail(`Cannot create a new active REQ while another active REQ exists in this worktree: ${activeId}`);
   }
 
-  const year = String(options.year ?? new Date().getFullYear());
+  const year = String(options.year ?? (explicitId ? explicitId.slice(4, 8) : new Date().getFullYear()));
   if (!/^\d{4}$/.test(year)) {
     fail('year must be a 4-digit number');
   }
 
-  const reqId = nextReqId(year);
+  const reqId = explicitId || nextReqId(year);
+  if (getReqPathById(reqId)) {
+    fail(`REQ ID already exists: ${reqId}`);
+  }
   const slug = options.slug || slugify(title);
   if (!slug) {
     fail('Could not derive an ASCII slug from --title. Pass --slug explicitly.');
@@ -1362,6 +1386,16 @@ export function completeCommand(options) {
     console.log(`Experience document check skipped: ${skipExperience}`);
   }
 
+  const closureAudit = auditReqClosure(root, reqId);
+  const closureErrors = closureAudit.findings.filter((finding) => finding.severity === 'error');
+  if (closureErrors.length > 0) {
+    const detail = closureErrors.map((finding) => `${finding.code}: ${finding.message}`).join('; ');
+    fail(`REQ closure audit failed for ${reqId}: ${detail}`);
+  }
+  for (const warning of closureAudit.findings.filter((finding) => finding.severity === 'warning')) {
+    console.warn(`REQ closure audit warning [${warning.code}]: ${warning.message}`);
+  }
+
   const completedPath = `requirements/completed/${req.fileName}`;
   if (existsSync(toFullPath(completedPath))) {
     fail(`Completed REQ already exists: ${completedPath}`);
@@ -1379,6 +1413,16 @@ export function completeCommand(options) {
   updateProgress('idle');
 
   console.log(`Completed ${reqId} -> ${completedPath}`);
+
+  const postAudit = auditReqPostComplete(root, reqId);
+  const postErrors = postAudit.findings.filter((finding) => finding.severity === 'error');
+  if (postErrors.length > 0) {
+    const detail = postErrors.map((finding) => `${finding.code}: ${finding.message}`).join('; ');
+    fail(`REQ post-complete audit failed for ${reqId}: ${detail}`);
+  }
+  for (const warning of postAudit.findings.filter((finding) => finding.severity === 'warning')) {
+    console.warn(`REQ post-complete audit warning [${warning.code}]: ${warning.message}`);
+  }
 
   // Trigger invariant re-scan (experience → invariants feedback loop)
   const invariantExtractor = toFullPath('scripts/invariant-extractor.mjs');
@@ -1473,7 +1517,7 @@ export function printHelp() {
   console.log('Harness Lab REQ lifecycle CLI');
   console.log('');
   console.log('Commands:');
-  console.log('  create --title "Title" [--slug ascii-slug] [--year 2026] [--type bugfix|feature|refactor]');
+  console.log('  create --title "Title" [--slug ascii-slug] [--year 2026] [--id REQ-2026-123] [--type bugfix|feature|refactor]');
   console.log('  start --id REQ-2026-002 [--phase implementation]');
   console.log('  block --id REQ-2026-002 --reason "..." --condition "..." --next "..." [--phase implementation]');
   console.log('  complete --id REQ-2026-002 [--phase qa] [--status-file .claude/.req-complete-status] [--no-docs-gate] [--skip-experience "reason"]');

@@ -217,7 +217,7 @@ const FAILURE_SIGNALS = [
 ];
 
 const PATH_PATTERNS = [
-  /`([^`]*\/[^`]*)`/g,
+  /`((?:scripts|requirements|docs|context|\.claude)\/[^`\n]*)`/g,
   /(?:scripts|requirements|docs|context|\.claude)\/[\w.*-]+/g,
 ];
 

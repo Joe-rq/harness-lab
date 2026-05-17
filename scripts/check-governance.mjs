@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { parseDocsVerifyArgs, verifyDocs } from './docs-verify.mjs';
+import { auditRepository } from './req-audit.mjs';
 
 const root = process.cwd();
 const errors = [];
@@ -15,6 +16,8 @@ const expectedGovernanceScript =
   'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.check-governance-status && node scripts/check-governance.mjs --status-file .claude/.check-governance-status';
 const expectedReqCompleteScript =
   'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.req-complete-status && node scripts/req-cli.mjs complete --status-file .claude/.req-complete-status';
+const expectedReqAuditScript = 'node scripts/req-audit.mjs --all';
+const expectedGovernanceHealthScript = 'node scripts/governance-health.mjs';
 const expectedTestScriptPrefix = 'node tests/governance.test.mjs';
 const expectedLintScript = 'node scripts/template-guard.mjs lint';
 const expectedBuildScript = 'node scripts/template-guard.mjs build';
@@ -67,6 +70,8 @@ const requiredFiles = [
   'scripts/docs-verify.mjs',
   'scripts/req-check.sh',
   'scripts/req-cli.mjs',
+  'scripts/req-audit.mjs',
+  'scripts/governance-health.mjs',
   'scripts/req-validation.mjs',
   'scripts/template-guard.mjs',
   'skills/README.md',
@@ -179,6 +184,12 @@ for (const [name, expected] of Object.entries(reqScripts)) {
 if (packageJson.scripts?.['req:complete'] !== expectedReqCompleteScript) {
   errors.push('package.json must expose the git-status-backed req:complete command');
 }
+if (packageJson.scripts?.['req:audit'] !== expectedReqAuditScript) {
+  errors.push(`package.json must expose "req:audit": "${expectedReqAuditScript}"`);
+}
+if (packageJson.scripts?.['governance:health'] !== expectedGovernanceHealthScript) {
+  errors.push(`package.json must expose "governance:health": "${expectedGovernanceHealthScript}"`);
+}
 
 const indexText = read('requirements/INDEX.md');
 const progressText = read('.claude/progress.txt');
@@ -224,8 +235,23 @@ if (docsVerify.errors.length > 0) {
   process.exit(1);
 }
 
+const reqAudit = auditRepository(root, { all: true });
+const reqAuditErrors = reqAudit.findings.filter((finding) => finding.severity === 'error');
+if (reqAuditErrors.length > 0) {
+  console.error('Governance check failed because req:audit failed:');
+  for (const finding of reqAuditErrors) {
+    console.error(`- ${finding.code}: ${finding.message}`);
+  }
+  process.exit(1);
+}
+const reqAuditWarnings = reqAudit.findings.filter((finding) => finding.severity === 'warning');
+if (reqAuditWarnings.length > 0) {
+  console.warn(`Governance audit warnings: ${reqAuditWarnings.length}`);
+}
+
 console.log('Governance check passed.');
 console.log('- Required files are present.');
 console.log('- README and CLAUDE entry points are aligned.');
 console.log('- requirements/INDEX.md and .claude/progress.txt are consistent.');
 console.log('- docs:verify passed.');
+console.log('- req:audit passed.');

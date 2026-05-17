@@ -45,7 +45,7 @@ function findReqFile(rootDir, reqId) {
 }
 
 function extractVerificationPlan(reqContent) {
-  const plan = { commands: [], acceptanceCriteria: [] };
+  const plan = { commands: [], acceptanceCriteria: [], manualVerification: '无' };
   let inPlan = false;
   let inCriteria = false;
 
@@ -67,6 +67,10 @@ function extractVerificationPlan(reqContent) {
 
     if (inPlan) {
       const trimmed = line.replace(/^\s*-\s*/, '').trim();
+      const manualMatch = trimmed.match(/^需要的人工验证：(.+)$/);
+      if (manualMatch) {
+        plan.manualVerification = manualMatch[1].trim();
+      }
 
       // Skip label lines
       if (trimmed.startsWith('计划执行的命令') || trimmed.startsWith('需要') || trimmed.startsWith('人工')) continue;
@@ -169,7 +173,13 @@ function checkAcceptanceCoverage(criteria, rootDir) {
   return results;
 }
 
-function generateReport(reqId, commandResults, coverageResults) {
+function summarizeOutput(output) {
+  if (!output) return '无输出';
+  const lines = output.split(/\r?\n/).filter(Boolean);
+  return lines.slice(-3).join(' / ').slice(0, 180);
+}
+
+function generateReport(reqId, commandResults, coverageResults, plan) {
   const date = new Date().toISOString().split('T')[0];
   let report = `# ${reqId} QA Report\n\n`;
   report += `**日期**：${date}\n`;
@@ -186,6 +196,17 @@ function generateReport(reqId, commandResults, coverageResults) {
     const status = r.success ? '✅' : '❌';
     report += `| \`${r.command}\` | ${status} (exit ${r.exitCode}) |\n`;
   }
+  report += '\n';
+
+  report += `## 验证证据\n\n`;
+  report += `| 类型 | 项目 | 结果 | 摘要 |\n`;
+  report += `|------|------|------|------|\n`;
+  for (const r of commandResults) {
+    const status = r.success ? 'PASS' : 'FAIL';
+    report += `| 命令 | \`${r.command}\` | ${status} | ${summarizeOutput(r.output || r.error)} |\n`;
+  }
+  const manualNeeded = plan.manualVerification && !/^(无|不需要|无需|N\/A|不适用)$/.test(plan.manualVerification);
+  report += `| 人工/浏览器 | ${plan.manualVerification || '无'} | ${manualNeeded ? '待人工确认' : 'N/A'} | ${manualNeeded ? '需由执行者补充实际截图、浏览器或 Computer Use 观察' : 'REQ 未要求人工验证'} |\n`;
   report += '\n';
 
   // Acceptance criteria
@@ -258,7 +279,7 @@ async function main() {
   const coverageResults = checkAcceptanceCoverage(plan.acceptanceCriteria, rootDir);
 
   // Generate report
-  const report = generateReport(args.reqId, commandResults, coverageResults);
+  const report = generateReport(args.reqId, commandResults, coverageResults, plan);
 
   // Write report
   const reportsDir = path.join(rootDir, args.outputDir || 'requirements/reports');

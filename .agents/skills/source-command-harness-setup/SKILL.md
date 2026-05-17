@@ -32,6 +32,7 @@ Use this skill when the user asks to run the migrated source command `harness-se
 
 ```bash
 node /path/to/harness-lab/scripts/harness-install.mjs --defaults
+node /path/to/harness-lab/scripts/harness-install.mjs --defaults --dry-run
 ```
 
 如果目标项目的 `package.json` 在子目录（例如 `app/package.json`），仍在 Git 根目录运行安装器，并显式指定脚本绑定位置：
@@ -50,6 +51,7 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 
 ```bash
 npx harness-install --defaults
+npx harness-install --defaults --dry-run
 npx harness-install --defaults --package-dir app
 npx harness-install --defaults --with-hook
 ```
@@ -85,7 +87,7 @@ npx harness-install --defaults --with-hook
 
 3. **初始化配置**
    - 创建或补齐 `requirements/` 目录结构
-   - 清理从模板仓库复制来的历史 REQ 和报告
+   - 默认保留目标项目已有 REQ、报告和经验历史；仅在 `--clean-template-history` 下清理带模板标记的历史文件
    - 初始化 `.claude/progress.txt`
    - 生成 `requirements/reports/harness-setup-report.md`
 
@@ -99,7 +101,8 @@ npx harness-install --defaults --with-hook
    - 如果目标项目已有真实 `lint / test / build`，自动复用这些脚本
    - 如果 `verify` 缺失，按已有真实脚本自动组合可行的 `npm run lint && npm run test && npm run build` 子集
    - 对缺失的标准命令写入 `node scripts/template-guard.mjs <name>` placeholder guard
-   - 自动补齐 `req:*`, `docs:*`, `check:governance` 等治理脚本
+   - 自动补齐 `req:*`, `docs:*`, `check:governance`, `governance:health` 等治理脚本
+   - `req:complete` / `docs:verify` / `check:governance` 使用 git-status-backed 命令，读取 `.claude/.xxx-status`
    - 默认只绑定根目录 `package.json`
    - 可通过 `--package-dir app` 或 `--package-json app/package.json` 绑定子目录 package；治理文件仍安装在当前 Git 项目根目录
    - 如果未检测到可绑定 package，会在报告中给出 `node scripts/req-cli.mjs` fallback 和候选 package 建议

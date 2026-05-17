@@ -42,6 +42,9 @@ GitHub: [Joe-rq/harness-lab](https://github.com/Joe-rq/harness-lab)
 # 在目标项目中运行
 node /path/to/harness-lab/scripts/harness-install.mjs --defaults
 
+# 只查看安装计划，不写入目标项目
+node /path/to/harness-lab/scripts/harness-install.mjs --defaults --dry-run
+
 # 如果 package.json 位于 app/ 子目录，仍在 Git 根目录运行安装器
 node /path/to/harness-lab/scripts/harness-install.mjs --defaults --package-dir app
 
@@ -55,6 +58,7 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 
 ```bash
 npx harness-install --defaults
+npx harness-install --defaults --dry-run
 npx harness-install --defaults --package-dir app
 npx harness-install --defaults --with-hook
 ```
@@ -239,11 +243,14 @@ npm run req:align -- --id REQ-YYYY-NNN
 | `npm run docs:impact:json` | JSON 格式输出（供 agent/CI 消费） |
 | `npm run docs:verify` | 检查文档链接和同步约束 |
 | `npm run check:governance` | 检查治理结构完整性 |
+| `npm run req:audit` | 审计 REQ 完成态、报告链接、验收复选框和 INDEX/progress 一致性 |
+| `npm run governance:health` | 输出治理健康总览（REQ、报告、经验、不变量、脚本绑定） |
 | `npm run harness:doctor` | 诊断项目接入健康状态 |
 
 这些命令会结合当前 git 改动做 `diff-aware` 文档同步检查，用来约束入口文档、治理脚本和交付物说明保持一致。
 GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`npm run docs:verify` 和 `npm run check:governance`，把仓库级治理检查变成默认门禁。
-对于目标项目，`harness-install` 现在会尝试自动绑定已有真实 `lint / test / build`，并在缺失时写入 placeholder guard，避免接入后只剩 README 提示。
+对于目标项目，`harness-install` 现在会尝试自动绑定已有真实 `lint / test / build`，并在缺失时写入 placeholder guard，避免接入后只剩 README 提示；治理脚本使用 git-status-backed 命令，`req:complete` / `docs:verify` / `check:governance` 都会读取 `.claude/.xxx-status`。
+安装器默认保留目标项目已有 REQ、报告和经验历史；如需清理带 Harness Lab 模板标记的历史文件，必须显式传入 `--clean-template-history`。
 `npm test` 还覆盖 `/harness-setup` command、`source-command-harness-setup` skill 和 `harness-install` package bin 的契约同步，防止一键接入说明与真实分发入口漂移。
 安装器测试会在复制完成后的 fixture 中实际运行 `node scripts/req-cli.mjs status`、`node scripts/session-start.js` 和带豁免的 `node scripts/req-check.js`，确保迁移结果不是只有文件存在，而是核心入口可执行。
 

@@ -1,6 +1,6 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-05-12
+Last updated: 2026-05-17
 
 Summary:
 - ✅ REQ-2026-061 完成：worktree 引导对齐 Claude Code 官方 `--worktree` 文档
