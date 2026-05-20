@@ -64,7 +64,7 @@ npx harness-install --defaults --with-hook
 | `context/` | 业务/技术/经验索引 | yes |
 | `skills/` 与 `.agents/skills/source-command-*` | 阶段导航技能、Claude Code source-command skills（含 `worktree-req`） | yes |
 | CLI 脚本 | `req-cli.mjs`, `req-validation.mjs`, `error-classifier.mjs`, `worktree-utils.mjs`, `docs-verify.mjs`, `check-governance.mjs`, `template-guard.mjs` | yes |
-| 治理 hooks | `.claude/settings.example.json`, `scripts/session-start.sh`, `scripts/session-start.js`, `scripts/req-check.sh`, `scripts/req-check.js`, 本地 hook 配置 | no，需 `--with-hook` |
+| 治理 hooks | `.claude/settings.example.json`, `scripts/session-start.js`, `scripts/req-check.js`, 本地 hook 配置 | no，需 `--with-hook` |
 
 ## 安装器真实行为
 

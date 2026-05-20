@@ -337,8 +337,8 @@ async function testHarnessInstallArtifacts() {
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/error-classifier.mjs'));
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/worktree-utils.mjs'));
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/template-guard.mjs'));
-    assert.ok(harnessInstall.modules.hook.files.includes('scripts/session-start.sh'));
-    assert.ok(harnessInstall.modules.hook.files.includes('scripts/req-check.sh'));
+    assert.ok(harnessInstall.modules.hook.files.includes('scripts/session-start.js'));
+    assert.ok(harnessInstall.modules.hook.files.includes('scripts/req-check.js'));
 
     writeFile(
       tempDir,
@@ -368,8 +368,6 @@ async function testHarnessInstallArtifacts() {
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-validation.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'error-classifier.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'worktree-utils.mjs')));
-    assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-check.sh')));
-    assert.ok(existsSync(path.join(tempDir, 'scripts', 'session-start.sh')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-check.js')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'session-start.js')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'template-guard.mjs')));

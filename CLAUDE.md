@@ -225,7 +225,7 @@ rm .claude/.req-exempt
 
 ### 响应流程
 
-1. 会话启动后，读取 `progress.txt` 和 session-start.sh 输出的中断点信息
+1. 会话启动后，读取 `progress.txt` 和 session-start.js 输出的中断点信息
 2. 如果有未完成 REQ → 向用户确认："检测到未完成的 REQ-XXX，是否继续？"
 3. 用户确认继续 → 读取 REQ 文件恢复上下文，从中断点继续
 4. 用户选择不继续 → 询问用户需要做什么新任务

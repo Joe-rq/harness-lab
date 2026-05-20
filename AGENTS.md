@@ -53,7 +53,7 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 │   ├── completed/
 │   └── reports/
 ├── scripts/
-│   └── session-start.sh      # 会话启动脚本
+│   └── session-start.js      # 会话启动脚本
 ├── skills/
 │   ├── README.md
 │   ├── plan/
@@ -72,7 +72,7 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 为确保治理协议被执行，建议配置 SessionStart hook：
 
 1. 复制 `.claude/settings.example.json` 到 `.claude/settings.local.json`
-2. 确保 `scripts/session-start.sh` 有执行权限
+2. 确保 `scripts/session-start.js` 可执行（Windows 下无需 chmod）
 3. 新会话开始时会自动显示当前 REQ 状态
 
 ### 2. PreToolUse Hook

@@ -1428,7 +1428,7 @@ export function completeCommand(options) {
   const invariantExtractor = toFullPath('scripts/invariant-extractor.mjs');
   if (existsSync(invariantExtractor)) {
     try {
-      const result = execSync(`node "${invariantExtractor}" --scan --incremental`, {
+      const result = execSync(`node "${invariantExtractor}" --scan --incremental --dedup`, {
         cwd: root,
         encoding: 'utf-8',
         timeout: 10000,

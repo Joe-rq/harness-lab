@@ -1,6 +1,6 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-05-17
+Last updated: 2026-05-19
 
 Summary:
 - ✅ REQ-2026-065 完成：建立 legacy audit baseline，`req:audit` / `governance:health` 可展示 warning delta

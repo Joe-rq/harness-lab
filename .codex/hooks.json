@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/scripts/req-check.sh\"",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/req-check.js\"",
             "timeout": 10
           },
           {
@@ -65,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/scripts/session-start.sh\"",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/session-start.js\"",
             "timeout": 10
           }
         ]

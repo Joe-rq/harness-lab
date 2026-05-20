@@ -6,7 +6,7 @@
  * Checks if the target file is within the active REQ's declared scope.
  * Out-of-scope writes → block with reason + log to scope-violations.log
  * No scope declaration in REQ → allow (backward compatible)
- * No active REQ → allow (req-check.sh handles that separately)
+ * No active REQ → allow (req-check.js handles that separately)
  *
  * Output format (exit 0 always):
  *   - Allow: no output
@@ -225,7 +225,7 @@ async function main() {
 
   // 1. Check if there's an active REQ
   const reqId = getActiveReqId(rootDir);
-  if (!reqId) return; // No active REQ — req-check.sh handles that
+  if (!reqId) return; // No active REQ — req-check.js handles that
 
   // 2. Find the REQ file
   const reqFile = findReqFile(rootDir, reqId);

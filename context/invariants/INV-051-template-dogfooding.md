@@ -4,14 +4,9 @@ title: 2026-03-23 Template Dogfooding
 status: draft
 severity: medium
 triggers:
-  - glob: " 作为治理模板仓库，需要证明自己也能按同一套 REQ / 设计 / 报告机制推进变更，而不是只提供公开示例。
-
-## 关联材料
-
-- REQ：/**"
+  - glob: "requirements/completed/**"
   - glob: "docs/plans/**"
   - glob: "requirements/reports/**"
-  - glob: "blocked / suspended/**"
 confidence: medium
 message: |
   ⚠️ INV-051: 2026-03-23 Template Dogfooding

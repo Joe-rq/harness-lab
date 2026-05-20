@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/scripts/session-start.sh\"",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/session-start.js\"",
             "timeout": 10
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/scripts/req-check.sh\"",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/req-check.js\"",
             "timeout": 10
           }
         ]
@@ -31,8 +31,8 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(git rev-parse:*)",
-      "Bash(bash scripts/session-start.sh)",
-      "Bash(bash scripts/req-check.sh)",
+      "Bash(node scripts/session-start.js)",
+      "Bash(node scripts/req-check.js)",
       "Bash(npm run:*)"
     ]
   }

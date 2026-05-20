@@ -127,8 +127,6 @@ export const modules = {
     default: false,
     files: [
       '.claude/settings.example.json',
-      'scripts/session-start.sh',
-      'scripts/req-check.sh',
       'scripts/session-start.js',
       'scripts/req-check.js',
     ],

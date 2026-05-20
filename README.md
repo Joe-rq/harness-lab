@@ -256,6 +256,7 @@ GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`n
 安装器默认保留目标项目已有 REQ、报告和经验历史；如需清理带 Harness Lab 模板标记的历史文件，必须显式传入 `--clean-template-history`。
 `npm test` 还覆盖 `/harness-setup` command、`source-command-harness-setup` skill 和 `harness-install` package bin 的契约同步，防止一键接入说明与真实分发入口漂移。
 安装器测试会在复制完成后的 fixture 中实际运行 `node scripts/req-cli.mjs status`、`node scripts/session-start.js` 和带豁免的 `node scripts/req-check.js`，确保迁移结果不是只有文件存在，而是核心入口可执行。
+SessionStart 与 PreToolUse hook 入口已统一为跨平台的 `scripts/session-start.js` / `scripts/req-check.js`，旧的 `*.sh` 版本不再分发；如果你的本地配置仍指向 `.sh`，请同步替换为 `node scripts/*.js`（参考 `.claude/settings.example.json`）。
 
 ### 模板仓库 vs 目标项目
 

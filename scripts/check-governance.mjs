@@ -68,7 +68,7 @@ const requiredFiles = [
   'scripts/docs-sync-rules.json',
   'scripts/check-governance.mjs',
   'scripts/docs-verify.mjs',
-  'scripts/req-check.sh',
+  'scripts/req-check.js',
   'scripts/req-cli.mjs',
   'scripts/req-audit.mjs',
   'scripts/governance-health.mjs',
