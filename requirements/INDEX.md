@@ -23,6 +23,9 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-065-feat-legacy-audit-baseline.md`（真实整改：feat: legacy audit baseline）
+- `REQ-2026-064-fix-invariant-incremental-source-dedup.md`（真实整改：fix: invariant incremental source dedup）
+- `REQ-2026-063-feat-governance-audit-warning-triage.md`（真实整改：feat: governance audit warning triage）
 - `REQ-2026-062-governance-framework-audit-and-installer-hardening.md`（真实整改：governance framework audit and installer hardening）
 - `REQ-2026-061-claude-code-worktree-docs-alignment.md`（真实整改：docs: align worktree guidance with Claude Code docs）
 - `REQ-2026-060-claude-code-worktree-req-guidance.md`（真实整改：feat: Claude Code worktree REQ guidance）

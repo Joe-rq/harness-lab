@@ -249,6 +249,9 @@ npm run req:align -- --id REQ-YYYY-NNN
 
 这些命令会结合当前 git 改动做 `diff-aware` 文档同步检查，用来约束入口文档、治理脚本和交付物说明保持一致。
 GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`npm run docs:verify` 和 `npm run check:governance`，把仓库级治理检查变成默认门禁。
+`req:audit --all` 默认输出摘要，避免历史 warning 长列表淹没新增问题；需要完整明细时使用 `node scripts/req-audit.mjs --all --verbose`，需要抽样查看时使用 `--max-findings N`。JSON 输出保留 `{ ok, findings }`，并额外提供 `summary` 供自动化消费。
+`requirements/audit-baseline.json` 记录已知 legacy warning 基线；它不是 suppression，`findings` 仍完整保留。`req:audit` 和 `governance:health` 会展示当前 warning 是否超出基线，帮助发现新增治理债务。
+`governance:health` 会区分 legacy/current warning，并展示 top finding code 和 baseline 状态，帮助判断治理债务主要集中在哪类规则。
 对于目标项目，`harness-install` 现在会尝试自动绑定已有真实 `lint / test / build`，并在缺失时写入 placeholder guard，避免接入后只剩 README 提示；治理脚本使用 git-status-backed 命令，`req:complete` / `docs:verify` / `check:governance` 都会读取 `.claude/.xxx-status`。
 安装器默认保留目标项目已有 REQ、报告和经验历史；如需清理带 Harness Lab 模板标记的历史文件，必须显式传入 `--clean-template-history`。
 `npm test` 还覆盖 `/harness-setup` command、`source-command-harness-setup` skill 和 `harness-install` package bin 的契约同步，防止一键接入说明与真实分发入口漂移。

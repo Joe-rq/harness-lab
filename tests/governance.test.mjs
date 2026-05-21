@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdtempSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -972,6 +973,66 @@ async function testErrorClassifierLogsErrors() {
   }
 }
 
+async function testInvariantIncrementalScanSkipsProcessedSources() {
+  const tempDir = createTempDir('invariant-incremental');
+
+  try {
+    writeFile(
+      tempDir,
+      'context/experience/processed.md',
+      [
+        '# Processed Experience',
+        '',
+        '## 问题',
+        '',
+        '- 修改 `scripts/processed.mjs` 时不要重复生成不变量。',
+      ].join('\n')
+    );
+    writeFile(
+      tempDir,
+      'context/experience/new-source.md',
+      [
+        '# New Source Experience',
+        '',
+        '## 问题',
+        '',
+        '- 修改 `scripts/new-source.mjs` 时应生成新的不变量。',
+      ].join('\n')
+    );
+    writeFile(
+      tempDir,
+      'context/invariants/INV-001-processed.md',
+      [
+        '---',
+        'id: INV-001',
+        'title: Processed Experience',
+        'status: draft',
+        'severity: medium',
+        'triggers:',
+        '  - glob: "scripts/**"',
+        'confidence: medium',
+        'message: |',
+        '  来源: experience/processed.md',
+        '---',
+        '',
+        '<!-- 来源: context/experience/processed.md -->',
+      ].join('\n')
+    );
+
+    execFileSync('node', [path.join(repoRoot, 'scripts/invariant-extractor.mjs'), '--scan', '--incremental'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    const invariantFiles = readdirSync(path.join(tempDir, 'context/invariants')).filter((name) => name.endsWith('.md'));
+    assert.equal(invariantFiles.filter((name) => name.includes('processed')).length, 1);
+    assert.ok(invariantFiles.some((name) => name.includes('new-source')));
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
@@ -987,6 +1048,7 @@ const tests = [
   ['req:complete with docs gate works correctly', testReqCompleteWithDocsGate],
   ['error classifier formats error blocks correctly', testErrorClassifierFormatsBlocks],
   ['error classifier logs errors with structured format', testErrorClassifierLogsErrors],
+  ['invariant incremental scan skips processed sources', testInvariantIncrementalScanSkipsProcessedSources],
 ];
 
 let failures = 0;

@@ -97,6 +97,15 @@ function loadAllInvariants() {
   return files.map(f => parseInvariant(join(INVARIANTS_DIR, f))).filter(Boolean);
 }
 
+function extractExperienceSources(content) {
+  const sources = new Set();
+  const matches = content.matchAll(/(?:context\/)?experience\/([^\s)>`]+\.md)/g);
+  for (const match of matches) {
+    sources.add(basename(match[1]));
+  }
+  return [...sources];
+}
+
 // ── 去重：标题+触发路径相同的 INV 合并 ──────────────────────
 
 function dedupKey(inv) {
@@ -281,8 +290,7 @@ function scanExperience(incremental = false) {
 
   const processedSources = new Set(
     existingInvariants.flatMap(inv => {
-      const srcMatch = readText(inv.file).match(/来源:\s*(.+)/);
-      return srcMatch ? [srcMatch[1].trim()] : [];
+      return extractExperienceSources(readText(inv.file));
     })
   );
 

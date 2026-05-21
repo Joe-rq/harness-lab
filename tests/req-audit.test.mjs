@@ -10,8 +10,9 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { auditRepository } from '../scripts/req-audit.mjs';
+import { auditRepository, main as reqAuditMain } from '../scripts/req-audit.mjs';
 import { sanitizeFrameworkData, updateTargetPackageJson } from '../scripts/harness-install.mjs';
+import { buildHealthReport } from '../scripts/governance-health.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -117,6 +118,20 @@ function captureCommandFailure(fn) {
   return { exitCode, stderr };
 }
 
+function captureStdout(fn) {
+  const originalLog = console.log;
+  let stdout = '';
+  console.log = (...args) => {
+    stdout += `${args.join(' ')}\n`;
+  };
+  try {
+    fn();
+  } finally {
+    console.log = originalLog;
+  }
+  return stdout;
+}
+
 async function testAuditFindsIdMismatch() {
   const root = tempDir('req-audit-id');
   try {
@@ -177,6 +192,114 @@ async function testAuditFindsMissingQaEvidence() {
   }
 }
 
+async function testAuditSummaryAndVerboseOutput() {
+  const root = tempDir('req-audit-summary');
+  try {
+    setup(root);
+    const reqId = 'REQ-2026-061';
+    write(root, `requirements/completed/${reqId}-fixture.md`, goodReq(reqId));
+    write(root, `requirements/reports/${reqId}-code-review.md`, '# Code Review\n');
+    write(root, `requirements/reports/${reqId}-qa.md`, '# QA\n\nPASS\n');
+
+    const result = auditRepository(root, { all: true });
+    assert.equal(result.ok, true);
+    assert.equal(result.summary.by_severity.warning, 1);
+    assert.equal(result.summary.legacy_warnings, 1);
+    assert.equal(result.summary.by_code['missing-qa-evidence'], 1);
+
+    const summaryOutput = captureStdout(() => reqAuditMain(['--all'], root));
+    assert.match(summaryOutput, /REQ audit passed with warnings/);
+    assert.match(summaryOutput, /Warning age: 1 legacy, 0 current/);
+    assert.match(summaryOutput, /missing-qa-evidence: 1/);
+    assert.doesNotMatch(summaryOutput, /QA 报告缺少 ## 验证证据/);
+
+    const verboseOutput = captureStdout(() => reqAuditMain(['--all', '--verbose'], root));
+    assert.match(verboseOutput, /QA 报告缺少 ## 验证证据/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+async function testAuditMaxFindingsOutput() {
+  const root = tempDir('req-audit-max');
+  try {
+    setup(root);
+    for (const reqId of ['REQ-2026-060', 'REQ-2026-061']) {
+      write(root, `requirements/completed/${reqId}-fixture.md`, goodReq(reqId));
+      write(root, `requirements/reports/${reqId}-code-review.md`, '# Code Review\n');
+      write(root, `requirements/reports/${reqId}-qa.md`, '# QA\n\nPASS\n');
+    }
+
+    const output = captureStdout(() => reqAuditMain(['--all', '--max-findings', '1'], root));
+    assert.match(output, /Details truncated: showing 1 of 2/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+async function testAuditBaselineReportsDeltaWithoutSuppressingFindings() {
+  const root = tempDir('req-audit-baseline');
+  try {
+    setup(root);
+    const reqId = 'REQ-2026-061';
+    write(root, `requirements/completed/${reqId}-fixture.md`, goodReq(reqId));
+    write(root, `requirements/reports/${reqId}-code-review.md`, '# Code Review\n');
+    write(root, `requirements/reports/${reqId}-qa.md`, '# QA\n\nPASS\n');
+    write(root, 'requirements/audit-baseline.json', JSON.stringify({
+      version: 1,
+      summary: {
+        warnings: 1,
+        by_code: {
+          'missing-qa-evidence': 1,
+        },
+      },
+    }, null, 2));
+
+    const result = auditRepository(root, { all: true });
+    assert.equal(result.findings.length, 1);
+    assert.equal(result.baseline.found, true);
+    assert.equal(result.baseline.within_baseline, true);
+    assert.equal(result.baseline.delta_warnings, 0);
+
+    const output = captureStdout(() => reqAuditMain(['--all'], root));
+    assert.match(output, /Baseline: within baseline \(1\/1 warnings, no delta\)/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+async function testAuditBaselineDetectsOverBudgetWarnings() {
+  const root = tempDir('req-audit-over-baseline');
+  try {
+    setup(root);
+    for (const reqId of ['REQ-2026-060', 'REQ-2026-061']) {
+      write(root, `requirements/completed/${reqId}-fixture.md`, goodReq(reqId));
+      write(root, `requirements/reports/${reqId}-code-review.md`, '# Code Review\n');
+      write(root, `requirements/reports/${reqId}-qa.md`, '# QA\n\nPASS\n');
+    }
+    write(root, 'requirements/audit-baseline.json', JSON.stringify({
+      version: 1,
+      summary: {
+        warnings: 1,
+        by_code: {
+          'missing-qa-evidence': 1,
+        },
+      },
+    }, null, 2));
+
+    const result = auditRepository(root, { all: true });
+    assert.equal(result.baseline.within_baseline, false);
+    assert.deepEqual(result.baseline.over_baseline, [
+      { code: 'missing-qa-evidence', baseline: 1, current: 2, delta: 1 },
+    ]);
+
+    const health = buildHealthReport(root);
+    assert.equal(health.req_audit.baseline.within_baseline, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 async function testExplicitReqIdCreate() {
   const root = tempDir('req-create-id');
   const previousCwd = process.cwd();
@@ -231,6 +354,10 @@ const tests = [
   ['audit finds completed REQ with non-completed status', testAuditFindsIncompleteCompletedReq],
   ['audit finds unchecked completed items', testAuditFindsUncheckedItems],
   ['audit finds missing QA evidence', testAuditFindsMissingQaEvidence],
+  ['audit summary hides details by default and verbose expands them', testAuditSummaryAndVerboseOutput],
+  ['audit max-findings limits text details', testAuditMaxFindingsOutput],
+  ['audit baseline reports delta without suppressing findings', testAuditBaselineReportsDeltaWithoutSuppressingFindings],
+  ['audit baseline detects over-budget warnings', testAuditBaselineDetectsOverBudgetWarnings],
   ['req:create supports explicit IDs and rejects duplicates', testExplicitReqIdCreate],
   ['installer preserves target project history by default', testInstallerPreservesTargetHistoryByDefault],
   ['installer package scripts use git-status-backed commands', testTargetScriptsUseGitStatusBackedCommands],

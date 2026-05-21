@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_ROOT = path.resolve(__dirname, '..');
 const FUTURE_STRICT_REQ = 62;
+const DEFAULT_BASELINE_PATH = 'requirements/audit-baseline.json';
 
 function toPosix(value) {
   return value.split(path.sep).join('/');
@@ -67,6 +68,123 @@ function addFinding(findings, severity, code, reqId, file, message) {
 function severityFor(reqId, strict) {
   if (strict) return 'error';
   return reqSequence(reqId) >= FUTURE_STRICT_REQ ? 'error' : 'warning';
+}
+
+function incrementCount(target, key) {
+  target[key] = (target[key] || 0) + 1;
+}
+
+function isLegacyWarning(finding) {
+  if (finding.severity !== 'warning') return false;
+  const sequence = reqSequence(finding.req_id);
+  return sequence > 0 && sequence < FUTURE_STRICT_REQ;
+}
+
+export function summarizeFindings(findings) {
+  const bySeverity = { error: 0, warning: 0 };
+  const byCode = {};
+  const byCodeSeverity = {};
+  let legacyWarnings = 0;
+  let currentWarnings = 0;
+
+  for (const finding of findings) {
+    incrementCount(bySeverity, finding.severity);
+    incrementCount(byCode, finding.code);
+    const severityBucket = byCodeSeverity[finding.code] || { error: 0, warning: 0 };
+    incrementCount(severityBucket, finding.severity);
+    byCodeSeverity[finding.code] = severityBucket;
+
+    if (finding.severity === 'warning') {
+      if (isLegacyWarning(finding)) legacyWarnings += 1;
+      else currentWarnings += 1;
+    }
+  }
+
+  const topCodes = Object.entries(byCode)
+    .map(([code, count]) => ({ code, count }))
+    .sort((left, right) => right.count - left.count || left.code.localeCompare(right.code));
+
+  return {
+    total: findings.length,
+    by_severity: bySeverity,
+    by_code: byCode,
+    by_code_severity: byCodeSeverity,
+    legacy_warnings: legacyWarnings,
+    current_warnings: currentWarnings,
+    strict_from_req_sequence: FUTURE_STRICT_REQ,
+    top_codes: topCodes,
+  };
+}
+
+function normalizeBaseline(rawBaseline, baselinePath) {
+  const summary = rawBaseline.summary || rawBaseline;
+  const byCode = summary.by_code || rawBaseline.by_code || {};
+  const warningCount =
+    summary.warnings ??
+    summary.warning_count ??
+    summary.by_severity?.warning ??
+    rawBaseline.warnings ??
+    0;
+
+  return {
+    path: baselinePath,
+    version: rawBaseline.version || 1,
+    description: rawBaseline.description || rawBaseline.scope || '',
+    warnings: warningCount,
+    by_code: byCode,
+  };
+}
+
+function readBaseline(root, baselinePath = DEFAULT_BASELINE_PATH) {
+  const fullPath = path.isAbsolute(baselinePath) ? baselinePath : path.join(root, baselinePath);
+  if (!existsSync(fullPath)) {
+    return { found: false, path: baselinePath };
+  }
+  try {
+    const raw = JSON.parse(readFileSync(fullPath, 'utf8'));
+    return {
+      found: true,
+      ...normalizeBaseline(raw, baselinePath),
+    };
+  } catch (error) {
+    return {
+      found: true,
+      path: baselinePath,
+      error: `Invalid audit baseline JSON: ${error.message}`,
+      warnings: 0,
+      by_code: {},
+    };
+  }
+}
+
+function compareBaseline(summary, baseline) {
+  if (!baseline || !baseline.found) return baseline || { found: false, path: DEFAULT_BASELINE_PATH };
+  if (baseline.error) return baseline;
+
+  const currentByCode = summary.by_code || {};
+  const baselineByCode = baseline.by_code || {};
+  const codes = [...new Set([...Object.keys(currentByCode), ...Object.keys(baselineByCode)])].sort();
+  const deltas = codes.map((code) => {
+    const current = currentByCode[code] || 0;
+    const expected = baselineByCode[code] || 0;
+    return {
+      code,
+      baseline: expected,
+      current,
+      delta: current - expected,
+    };
+  });
+  const overBaseline = deltas.filter((item) => item.delta > 0);
+  const improved = deltas.filter((item) => item.delta < 0);
+
+  return {
+    ...baseline,
+    current_warnings: summary.by_severity.warning,
+    delta_warnings: summary.by_severity.warning - baseline.warnings,
+    within_baseline: overBaseline.length === 0 && summary.by_severity.warning <= baseline.warnings,
+    over_baseline: overBaseline,
+    improved,
+  };
 }
 
 function parseReportLinks(content) {
@@ -279,9 +397,16 @@ export function auditRepository(root = DEFAULT_ROOT, options = {}) {
     auditIndexProgress(root, findings);
   }
 
+  const summary = summarizeFindings(findings);
+  const baseline = !allMode || options.baseline === false
+    ? null
+    : compareBaseline(summary, readBaseline(root, options.baselinePath || DEFAULT_BASELINE_PATH));
+
   return {
     ok: !findings.some((finding) => finding.severity === 'error'),
     findings,
+    summary,
+    baseline,
   };
 }
 
@@ -294,10 +419,25 @@ export function auditReqPostComplete(root, reqId) {
 }
 
 function parseArgs(argv) {
-  const options = { all: false, id: null, format: 'text' };
+  const options = { all: false, id: null, format: 'text', verbose: false, maxFindings: null, baseline: true, baselinePath: DEFAULT_BASELINE_PATH };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--all') options.all = true;
+    else if (arg === '--verbose') options.verbose = true;
+    else if (arg === '--summary') options.verbose = false;
+    else if (arg === '--no-baseline') options.baseline = false;
+    else if (arg === '--baseline') {
+      options.baselinePath = argv[index + 1] || DEFAULT_BASELINE_PATH;
+      index += 1;
+    }
+    else if (arg === '--max-findings') {
+      const value = Number(argv[index + 1]);
+      if (!Number.isInteger(value) || value < 0) {
+        throw new Error('--max-findings must be a non-negative integer');
+      }
+      options.maxFindings = value;
+      index += 1;
+    }
     else if (arg === '--id') {
       options.id = argv[index + 1];
       index += 1;
@@ -311,16 +451,92 @@ function parseArgs(argv) {
   return options;
 }
 
-function printText(result) {
+function printFinding(finding) {
+  const loc = finding.file ? ` ${toPosix(finding.file)}` : '';
+  console.log(`- [${finding.severity}] ${finding.code}${loc}: ${finding.message}`);
+}
+
+function printSummary(summary) {
+  console.log(`- Findings: ${summary.by_severity.error} errors, ${summary.by_severity.warning} warnings`);
+  if (summary.by_severity.warning > 0) {
+    console.log(`- Warning age: ${summary.legacy_warnings} legacy, ${summary.current_warnings} current`);
+  }
+
+  const topCodes = summary.top_codes.slice(0, 8);
+  if (topCodes.length > 0) {
+    console.log('- Top finding codes:');
+    for (const item of topCodes) {
+      const severity = summary.by_code_severity[item.code] || {};
+      const parts = [];
+      if (severity.error) parts.push(`${severity.error} error`);
+      if (severity.warning) parts.push(`${severity.warning} warning`);
+      console.log(`  - ${item.code}: ${item.count}${parts.length ? ` (${parts.join(', ')})` : ''}`);
+    }
+  }
+}
+
+function printBaseline(baseline) {
+  if (!baseline) return;
+  if (!baseline.found) {
+    console.log(`- Baseline: none (${baseline.path})`);
+    return;
+  }
+  if (baseline.error) {
+    console.log(`- Baseline: invalid (${baseline.path}) - ${baseline.error}`);
+    return;
+  }
+
+  const status = baseline.within_baseline ? 'within baseline' : 'over baseline';
+  const delta = baseline.delta_warnings === 0 ? 'no delta' : `${baseline.delta_warnings > 0 ? '+' : ''}${baseline.delta_warnings}`;
+  console.log(`- Baseline: ${status} (${baseline.current_warnings}/${baseline.warnings} warnings, ${delta})`);
+  if (baseline.over_baseline.length > 0) {
+    console.log(`  - Over baseline: ${baseline.over_baseline.map((item) => `${item.code}=+${item.delta}`).join(', ')}`);
+  }
+  if (baseline.improved.length > 0) {
+    console.log(`  - Improved: ${baseline.improved.map((item) => `${item.code}=${item.delta}`).join(', ')}`);
+  }
+}
+
+function shouldShowDefaultDetails(result, options) {
+  if (options.verbose) return true;
+  if (options.maxFindings !== null) return true;
+  if (options.id) return true;
+  return !result.ok && result.summary.by_severity.error > 0;
+}
+
+function selectTextFindings(result, options) {
+  if (options.verbose || options.id || options.maxFindings !== null) {
+    return result.findings;
+  }
+  return result.findings.filter((finding) => finding.severity === 'error');
+}
+
+function printText(result, options) {
   if (result.findings.length === 0) {
     console.log('REQ audit passed.');
     return;
   }
 
-  console.log(result.ok ? 'REQ audit passed with warnings:' : 'REQ audit failed:');
-  for (const finding of result.findings) {
-    const loc = finding.file ? ` ${toPosix(finding.file)}` : '';
-    console.log(`- [${finding.severity}] ${finding.code}${loc}: ${finding.message}`);
+  console.log(result.ok ? 'REQ audit passed with warnings.' : 'REQ audit failed.');
+  printSummary(result.summary);
+  printBaseline(result.baseline);
+
+  if (!shouldShowDefaultDetails(result, options)) {
+    console.log('- Details: hidden by default for all-mode audit; rerun with --verbose or --max-findings N.');
+    return;
+  }
+
+  const selected = selectTextFindings(result, options);
+  const limit = options.maxFindings ?? selected.length;
+  const visible = selected.slice(0, limit);
+  if (visible.length > 0) {
+    console.log('- Details:');
+    for (const finding of visible) {
+      printFinding(finding);
+    }
+  }
+  if (selected.length > visible.length) {
+    console.log(`- Details truncated: showing ${visible.length} of ${selected.length}; rerun with --verbose for all findings.`);
   }
 }
 
@@ -330,7 +546,7 @@ export function main(argv = process.argv.slice(2), root = process.cwd()) {
   if (options.format === 'json') {
     console.log(JSON.stringify(result, null, 2));
   } else {
-    printText(result);
+    printText(result, options);
   }
   if (!result.ok) {
     process.exit(1);

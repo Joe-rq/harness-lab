@@ -3,16 +3,17 @@ Current phase: idle
 Last updated: 2026-05-17
 
 Summary:
-- ✅ REQ-2026-061 完成：worktree 引导对齐 Claude Code 官方 `--worktree` 文档
-- ✅ REQ-2026-060 完成：Claude Code worktree REQ 引导 skill 与迁移分发
+- ✅ REQ-2026-065 完成：建立 legacy audit baseline，`req:audit` / `governance:health` 可展示 warning delta
+- ✅ REQ-2026-064 完成：修复 invariant incremental scan 来源去重，避免 completion 重复生成旧经验候选
+- ✅ REQ-2026-063 完成：`req:audit` 默认摘要化，`governance:health` 展示 legacy/current warning 和 top finding code
 - ✅ 验证通过：npm test、docs:verify、check:governance
 
 Next steps:
-- 用 Harness Lab 连续跑 3-5 个真实 REQ，记录编排器字段缺口
-- 评估 Phase 6b 时机
+- 逐步降低 `requirements/audit-baseline.json`，优先 missing-qa-evidence 与 unchecked-items
+- 每次 legacy debt 清理后同步更新 baseline 并保留 QA 证据
 
 Open questions:
-- Phase 6b 时机：是否需要先积累真实 REQ 队列消费经验
+- 是否先清理缺报告的 REQ-2026-057，还是先处理缺 QA evidence 的历史报告
 
 Blockers:
 - None.

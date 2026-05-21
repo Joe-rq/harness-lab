@@ -30,8 +30,6 @@ function packageScriptStatus(root) {
 
 export function buildHealthReport(root = DEFAULT_ROOT) {
   const audit = auditRepository(root, { all: true });
-  const errorCount = audit.findings.filter((finding) => finding.severity === 'error').length;
-  const warningCount = audit.findings.filter((finding) => finding.severity === 'warning').length;
   const invariantsDir = path.join(root, 'context/invariants');
   let invariants = { total: 0, active: 0, draft: 0, deprecated: 0 };
   if (existsSync(invariantsDir)) {
@@ -47,8 +45,13 @@ export function buildHealthReport(root = DEFAULT_ROOT) {
   return {
     ok: audit.ok,
     req_audit: {
-      errors: errorCount,
-      warnings: warningCount,
+      errors: audit.summary.by_severity.error,
+      warnings: audit.summary.by_severity.warning,
+      legacy_warnings: audit.summary.legacy_warnings,
+      current_warnings: audit.summary.current_warnings,
+      top_codes: audit.summary.top_codes.slice(0, 8),
+      by_code: audit.summary.by_code,
+      baseline: audit.baseline,
     },
     req_counts: {
       in_progress: countFiles(root, 'requirements/in-progress', (name) => name.startsWith('REQ-') && name.endsWith('.md')),
@@ -75,6 +78,15 @@ function parseArgs(argv) {
 function printText(report) {
   console.log(report.ok ? 'Governance health: OK' : 'Governance health: attention needed');
   console.log(`- REQ audit: ${report.req_audit.errors} errors, ${report.req_audit.warnings} warnings`);
+  if (report.req_audit.warnings > 0) {
+    console.log(`  - Warning age: ${report.req_audit.legacy_warnings} legacy, ${report.req_audit.current_warnings} current`);
+    console.log(`  - Top finding codes: ${report.req_audit.top_codes.map((item) => `${item.code}=${item.count}`).join(', ')}`);
+    if (report.req_audit.baseline?.found && !report.req_audit.baseline.error) {
+      const baseline = report.req_audit.baseline;
+      const status = baseline.within_baseline ? 'within baseline' : 'over baseline';
+      console.log(`  - Baseline: ${status} (${baseline.current_warnings}/${baseline.warnings} warnings)`);
+    }
+  }
   console.log(`- REQ counts: ${report.req_counts.in_progress} in progress, ${report.req_counts.completed} completed`);
   console.log(`- Reports: ${report.req_counts.reports}`);
   console.log(`- Experience docs: ${report.req_counts.experience}`);

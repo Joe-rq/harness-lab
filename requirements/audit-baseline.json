@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "created_at": "2026-05-17",
+  "description": "REQ-2026-065 baseline for known legacy req:audit warnings. This is not a suppression list; findings remain visible in JSON and with --verbose.",
+  "summary": {
+    "warnings": 125,
+    "legacy_warnings": 125,
+    "current_warnings": 0,
+    "by_code": {
+      "missing-qa-evidence": 61,
+      "unchecked-items": 35,
+      "missing-human-evidence": 23,
+      "missing-report": 5,
+      "duplicate-req-id": 1
+    }
+  }
+}
