@@ -105,7 +105,16 @@
       "Bash(wc -l /d/03resource/_Projects/harness-lab/scripts/*.mjs)",
       "Bash(xargs -I {} basename {})",
       "Bash(echo \"exit=$?\")",
-      "WebFetch(domain:docs.claude.com)"
+      "Bash(curl -sL -o 00-cover.jpg \"https://mmbiz.qpic.cn/sz_mmbiz_jpg/dKm2Obh0hKER3hZLStMZH8HdWibP9CKyLtFWLqqY9R3A5tsqsHbDfmhQScxYibzPCYGs72V9zu9hSXVsPJdnSJ4mmNY1jlVASx4eXcZE52OuE/640?wx_fmt=jpeg\")",
+      "Bash(curl -sL -o 01-event-sourcing.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKF0uqJ4SLmyjNHfgshtsBsiamXE9MmKgLzKXgXSrsBFS05j8hYTn6mz8KNyTg8aJBMeIxRqzvgc47CCYD0SMQN31ddqtlC6fXgs/640?wx_fmt=jpeg\")",
+      "Bash(curl -sL -o 02-concept-evolution.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKGqWqDPKQgXlFEop7xxJYzTmcnHuiaPvbZtb0a1BjWPDYCykBJgRDbZLMvLvF4FK0X6OyRm46l9v3p8bRqXJ1aeyyiaUKeYxwHc8/640?wx_fmt=jpeg\")",
+      "Bash(curl -sL -o 03-auto-expanding-graph.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKGiaR3okNWA1Xa6ias1NvDhuabNSicp5l8r4GyPvcHWTJsXMb5TIhcdIuPyDS6N1p1XmNUicZ4C3zy5RicCZyJiciccKcWEXCVNfE1AibU/640?wx_fmt=jpeg\")",
+      "Bash(curl -sL -o 04-architecture-compare.jpg \"https://mmbiz.qpic.cn/sz_mmbiz_jpg/dKm2Obh0hKEl31ox6rewQFMOmrqrPhZhiasw9dzwvUENdGc6AfcZCFZeTIaqrQL1aExsBBQqQXSTibabE1K1ia9HFKu6lH5ECR5Jte3dZ3cMSI/640?wx_fmt=jpeg\")",
+      "Bash(curl -sL -H \"Referer: https://mp.weixin.qq.com/\" -o 02-concept-evolution.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKGqWqDPKQgXlFEop7xxJYzTmcnHuiaPvbZtb0a1BjWPDYCykBJgRDbZLMvLvF4FK0X6OyRm46l9v3p8bRqXJ1aeyyiaUKeYxwHc8/640?wx_fmt=jpeg\")",
+      "Bash(curl -sL -H \"Referer: https://mp.weixin.qq.com/\" -o 03-auto-expanding-graph.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKGiaR3okNWA1Xa6ias1NvDhuabNSicp5l8r4GyPvcHWTJsXMb5TIhcdIuPyDS6N1p1XmNUicZ4C3zy5RicCZyJiciccKcWEXCVNfE1AibU/640?wx_fmt=jpeg\")",
+      "Bash(curl -sL -H \"Referer: https://mp.weixin.qq.com/s/kXNivwgCweGoV-xW_WoCtg\" -H \"User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/137.0.0.0 Safari/537.36\" -o 02-concept-evolution.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKGqWqDPKQgXlFEop7xxJYzTmcnHuiaPvbZtb0a1BjWPDYCykBJgRDbZLMvLvF4FK0X6OyRm46l9v3p8bRqXJ1aeyyiaUKeYxwHc8/640?wx_fmt=jpeg\")",
+      "Bash(curl -sL -o 02-concept-evolution.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKGwEDmrBbDBdGUfBqJmcFUKicXIficOUv1VW4cic2Orlkob3ytV4Aue3SIzPmQKiaberUBuoVaYKzjbxeH0hsyOQE1NcKk8CwyLWX8/640?wx_fmt=jpeg\")",
+      "Bash(curl -sL -o 03-auto-expanding-graph.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKFEibcrib4pPwanRD9ibs8YplOXEo3R7tDCl3vjicA96z6ohC7UAEnSlRrMewZiacP3xAYTJGAp2Wspc0NIVVhib7DOD1nWBhvcK81rw/640?wx_fmt=jpeg\")"
     ]
   },
   "hooks": {

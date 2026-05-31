@@ -1,12 +1,14 @@
 # harness-lab 统一路线图
 
+> **状态: ✅ 已完结**（2026-04-28）
+> Phase 0–5 全部完成（含集成验证 REQ-053）。Phase 6（跨项目不变量共享）未启动，其愿景已迁移至 `multi-agent-roadmap.md` 远期待办。
+> 后续演进见 **`docs/plans/multi-agent-roadmap.md`**。
+
 > 2026-04-18 | 整合自《自治模式渐进式路线图》(04-10) + 《元反思诊断》(04-18)
 
-本文档合并了两份战略文档的方向判断，并根据已完成进度重新排列阶段。
-
-原始文档保留不动：
-- `docs/plans/autonomous-mode-roadmap.md` — 分阶段架构与实现细节
-- `docs/plans/development-strategy-meta-reflection.md` — 四层架构诊断与优先级分析
+原始文档已归档至 `docs/plans/archive/`：
+- `archive/autonomous-mode-roadmap.md` — 分阶段架构与实现细节（已被本文档取代）
+- `archive/development-strategy-meta-reflection.md` — 四层架构诊断与优先级分析（建议已全部实施）
 
 ---
 
