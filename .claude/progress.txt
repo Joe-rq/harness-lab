@@ -1,21 +1,19 @@
 Current active REQ: REQ-2026-066
-Current phase: design
+Current phase: implementation
 Last updated: 2026-05-31
 
-Summary: REQ-2026-066 进行中，12 个文件改动
-- Active REQ: REQ-2026-066 (design)
-- ✅ REQ-2026-065 完成：建立 legacy audit baseline，`req:audit` / `governance:health` 可展示 warning delta
-- ✅ REQ-2026-064 完成：修复 invariant incremental scan 来源去重，避免 completion 重复生成旧经验候选
-- ✅ REQ-2026-063 完成：`req:audit` 默认摘要化，`governance:health` 展示 legacy/current warning 和 top finding code
-- ✅ 验证通过：npm test、docs:verify、check:governance
+Summary: S1-CP2.5 spike 完成，进入 S1-CP3 实现 verifier envelope + runner
+- Active REQ: REQ-2026-066 (implementation)
+- ✅ S1-CP2.5 spike: `--bare --agent verifier` 可行，10s/$0.023，无 hook 污染，schema 层物理拦截
+- ✅ S1-CP2 spike: schema 级 tools/disallowedTools 白名单确认
+- ✅ S1-CP1: REQ-066 创建
 
 Next steps:
-- Continue active REQ: REQ-2026-066
-- 逐步降低 `requirements/audit-baseline.json`，优先 missing-qa-evidence 与 unchecked-items
-- 每次 legacy debt 清理后同步更新 baseline 并保留 QA 证据
+- S1-CP3: 实现 `.claude/agents/verifier.md` + `scripts/verifier-session.mjs`
+- S1-CP4: 集成 auto-review / auto-qa
 
 Open questions:
-- 是否先清理缺报告的 REQ-2026-057，还是先处理缺 QA evidence 的历史报告
+- None.
 
 Blockers:
 - None.

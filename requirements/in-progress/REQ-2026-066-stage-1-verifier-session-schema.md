@@ -1,8 +1,8 @@
 # REQ-2026-066: Stage 1: 独立 verifier session 与 schema 级工具白名单
 
 ## 状态
-- 当前状态：draft
-- 当前阶段：design
+- 当前状态：in-progress
+- 当前阶段：implementation
 
 ## 背景
 
@@ -45,7 +45,7 @@
   - `scripts/auto-review.mjs`(修改:增加 subagent 调用分支)
   - `scripts/auto-qa.mjs`(修改:增加 subagent 调用分支)
 
-### 约束(Scope Control)
+### 约束（Scope Control，可选）
 
 **豁免项**:
 - [x] skip-design-validation(详细设计已在 `docs/plans/multi-agent-roadmap.md` §4,本 REQ 内不另起 design.md 避免冗余)
@@ -108,10 +108,10 @@
 - [ ] 设计对齐:实现是否符合路线图 §4 的描述?偏离点是否在决策日志记录?
 - [ ] 验收标准对齐:7 条验收标准是否逐条勾选?
 
-## 阻塞 / 搁置说明
-- 原因:无
-- 恢复条件:无
-- 下一步:无
+## 阻塞 / 搁置说明（可选）
+- 原因：无
+- 恢复条件：无
+- 下一步：无
 
 ## 临时实现与债务
 - 通信契约使用文件 + JSON envelope,Stage 2 接入事件流后,这一层应迁移到事件流。本 REQ 暂不处理,记录为已知债务。
