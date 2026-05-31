@@ -252,6 +252,7 @@ GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`n
 `req:audit --all` 默认输出摘要，避免历史 warning 长列表淹没新增问题；需要完整明细时使用 `node scripts/req-audit.mjs --all --verbose`，需要抽样查看时使用 `--max-findings N`。JSON 输出保留 `{ ok, findings }`，并额外提供 `summary` 供自动化消费。
 `requirements/audit-baseline.json` 记录已知 legacy warning 基线；它不是 suppression，`findings` 仍完整保留。`req:audit` 和 `governance:health` 会展示当前 warning 是否超出基线，帮助发现新增治理债务。
 `governance:health` 会区分 legacy/current warning，并展示 top finding code 和 baseline 状态，帮助判断治理债务主要集中在哪类规则。
+Stage 2 事件账本已完成退出确认。基础 API 位于 `scripts/event-store.mjs`，提供治理事件 schema、append-only JSONL 写入、读取排序、schema 校验、progress projection 和 worktree-aware 聚合；`session-start.js` 和 `req-cli.mjs` 会以 best-effort 方式写入会话启动与 REQ 生命周期事件，并优先从事件投影读取当前进度，`progress.txt` 保留为缓存/回退输入。`req:status --all` 优先展示 `.claude/events` 与 `.claude/worktrees/*/events` 的只读聚合结果，并只报告冲突、不自动合并状态。对应回归测试为 `tests/event-store.test.mjs` 和 `governance.test.mjs` 的事件写入、projection 与 worktree aggregation 断言，已纳入 `npm test`。
 对于目标项目，`harness-install` 现在会尝试自动绑定已有真实 `lint / test / build`，并在缺失时写入 placeholder guard，避免接入后只剩 README 提示；治理脚本使用 git-status-backed 命令，`req:complete` / `docs:verify` / `check:governance` 都会读取 `.claude/.xxx-status`。
 安装器默认保留目标项目已有 REQ、报告和经验历史；如需清理带 Harness Lab 模板标记的历史文件，必须显式传入 `--clean-template-history`。
 `npm test` 还覆盖 `/harness-setup` command、`source-command-harness-setup` skill 和 `harness-install` package bin 的契约同步，防止一键接入说明与真实分发入口漂移。

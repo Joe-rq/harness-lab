@@ -2,8 +2,8 @@
 
 > 起草日期: 2026-05-22  
 > 重整日期: 2026-05-31  
-> 当前阶段: **Stage 1 / S1-CP3 verifier envelope + session runner**
-> 当前 REQ: `REQ-2026-066-stage-1-verifier-session-schema.md`
+> 当前阶段: **Stage 3 / S3-CP1 Stage 1 + Stage 2 真实使用观察期**
+> 当前 REQ: 无
 
 ---
 
@@ -103,20 +103,20 @@ Stage 3: Task Graph Decision Gate
 - [x] **S1-CP1** — REQ 创建: `REQ-2026-066-stage-1-verifier-session-schema.md`
 - [x] **S1-CP2** — 能力 Spike:确认 Claude Code subagent 支持 schema 级 `tools` / `disallowedTools` 白名单,并有独立 context window
 - [x] **S1-CP2.5** — 调用入口 Spike:确认本仓 Node 脚本能否稳定启动 verifier subagent 并拿回结构化输出 → **结论 A(可脚本调用)**，详见 REQ-066 Spike 记录
-- [ ] **S1-CP3** — 实现 verifier envelope + runner: `scripts/verifier-session.mjs`
-- [ ] **S1-CP4** — 集成 `auto-review.mjs` / `auto-qa.mjs`,并保留 legacy fallback
-- [ ] **S1-CP5** — QA 证据:至少 1 个旧 verifier 漏报、新 verifier 查出的对照案例
-- [ ] **S1-CP6** — Stage 1 退出确认
+- [x] **S1-CP3** — 实现 verifier envelope + runner: `scripts/verifier-session.mjs`
+- [x] **S1-CP4** — 集成 `auto-review.mjs` / `auto-qa.mjs`,并保留 legacy fallback
+- [x] **S1-CP5** — QA 证据:至少 1 个旧 verifier 漏报、新 verifier 查出的对照案例
+- [x] **S1-CP6** — Stage 1 退出确认
 
 ### Stage 2: Event Ledger + Progress Projection
 
-- [ ] **S2-CP1** — REQ 创建:事件 schema + append API
-- [ ] **S2-CP2** — 实现事件账本 MVP,接入 1-2 个高频写入点
-- [ ] **S2-CP3** — REQ 创建: `progress.txt` projection
-- [ ] **S2-CP4** — 实现 progress 投影与重建,旧 `progress.txt` 降级为缓存
-- [ ] **S2-CP5** — REQ 创建:worktree-aware 事件聚合
-- [ ] **S2-CP6** — 实现多 worktree 事件聚合查询
-- [ ] **S2-CP7** — Stage 2 退出确认
+- [x] **S2-CP1** — 事件 schema + append API: `REQ-2026-070-stage-2-event-schema-and-append-api.md`
+- [x] **S2-CP2** — 实现事件账本 MVP,接入高频写入点: `REQ-2026-071-stage-2-event-ledger-high-frequency-writers.md`
+- [x] **S2-CP3** — REQ 创建: `progress.txt` projection: `REQ-2026-072-stage-2-progress-projection.md`
+- [x] **S2-CP4** — 实现 progress 投影与重建,旧 `progress.txt` 降级为缓存: `REQ-2026-072-stage-2-progress-projection.md`
+- [x] **S2-CP5** — REQ 创建:worktree-aware 事件聚合: `REQ-2026-073-stage-2-worktree-aware-event-aggregation.md`
+- [x] **S2-CP6** — 实现多 worktree 事件聚合查询: `REQ-2026-073-stage-2-worktree-aware-event-aggregation.md`
+- [x] **S2-CP7** — Stage 2 退出确认: `REQ-2026-074-stage-2-exit-confirmation.md`
 
 ### Stage 3: Task Graph Decision Gate
 
@@ -389,6 +389,15 @@ Stage 3 不是工程任务。它是一次是否继续扩张的判断。
 | 2026-05-22 | Spike S1-CP2 完成:确认 Claude Code 原生 subagent 支持 schema 级 `tools` / `disallowedTools` 白名单,独立 context window 确认 | 官方文档原话 "denied access" + `~/.claude/agents/42plugin-skill-reviewer.md` 示例 | S1-CP2 通过 |
 | 2026-05-22 | Stage 2/3 实现路径调整:subagent 限 single session,跨 session / 跨 worktree 改用 background agents;subagent 不能 spawn 子 subagent | Spike 副作用发现 | Stage 2 全部 + Stage 3 决策门 |
 | 2026-05-31 | 路线图重整:插入 S1-CP2.5 调用入口 Spike;Stage 2 收窄为事件账本 MVP -> progress projection -> worktree 聚合;Stage 3 明确为决策门 | 原路线缺少 Node 脚本能否启动 subagent 的验证,且 Stage 2 写入范围过大 | S1-CP2.5, S2 全部, S3 |
+| 2026-05-31 | S1-CP3/S1-CP4 完成:runner 支持 `--bare --agent verifier`,显式 artifact 输入、非标准 JSON 归一化;auto-review/auto-qa 支持 `HARNESS_VERIFIER_MODE=subagent` 分支 | smoke 验证 subagent 调用成功,并发现需兼容 `verifierResult.verdict` 输出形状 | S1-CP3, S1-CP4 |
+| 2026-05-31 | S1-CP5 完成:legacy auto-review 报范围合规,independent verifier 对 `.claude/settings.local.json` 报 scope-breach;证据落盘到 `requirements/reports/REQ-2026-066-qa.md` | 形成 1 个真实 legacy 漏报 / subagent 查出的对照案例 | S1-CP5 |
+| 2026-05-31 | S1-CP6 完成:Stage 1 退出确认通过;默认 legacy、显式 subagent 的成本控制策略保留;下一步进入 Stage 2 事件账本 | `npm test`、`docs:verify`、`check:governance` 通过;外部 Claude CLI 当前会话复测因数据外发审批被拒,沿用 S1-CP2.5/S1-CP5 已落盘实测证据 | S1-CP6, S2-CP1 |
+| 2026-05-31 | S2-CP1 完成:新增 `scripts/event-store.mjs` 事件 schema、append API、read/validate API 和测试;S2-CP2 高频写入点接入单独处理 | 避免事件事实层与现有 progress/REQ 状态主链路同 REQ 改动,降低回归风险 | S2-CP1, S2-CP2 |
+| 2026-05-31 | S2-CP2 完成:`session-start.js` 写 `session_started`;`req-cli.mjs` 写 create/start/block/complete lifecycle 事件;安装器同步分发 `event-store.mjs` | 事件账本开始积累真实治理事实,但仍不替换 `progress.txt` | S2-CP2, S2-CP3 |
+| 2026-05-31 | S2-CP3 完成:创建 `REQ-2026-072-stage-2-progress-projection.md` 与设计稿,承载 progress projection 实现 | S2-CP3 只是 REQ 创建检查点;S2-CP4 的实现与验证在同一 REQ 内继续,避免重复拆分同一能力 | S2-CP3, S2-CP4 |
+| 2026-05-31 | S2-CP4 完成:`event-store.mjs` 增加 progress projection;`session-start.js` 与 `req:status` 默认模式优先读取 projection,`progress.txt` 保留为缓存/回退 | `node tests/event-store.test.mjs`、`node tests/governance.test.mjs`、`npm test`、`docs:verify`、`check:governance` 通过 | S2-CP4, S2-CP5 |
+| 2026-05-31 | S2-CP5/S2-CP6 完成:创建 `REQ-2026-073-stage-2-worktree-aware-event-aggregation.md`;`req:status --all` 支持 worktree projection 聚合和 conflict 报告 | `node tests/event-store.test.mjs`、`node tests/governance.test.mjs`、真实 `req:status --all` 文本/JSON 通过 | S2-CP5, S2-CP6, S2-CP7 |
+| 2026-05-31 | S2-CP7 完成:Stage 2 退出确认通过;事件 append、真实写入点、progress projection、worktree 聚合均有 REQ / review / QA / experience 证据 | `npm test`、`docs:verify`、`check:governance`、`req-audit` 通过;current audit warning 为 0 | S2-CP7, S3-CP1 |
 | 2026-05-31 | S1-CP2.5 Spike 完成:**结论 A — 可脚本调用**。`claude --agent <name> -p "..." --output-format json` 从 Node `child_process.spawn` 稳定调用;延迟 12–18s;需前置校验 agent 文件存在防止静默 fallback | 实测 6 组测试用例,产物记录在 REQ-066 关键决策章节 | S1-CP3 |
 
 ---

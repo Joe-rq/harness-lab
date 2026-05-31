@@ -15,7 +15,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 当前活跃 REQ
 
-- `REQ-2026-066-stage-1-verifier-session-schema.md`（真实整改：Stage 1: 独立 verifier session 与 schema 级工具白名单）
+- 无
 
 ## 当前搁置 REQ
 
@@ -23,6 +23,15 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-074-stage-2-exit-confirmation.md`（真实整改：Stage 2: exit confirmation）
+- `REQ-2026-073-stage-2-worktree-aware-event-aggregation.md`（真实整改：Stage 2: worktree-aware event aggregation）
+- `REQ-2026-072-stage-2-progress-projection.md`（真实整改：Stage 2: progress projection）
+- `REQ-2026-071-stage-2-event-ledger-high-frequency-writers.md`（真实整改：Stage 2: event ledger high-frequency writers）
+- `REQ-2026-070-stage-2-event-schema-and-append-api.md`（真实整改：Stage 2: event schema and append API）
+- `REQ-2026-066-stage-1-verifier-session-schema.md`（真实整改：Stage 1: 独立 verifier session 与 schema 级工具白名单）
+- `REQ-2026-067-fix-duplicate-completed-req-ids.md`（真实整改：fix: duplicate completed REQ IDs）
+- `REQ-2026-069-sh-js-reference-cleanup.md`（历史重编号：Phase 2 清理 sh 引用残留）
+- `REQ-2026-068-sh-js-entry-unification.md`（历史重编号：删除 sh/js 双实现冗余）
 - `REQ-2026-065-feat-legacy-audit-baseline.md`（真实整改：feat: legacy audit baseline）
 - `REQ-2026-064-fix-invariant-incremental-source-dedup.md`（真实整改：fix: invariant incremental source dedup）
 - `REQ-2026-063-feat-governance-audit-warning-triage.md`（真实整改：feat: governance audit warning triage）

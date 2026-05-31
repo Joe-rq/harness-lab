@@ -1,19 +1,25 @@
-Current active REQ: REQ-2026-066
-Current phase: implementation
+Current active REQ: none
+Current phase: idle
 Last updated: 2026-05-31
 
-Summary: S1-CP2.5 spike 完成，进入 S1-CP3 实现 verifier envelope + runner
-- Active REQ: REQ-2026-066 (implementation)
+Summary:
+- REQ-2026-074 已完成实现验证：Stage 2 / S2-CP7 退出确认通过
+- REQ-2026-073 已完成实现验证：Stage 2 / S2-CP5-S2-CP6 worktree-aware 事件聚合已落地
+- REQ-2026-072 已完成实现验证：Stage 2 / S2-CP3-S2-CP4 progress projection 已落地
+- REQ-2026-071 已完成：Stage 2 / S2-CP2 事件账本高频写入点已接入
+- REQ-2026-070 已完成：Stage 2 / S2-CP1 事件 schema + append API 已落地
+- REQ-2026-066 已完成：Stage 1 / S1-CP6 退出确认通过，Independent Verifier 阶段收口
+- REQ-2026-067 已完成：历史 duplicate completed REQ ID 已修复，`check:governance` 通过
+- 当前路线进入 Stage 3 / S3-CP1：Stage 1 + Stage 2 真实使用观察期
 - ✅ S1-CP2.5 spike: `--bare --agent verifier` 可行，10s/$0.023，无 hook 污染，schema 层物理拦截
 - ✅ S1-CP2 spike: schema 级 tools/disallowedTools 白名单确认
 - ✅ S1-CP1: REQ-066 创建
 
 Next steps:
-- S1-CP3: 实现 `.claude/agents/verifier.md` + `scripts/verifier-session.mjs`
-- S1-CP4: 集成 auto-review / auto-qa
+- 进入 Stage 3 / S3-CP1 真实使用观察期：至少运行 Stage 1 + Stage 2 两周后再填写决策评估表
 
 Open questions:
-- None.
+- 外部 Claude CLI 复测需要用户明确授权数据外发；S1 完成采用已落盘的 S1-CP2.5 / S1-CP5 实测证据。
 
 Blockers:
 - None.

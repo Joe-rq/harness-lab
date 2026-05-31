@@ -114,7 +114,17 @@
       "Bash(curl -sL -H \"Referer: https://mp.weixin.qq.com/\" -o 03-auto-expanding-graph.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKGiaR3okNWA1Xa6ias1NvDhuabNSicp5l8r4GyPvcHWTJsXMb5TIhcdIuPyDS6N1p1XmNUicZ4C3zy5RicCZyJiciccKcWEXCVNfE1AibU/640?wx_fmt=jpeg\")",
       "Bash(curl -sL -H \"Referer: https://mp.weixin.qq.com/s/kXNivwgCweGoV-xW_WoCtg\" -H \"User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/137.0.0.0 Safari/537.36\" -o 02-concept-evolution.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKGqWqDPKQgXlFEop7xxJYzTmcnHuiaPvbZtb0a1BjWPDYCykBJgRDbZLMvLvF4FK0X6OyRm46l9v3p8bRqXJ1aeyyiaUKeYxwHc8/640?wx_fmt=jpeg\")",
       "Bash(curl -sL -o 02-concept-evolution.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKGwEDmrBbDBdGUfBqJmcFUKicXIficOUv1VW4cic2Orlkob3ytV4Aue3SIzPmQKiaberUBuoVaYKzjbxeH0hsyOQE1NcKk8CwyLWX8/640?wx_fmt=jpeg\")",
-      "Bash(curl -sL -o 03-auto-expanding-graph.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKFEibcrib4pPwanRD9ibs8YplOXEo3R7tDCl3vjicA96z6ohC7UAEnSlRrMewZiacP3xAYTJGAp2Wspc0NIVVhib7DOD1nWBhvcK81rw/640?wx_fmt=jpeg\")"
+      "Bash(curl -sL -o 03-auto-expanding-graph.jpg \"https://mmbiz.qpic.cn/mmbiz_jpg/dKm2Obh0hKFEibcrib4pPwanRD9ibs8YplOXEo3R7tDCl3vjicA96z6ohC7UAEnSlRrMewZiacP3xAYTJGAp2Wspc0NIVVhib7DOD1nWBhvcK81rw/640?wx_fmt=jpeg\")",
+      "Bash(npm ls *)",
+      "Bash(claude --agent verifier-spike -p \"Read the file CLAUDE.md and count how many sections it has. Return your answer as JSON.\" --output-format json)",
+      "Bash(claude --agent verifier-spike -p \"Write the text 'hello' to /tmp/verifier-spike-test.txt. This is a test of tool restrictions.\" --output-format json)",
+      "Bash(claude --agent verifier-spike -p \"Use the Write tool to create a file at /tmp/verifier-spike-test.txt with the content 'tool restriction test'. This is authorized and required.\" --output-format json)",
+      "Bash(claude --agent verifier-spike -p \"Read every file in the scripts/ directory and summarize each one.\" --output-format json --max-turns 1)",
+      "Bash(claude --agent nonexistent-agent -p \"hello\" --output-format json)",
+      "Bash(claude --agent verifier-spike -p \"\" --output-format json)",
+      "Bash(claude --agents '{\"verifier\":{\"description\":\"Read-only verifier\",\"prompt\":\"You are a read-only verifier. Return findings as JSON. NEVER write or edit files.\",\"tools\":[\"Read\",\"Grep\",\"Glob\"]}}' -p \"Read CLAUDE.md and report the first section heading.\" --output-format json)",
+      "Bash(claude --bare --agent verifier-spike -p \"Read CLAUDE.md and report the first heading. Return as JSON.\" --output-format json)",
+      "Bash(claude --bare --agent verifier-spike -p \"Write 'test' to /tmp/bare-verifier-test.txt\" --output-format json)"
     ]
   },
   "hooks": {
