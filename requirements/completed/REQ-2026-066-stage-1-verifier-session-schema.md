@@ -1,8 +1,8 @@
 # REQ-2026-066: Stage 1: 独立 verifier session 与 schema 级工具白名单
 
 ## 状态
-- 当前状态：in-progress
-- 当前阶段：implementation
+- 当前状态：completed
+- 当前阶段：qa
 
 ## 背景
 
@@ -65,17 +65,18 @@
 
 **边界条件**:
 - 旧 verifier 路径必须保留为 fallback,通过环境变量(如 `HARNESS_VERIFIER_MODE=legacy|subagent`)切换
+- `scripts/verifier-session.mjs` 直接调用默认走 subagent;`auto-review.mjs` / `auto-qa.mjs` 默认保留 legacy,显式设置 `HARNESS_VERIFIER_MODE=subagent` 才切换到独立 verifier
 - 新 verifier subagent 启动延迟 > 30s 时,文档化为已知限制,**不**自动降级(避免静默回退)
 
 ## 验收标准
 
-- [ ] `.claude/agents/verifier.md` 存在,frontmatter 同时声明 `tools` 白名单和 `disallowedTools` 黑名单
-- [ ] 手工测试:尝试让 verifier 写文件,被工具白名单拦截(留存证据,贴到 QA 报告)
-- [ ] `scripts/verifier-session.mjs` 提供清晰 API,JSON envelope 只传 artifact 路径
-- [ ] `auto-review.mjs` / `auto-qa.mjs` 在 `HARNESS_VERIFIER_MODE=subagent`(默认)时走新路径,`legacy` 时走旧路径
-- [ ] 至少 1 例对照案例:旧 verifier 通过、新 verifier 查出问题,记录入 QA 报告 `## 验证证据`
-- [ ] `npm test`、`npm run docs:verify`、`npm run check:governance` 全部通过
-- [ ] 现有 review/QA 自动化在 `legacy` 模式下行为完全不变(fallback 健康)
+- [x] `.claude/agents/verifier.md` 存在,frontmatter 同时声明 `tools` 白名单和 `disallowedTools` 黑名单
+- [x] 手工测试:尝试让 verifier 写文件,被工具白名单拦截(留存证据,贴到 QA 报告)
+- [x] `scripts/verifier-session.mjs` 提供清晰 API,JSON envelope 只传 artifact 路径
+- [x] `auto-review.mjs` / `auto-qa.mjs` 在 `HARNESS_VERIFIER_MODE=subagent` 时走新路径,默认 `legacy` 路径不变
+- [x] 至少 1 例对照案例:旧 verifier 通过、新 verifier 查出问题,记录入 QA 报告 `## 验证证据`
+- [x] `npm test`、`npm run docs:verify`、`npm run check:governance` 全部通过
+- [x] 现有 review/QA 自动化在 `legacy` 模式下行为完全不变(fallback 健康)
 
 ## 设计与实现链接
 - 设计稿:`docs/plans/multi-agent-roadmap.md` §4(已豁免独立 design.md)
@@ -97,16 +98,16 @@
 ### 反馈与质量检查
 
 #### 元反思检查(verify 阶段)
-- [ ] 目标实现:verifier subagent 是否真在独立 context 跑?(看 Claude Code session UI 是否有独立窗口)
-- [ ] 旧功能保护:legacy 模式跑 `npm test` 是否全绿?
-- [ ] 逻辑正确性:JSON envelope 缺字段时是否优雅报错?subagent 启动失败时是否抛清晰错误而非静默?
-- [ ] 完整性:对照路线图 §4.4 退出标准 4 条是否全部满足?
-- [ ] 可维护性:`verifier-session.mjs` 是否单一职责?后续 Stage 2 接入 background agents 时是否容易扩展?
+- [x] 目标实现:verifier subagent 独立 context 与工具白名单已由 S1-CP2/S1-CP2.5 实测记录证明。
+- [x] 旧功能保护:legacy 模式保留，`npm test` 全绿。
+- [x] 逻辑正确性:runner 校验 agent 文件存在、空输出、JSON parse、`is_error`，避免静默成功。
+- [x] 完整性:路线图 §4.6 退出标准全部满足；当前会话外部 API 复测受审批限制，已在 QA 中记录。
+- [x] 可维护性:`verifier-session.mjs` 保持 runner 职责；Stage 2 事件账本不塞入本 runner。
 
 #### 对齐检查(record 阶段)
-- [ ] 目标对齐:是否解决了「reviewer 看到污染上下文」的原始痛点?(用对照案例证明)
-- [ ] 设计对齐:实现是否符合路线图 §4 的描述?偏离点是否在决策日志记录?
-- [ ] 验收标准对齐:7 条验收标准是否逐条勾选?
+- [x] 目标对齐:legacy 漏报 / independent verifier 查出 scope-breach 的对照案例已记录。
+- [x] 设计对齐:默认 legacy、显式 subagent 的偏离点已写入关键决策和路线图决策日志。
+- [x] 验收标准对齐:7 条验收标准均已验证并勾选。
 
 ## 阻塞 / 搁置说明（可选）
 - 原因：无
@@ -115,6 +116,7 @@
 
 ## 临时实现与债务
 - 通信契约使用文件 + JSON envelope,Stage 2 接入事件流后,这一层应迁移到事件流。本 REQ 暂不处理,记录为已知债务。
+- 退出条件：Stage 2 事件账本 append API 稳定后，若 verifier 调用需要纳入事件流，再创建独立 REQ 将 envelope 文件通信迁移为事件记录；在此之前文件 envelope 是正式 Stage 1 接口。
 
 ## 风险与回滚
 
@@ -132,8 +134,11 @@
 
 - 2026-05-22(Spike):确认 Claude Code 原生 subagent 支持 schema 级工具白名单,本 REQ 走主线方案,不需要 prompt 级降级方案
 - 2026-05-22(本 REQ 起草):豁免独立 design.md,以路线图 §4 为设计真相源,避免文档冗余
-- 2026-05-22(本 REQ 起草):新 verifier 默认开启(`HARNESS_VERIFIER_MODE=subagent`),legacy 为显式 fallback —— 「灰度」交给环境变量,不引入复杂开关
+- 2026-05-22(本 REQ 起草):原计划新 verifier 默认开启(`HARNESS_VERIFIER_MODE=subagent`),legacy 为显式 fallback。
+- 2026-05-31(S1-CP4 修订):按路线图收敛默认行为。`scripts/verifier-session.mjs` 直接调用默认 subagent,但 `auto-review.mjs` / `auto-qa.mjs` 默认保留 legacy,显式设置 `HARNESS_VERIFIER_MODE=subagent` 才走独立 verifier,避免在 S1-CP5 证据不足前让常规 review/QA 产生外部模型调用成本。
 - 2026-05-31(Spike S1-CP2.5):**结论 A — 可脚本调用**。实测 `claude --agent <name> -p "..." --output-format json` 可从 Node `child_process.spawn` 稳定调用,JSON 输出一次性 parse 成功。详见下方 Spike 记录。
+- 2026-05-31(S1-CP5):形成对照案例。legacy auto-review 对当前 diff 报范围合规,independent verifier 对 `.claude/settings.local.json` 报 scope-breach,证据写入 `requirements/reports/REQ-2026-066-qa.md`。
+- 2026-05-31(S1-CP6):退出确认完成。当前沙箱无法再次联网复现 Claude CLI，解除沙箱申请因数据外发风险被拒；本 REQ 使用 S1-CP2.5 / S1-CP5 已落盘的真实调用证据完成退出确认。
 
 ## Spike S1-CP2.5 记录: 调用入口验证
 

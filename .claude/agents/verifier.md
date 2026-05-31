@@ -67,7 +67,7 @@ Run all checks: scope + security + compliance.
 
 ## Output Format
 
-Return your findings as a JSON object inside a code block:
+Return exactly one JSON object. Do not wrap it in prose or Markdown.
 
 ```json
 {

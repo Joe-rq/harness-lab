@@ -9,7 +9,9 @@
  * Usage:
  *   node scripts/verifier-session.mjs --req REQ-2026-066
  *   node scripts/verifier-session.mjs --req REQ-2026-066 --check-type security
+ *   node scripts/verifier-session.mjs --req REQ-2026-066 --artifact scripts/foo.mjs
  *   node scripts/verifier-session.mjs --req REQ-2026-066 --output reports/
+ *   node scripts/verifier-session.mjs --req REQ-2026-066 --report-suffix code-review
  *
  * Environment:
  *   HARNESS_VERIFIER_MODE=legacy|subagent  (default: subagent)
@@ -40,11 +42,16 @@ function getGitRoot() {
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const parsed = { checkType: DEFAULT_CHECK_TYPE };
+  const parsed = { checkType: DEFAULT_CHECK_TYPE, artifactPaths: [] };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--req' && args[i + 1]) parsed.reqId = args[++i];
     if (args[i] === '--check-type' && args[i + 1]) parsed.checkType = args[++i];
     if (args[i] === '--output' && args[i + 1]) parsed.outputDir = args[++i];
+    if (args[i] === '--report-suffix' && args[i + 1]) parsed.reportSuffix = args[++i];
+    if (args[i] === '--artifact' && args[i + 1]) parsed.artifactPaths.push(args[++i]);
+    if (args[i] === '--artifacts' && args[i + 1]) {
+      parsed.artifactPaths.push(...args[++i].split(',').map(s => s.trim()).filter(Boolean));
+    }
     if (args[i] === '--max-turns' && args[i + 1]) parsed.maxTurns = parseInt(args[++i], 10);
   }
   return parsed;
@@ -82,6 +89,22 @@ function getGitDiffFiles(rootDir) {
   } catch {
     return [];
   }
+}
+
+function resolveArtifactPaths(rootDir, explicitPaths) {
+  if (explicitPaths.length === 0) return getGitDiffFiles(rootDir);
+
+  const normalized = [];
+  for (const artifactPath of explicitPaths) {
+    const relPath = artifactPath.replace(/^\.\//, '');
+    const fullPath = path.join(rootDir, relPath);
+    if (!fs.existsSync(fullPath)) {
+      console.error(`Artifact not found: ${artifactPath}`);
+      process.exit(1);
+    }
+    normalized.push(relPath);
+  }
+  return [...new Set(normalized)];
 }
 
 function validateCheckType(type) {
@@ -144,17 +167,18 @@ function extractFindings(resultText) {
   const codeBlockMatch = resultText.match(/```json\s*\n([\s\S]*?)\n```/);
   if (codeBlockMatch) {
     try {
-      return JSON.parse(codeBlockMatch[1]);
+      return normalizeFindings(JSON.parse(codeBlockMatch[1]));
     } catch {
       // Fall through
     }
   }
 
-  // Try to find any JSON object in the result
-  const jsonMatch = resultText.match(/\{[\s\S]*"status"[\s\S]*\}/);
-  if (jsonMatch) {
+  // Try to parse a bare JSON object in the result
+  const firstBrace = resultText.indexOf('{');
+  const lastBrace = resultText.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
     try {
-      return JSON.parse(jsonMatch[0]);
+      return normalizeFindings(JSON.parse(resultText.slice(firstBrace, lastBrace + 1)));
     } catch {
       // Fall through
     }
@@ -166,6 +190,41 @@ function extractFindings(resultText) {
     findings: [],
     summary: 'Could not parse structured findings from verifier output',
     rawResult: resultText.substring(0, 2000),
+  };
+}
+
+function normalizeFindings(parsed) {
+  if (parsed.status) return parsed;
+
+  const nested = parsed.verifierResult || parsed.result || null;
+  if (nested && typeof nested === 'object') {
+    const verdict = String(nested.status || nested.verdict || '').toLowerCase();
+    const status = verdict === 'pass' ? 'pass' : verdict === 'fail' ? 'fail' : verdict === 'error' ? 'error' : 'error';
+    const artifact = nested.artifact || null;
+    const details = Array.isArray(nested.details) ? nested.details : [];
+    return {
+      status,
+      checkType: nested.checkType || parsed.checkType,
+      reqId: nested.reqId || parsed.reqId,
+      findings: details.map((detail) => ({
+        severity: detail.severity || 'info',
+        category: detail.category || 'quality',
+        description: detail.finding || detail.description || String(detail),
+        file: detail.file || artifact,
+        line: detail.line ?? null,
+        evidence: detail.evidence || detail.rule || '',
+      })),
+      acceptanceCoverage: nested.acceptanceCoverage || [],
+      summary: nested.summary || parsed.summary || 'Verifier returned a non-standard result shape; normalized by runner.',
+      rawResult: parsed,
+    };
+  }
+
+  return {
+    status: 'error',
+    findings: [],
+    summary: 'Verifier returned JSON without a recognized status field',
+    rawResult: parsed,
   };
 }
 
@@ -283,6 +342,15 @@ function generateReport(reqId, findings, cliResult) {
   return report;
 }
 
+function getReportSuffix(args) {
+  const suffix = args.reportSuffix || 'verifier';
+  if (!/^[a-z0-9][a-z0-9-]*$/i.test(suffix)) {
+    console.error(`Invalid report suffix: ${suffix}`);
+    process.exit(1);
+  }
+  return suffix;
+}
+
 // --- Legacy fallback ---
 
 function runLegacyCheck(rootDir, reqId) {
@@ -307,7 +375,7 @@ function runLegacyCheck(rootDir, reqId) {
 async function main() {
   const args = parseArgs();
   if (!args.reqId) {
-    console.error('Usage: node verifier-session.mjs --req REQ-YYYY-NNN [--check-type scope|security|compliance|full] [--output dir]');
+    console.error('Usage: node verifier-session.mjs --req REQ-YYYY-NNN [--check-type scope|security|compliance|full] [--artifact path] [--output dir] [--report-suffix suffix]');
     process.exit(1);
   }
 
@@ -331,7 +399,7 @@ async function main() {
     process.exit(1);
   }
 
-  const changedFiles = getGitDiffFiles(rootDir);
+  const changedFiles = resolveArtifactPaths(rootDir, args.artifactPaths);
   if (changedFiles.length === 0) {
     console.log('No uncommitted changes to verify.');
     process.exit(0);
@@ -362,7 +430,7 @@ async function main() {
   if (args.outputDir) {
     const reportsDir = path.join(rootDir, args.outputDir);
     if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
-    const reportPath = path.join(reportsDir, `${args.reqId}-verifier.md`);
+    const reportPath = path.join(reportsDir, `${args.reqId}-${getReportSuffix(args)}.md`);
     const report = generateReport(args.reqId, findings, cliResult);
     fs.writeFileSync(reportPath, report);
     console.log(`[verifier-session] Report written: ${reportPath}`);

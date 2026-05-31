@@ -13,7 +13,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 
 const SECURITY_PATTERNS = [
   { pattern: /eval\s*\(/, desc: 'eval() usage — potential code injection', severity: 'high' },
@@ -40,6 +40,38 @@ function parseArgs() {
     if (args[i] === '--output' && args[i + 1]) parsed.outputDir = args[++i];
   }
   return parsed;
+}
+
+function getVerifierMode() {
+  return process.env.HARNESS_VERIFIER_MODE || 'legacy';
+}
+
+function maybeRunSubagentVerifier(rootDir, args) {
+  const mode = getVerifierMode();
+  if (mode === 'legacy') return false;
+  if (mode !== 'subagent') {
+    console.error(`Unsupported HARNESS_VERIFIER_MODE for auto-review: ${mode}`);
+    process.exit(1);
+  }
+
+  const outputDir = args.outputDir || 'requirements/reports';
+  const result = spawnSync('node', [
+    'scripts/verifier-session.mjs',
+    '--req', args.reqId,
+    '--check-type', 'full',
+    '--output', outputDir,
+    '--report-suffix', 'code-review',
+  ], {
+    cwd: rootDir,
+    stdio: 'inherit',
+    env: { ...process.env, HARNESS_VERIFIER_MODE: 'subagent' },
+  });
+
+  if (result.error) {
+    console.error(`Failed to run verifier-session: ${result.error.message}`);
+    process.exit(1);
+  }
+  process.exit(result.status ?? 1);
 }
 
 function findReqFile(rootDir, reqId) {
@@ -295,6 +327,7 @@ async function main() {
   }
 
   const rootDir = getGitRoot();
+  maybeRunSubagentVerifier(rootDir, args);
 
   // Get git diff info
   const diffStat = getGitDiffStat(rootDir);
