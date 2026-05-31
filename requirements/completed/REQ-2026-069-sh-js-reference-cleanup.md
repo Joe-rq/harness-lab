@@ -1,4 +1,4 @@
-# REQ-2026-064: Phase 2 清理 sh 引用残留
+# REQ-2026-069: Phase 2 清理 sh 引用残留
 
 ## 状态
 - 当前状态：completed
@@ -56,9 +56,9 @@
 - 相关规范：
 
 ## 报告链接
-- Code Review：`requirements/reports/REQ-2026-064-code-review.md`
-- QA：`requirements/reports/REQ-2026-064-qa.md`
-- Ship：`requirements/reports/REQ-2026-064-ship.md`（需要发布时填写；否则在 REQ 中说明不适用）
+- Code Review：`requirements/reports/REQ-2026-069-code-review.md`
+- QA：`requirements/reports/REQ-2026-069-qa.md`
+- Ship：`requirements/reports/REQ-2026-069-ship.md`（需要发布时填写；否则在 REQ 中说明不适用）
 
 ## 验证计划
 - 计划执行的命令：`npm test && npm run check:governance`
@@ -93,4 +93,4 @@
 ## 关键决策
 - 2026-05-19：Refactor 型 REQ，skip-design-validation 已预勾选
 
-<!-- Source file: REQ-2026-064-phase-2-sh.md -->
+<!-- Source file: REQ-2026-069-sh-js-reference-cleanup.md -->

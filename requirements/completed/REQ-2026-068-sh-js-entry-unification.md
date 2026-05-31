@@ -1,4 +1,4 @@
-# REQ-2026-063: 删除 sh/js 双实现冗余
+# REQ-2026-068: 删除 sh/js 双实现冗余
 
 ## 状态
 - 当前状态：completed
@@ -74,8 +74,8 @@
 - 相关规范：CLAUDE.md "REQ 工作流程"、`.claude/settings.example.json` hook 配置
 
 ## 报告链接
-- Code Review：`requirements/reports/REQ-2026-063-code-review.md`
-- QA：`requirements/reports/REQ-2026-063-qa.md`
+- Code Review：`requirements/reports/REQ-2026-068-code-review.md`
+- QA：`requirements/reports/REQ-2026-068-qa.md`
 - Ship：不适用（无对外发布动作）
 
 ## 验证计划
@@ -122,4 +122,4 @@
 - 2026-05-19：选 js 作为统一入口而非 sh，理由：跨平台、与项目其余 `.mjs` 生态一致、Windows 下无需额外 bash
 - 2026-05-19：颗粒度超 4 文件但不拆分，理由：sh→js 是同质改动，拆分会导致 settings/installer/test 多次反复修改
 
-<!-- Source file: REQ-2026-063-sh-js.md -->
+<!-- Source file: REQ-2026-068-sh-js-entry-unification.md -->

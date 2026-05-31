@@ -6,9 +6,9 @@ REQ-2026-063 已完成核心删除与引用迁移，但 `.codex/hooks.json`、`s
 
 ## 关联材料
 
-- REQ: `requirements/completed/REQ-2026-064-phase-2-sh.md`
-- Code Review: `requirements/reports/REQ-2026-064-code-review.md`
-- QA: `requirements/reports/REQ-2026-064-qa.md`
+- REQ: `requirements/completed/REQ-2026-069-sh-js-reference-cleanup.md`
+- Code Review: `requirements/reports/REQ-2026-069-code-review.md`
+- QA: `requirements/reports/REQ-2026-069-qa.md`
 
 ## 问题 / 模式
 

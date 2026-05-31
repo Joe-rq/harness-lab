@@ -6,9 +6,9 @@ harness-lab 长期并存两套 hook 入口：bash 版（`scripts/req-check.sh` 1
 
 ## 关联材料
 
-- REQ: `requirements/completed/REQ-2026-063-sh-js.md`
-- Code Review: `requirements/reports/REQ-2026-063-code-review.md`
-- QA: `requirements/reports/REQ-2026-063-qa.md`
+- REQ: `requirements/completed/REQ-2026-068-sh-js-entry-unification.md`
+- Code Review: `requirements/reports/REQ-2026-068-code-review.md`
+- QA: `requirements/reports/REQ-2026-068-qa.md`
 
 ## 问题 / 模式
 
