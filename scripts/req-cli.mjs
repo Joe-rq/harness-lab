@@ -26,6 +26,11 @@ import {
   getWorktreeId,
 } from './worktree-utils.mjs';
 import { auditReqClosure, auditReqPostComplete } from './req-audit.mjs';
+import {
+  appendEvent,
+  buildProgressProjection,
+  buildWorktreeProgressProjections,
+} from './event-store.mjs';
 
 const root = process.cwd();
 const today = new Date().toISOString().slice(0, 10);
@@ -170,6 +175,23 @@ function appendExemptAuditLog(action, reqId, reason) {
   const entry = `${timestamp} | ${action} | ${reqId || 'manual'} | ${reason}\n`;
   mkdirSync(path.dirname(auditPath), { recursive: true });
   appendFileSync(auditPath, entry, 'utf8');
+}
+
+function recordEvent(type, { reqId, phase, payload = {} } = {}) {
+  try {
+    appendEvent({
+      type,
+      source: 'cli',
+      reqId,
+      phase,
+      payload,
+    }, {
+      rootDir: root,
+      worktree: root,
+    });
+  } catch (error) {
+    console.warn(`[event-store] ${type} event skipped: ${error.message}`);
+  }
 }
 
 function replaceSection(text, heading, body) {
@@ -1009,8 +1031,47 @@ export function statusCommand(options) {
     return;
   }
 
-  // --all mode: show all active REQs from INDEX.md
+  // --all mode: prefer worktree event projections, then fall back to INDEX.md.
   if (allMode) {
+    let aggregation = null;
+    try {
+      aggregation = buildWorktreeProgressProjections({ rootDir: root });
+    } catch (error) {
+      if (!jsonMode) {
+        console.warn(`[event-store] worktree aggregation skipped: ${error.message}`);
+      }
+    }
+
+    if (aggregation?.worktrees?.length > 0) {
+      if (jsonMode) {
+        console.log(JSON.stringify(aggregation, null, 2));
+        return;
+      }
+
+      console.log(`Worktree statuses (${aggregation.worktrees.length}):`);
+      for (const item of aggregation.worktrees) {
+        if (item.error) {
+          console.log(`  ${item.worktree}: ERROR (${item.error})`);
+          continue;
+        }
+        const activeReq = item.projection.activeReq || 'none';
+        const phase = item.projection.phase || 'idle';
+        console.log(`  ${item.worktree}: ${activeReq} (${phase})`);
+      }
+
+      if (aggregation.conflicts.length > 0) {
+        console.log('Conflicts:');
+        for (const conflict of aggregation.conflicts) {
+          if (conflict.type === 'duplicate_active_req') {
+            console.log(`  duplicate active REQ ${conflict.reqId}: ${conflict.worktrees.join(', ')}`);
+          } else {
+            console.log(`  ${conflict.type}: ${conflict.worktree || 'unknown'}`);
+          }
+        }
+      }
+      return;
+    }
+
     const index = read('requirements/INDEX.md');
     const activeLines = parseBulletLines(getSection(index, '## 当前活跃 REQ')).filter((line) => line !== '- 无');
 
@@ -1040,16 +1101,28 @@ export function statusCommand(options) {
     return;
   }
 
-  // Default mode: show current worktree's active REQ (from progress.txt)
+  // Default mode: show current worktree's active REQ from the event projection,
+  // with progress.txt retained as a compatibility fallback.
+  let projection = null;
+  try {
+    projection = buildProgressProjection({ rootDir: root, worktree: root });
+  } catch (error) {
+    if (!jsonMode) {
+      console.warn(`[event-store] progress projection skipped: ${error.message}`);
+    }
+  }
+
   const progressPath = getProgressPath(root);
   let progressContent = '';
-  try {
-    progressContent = read(progressPath);
-  } catch {
-    progressContent = '';
+  if (!projection) {
+    try {
+      progressContent = read(progressPath);
+    } catch {
+      progressContent = '';
+    }
   }
   const activeMatch = progressContent.match(/^Current active REQ:\s*(\S+)/m);
-  const activeId = activeMatch ? activeMatch[1].trim() : null;
+  const activeId = projection?.activeReq || (activeMatch ? activeMatch[1].trim() : null);
 
   if (!activeId || activeId === 'none' || activeId === '无') {
     if (jsonMode) {
@@ -1057,6 +1130,11 @@ export function statusCommand(options) {
       const result = {
         active_req: null,
         external: null,
+        projection: projection ? {
+          source: projection.source,
+          phase: projection.phase,
+          last_updated: projection.lastUpdated,
+        } : undefined,
         warnings: warnings.length > 0 ? warnings : undefined,
       };
       console.log(JSON.stringify(result, null, 2));
@@ -1083,6 +1161,11 @@ export function statusCommand(options) {
   const result = {
     active_req: reqStatus,
     external,
+    projection: projection ? {
+      source: projection.source,
+      phase: projection.phase,
+      last_updated: projection.lastUpdated,
+    } : undefined,
     warnings: warnings.length > 0 ? warnings : undefined,
   };
 
@@ -1190,6 +1273,11 @@ export function createCommand(options) {
   write(reqPath, buildReqContent(reqId, title, slug, options.type));
   updateIndex({ active: parseIndexItem(reqFileName, title) });
   updateProgress('active', reqId, 'design');
+  recordEvent('req_created', {
+    reqId,
+    phase: 'design',
+    payload: { fileName: reqFileName, title },
+  });
 
   // Create exempt file to allow filling REQ content
   // In worktree mode, write to local worktree dir
@@ -1282,6 +1370,11 @@ export function startCommand(options) {
   }
 
   console.log(`Started ${reqId} -> ${phase}`);
+  recordEvent('req_started', {
+    reqId,
+    phase,
+    payload: { fileName: req.fileName },
+  });
 }
 
 export function blockCommand(options) {
@@ -1312,6 +1405,14 @@ export function blockCommand(options) {
   updateProgress('blocked', reqId, phase);
 
   console.log(`Blocked ${reqId} -> ${phase}`);
+  recordEvent('req_blocked', {
+    reqId,
+    phase,
+    payload: {
+      fileName: req.fileName,
+      reason: options.reason,
+    },
+  });
 }
 
 export function completeCommand(options) {
@@ -1413,6 +1514,14 @@ export function completeCommand(options) {
   updateProgress('idle');
 
   console.log(`Completed ${reqId} -> ${completedPath}`);
+  recordEvent('req_completed', {
+    reqId,
+    phase,
+    payload: {
+      fileName: req.fileName,
+      completedPath,
+    },
+  });
 
   const postAudit = auditReqPostComplete(root, reqId);
   const postErrors = postAudit.findings.filter((finding) => finding.severity === 'error');

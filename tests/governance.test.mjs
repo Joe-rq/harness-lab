@@ -21,6 +21,7 @@ import {
   getRecoverySteps,
   logError,
 } from '../scripts/error-classifier.mjs';
+import { appendEvent, readEvents } from '../scripts/event-store.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -275,6 +276,13 @@ async function testReqCliLifecycle() {
     const progress = readFileSync(path.join(tempDir, '.claude', 'progress.txt'), 'utf8');
     assert.match(progress, /^Current active REQ: none$/m);
     assert.match(progress, /^Current phase: idle$/m);
+
+    const events = readEvents({ rootDir: tempDir });
+    assert.deepEqual(
+      events.map((event) => event.type),
+      ['req_created', 'req_started', 'req_completed']
+    );
+    assert.ok(events.every((event) => event.reqId === 'REQ-2026-001'));
   } finally {
     process.chdir(previousCwd);
     rmSync(tempDir, { recursive: true, force: true });
@@ -335,10 +343,12 @@ async function testHarnessInstallArtifacts() {
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/check-governance.mjs'));
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/req-validation.mjs'));
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/error-classifier.mjs'));
+    assert.ok(harnessInstall.modules.cli.files.includes('scripts/event-store.mjs'));
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/worktree-utils.mjs'));
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/template-guard.mjs'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/session-start.js'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/req-check.js'));
+    assert.ok(harnessInstall.modules.hook.files.includes('scripts/event-store.mjs'));
 
     writeFile(
       tempDir,
@@ -367,6 +377,7 @@ async function testHarnessInstallArtifacts() {
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'check-governance.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-validation.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'error-classifier.mjs')));
+    assert.ok(existsSync(path.join(tempDir, 'scripts', 'event-store.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'worktree-utils.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-check.js')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'session-start.js')));
@@ -812,6 +823,9 @@ async function testReqBlockCommand() {
     // Verify progress.txt updated
     const progressContent = readFileSync(path.join(tempDir, '.claude', 'progress.txt'), 'utf8');
     assert.match(progressContent, /Current phase: blocked/);
+
+    const events = readEvents({ rootDir: tempDir });
+    assert.ok(events.some((event) => event.type === 'req_blocked' && event.reqId === 'REQ-2026-001'));
   } finally {
     process.chdir(previousCwd);
     rmSync(tempDir, { recursive: true, force: true });
@@ -1031,9 +1045,180 @@ async function testInvariantIncrementalScanSkipsProcessedSources() {
   }
 }
 
+async function testSessionStartWritesEvent() {
+  const tempDir = createTempDir('session-start-event');
+  try {
+    setupReqFixture(tempDir);
+    execFileSync('node', [path.join(repoRoot, 'scripts/session-start.js')], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    const events = readEvents({ rootDir: tempDir });
+    const sessionEvent = events.find((event) => event.type === 'session_started');
+    assert.ok(sessionEvent);
+    assert.equal(sessionEvent.source, 'hook');
+    assert.equal(sessionEvent.payload.progressFound, true);
+    assert.equal(sessionEvent.payload.activeReq, 'none');
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testSessionStartReadsProgressProjectionWithoutProgressFile() {
+  const tempDir = createTempDir('session-start-projection');
+  try {
+    setupReqFixture(tempDir);
+    rmSync(path.join(tempDir, '.claude', 'progress.txt'), { force: true });
+    appendEvent({
+      type: 'req_started',
+      source: 'test',
+      reqId: 'REQ-2026-777',
+      phase: 'implementation',
+      payload: {},
+    }, {
+      rootDir: tempDir,
+      sessionId: 'projection-test',
+      worktree: tempDir,
+      now: () => '2026-05-31T00:00:00.000Z',
+      idFactory: () => 'evt_projection_session',
+    });
+
+    const sessionOutput = execFileSync('node', [path.join(repoRoot, 'scripts/session-start.js')], {
+      cwd: tempDir,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    assert.match(sessionOutput, /Current active REQ: REQ-2026-777/);
+    assert.match(sessionOutput, /Current phase: implementation/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testReqStatusReadsProgressProjectionWithoutProgressFile() {
+  const tempDir = createTempDir('req-status-projection');
+  try {
+    setupReqFixture(tempDir);
+    rmSync(path.join(tempDir, '.claude', 'progress.txt'), { force: true });
+    writeFile(
+      tempDir,
+      'requirements/in-progress/REQ-2026-777-projection-status.md',
+      `# REQ-2026-777: Projection status
+
+## 状态
+- 当前状态：in-progress
+- 当前阶段：implementation
+
+## 背景
+测试 projection status。
+
+## 目标
+- 测试 req:status 默认模式读取事件投影
+
+## 验收标准
+- [x] req:status 能读取事件投影
+`
+    );
+    appendEvent({
+      type: 'req_started',
+      source: 'test',
+      reqId: 'REQ-2026-777',
+      phase: 'implementation',
+      payload: {},
+    }, {
+      rootDir: tempDir,
+      sessionId: 'projection-test',
+      worktree: tempDir,
+      now: () => '2026-05-31T00:00:00.000Z',
+      idFactory: () => 'evt_projection_status',
+    });
+
+    const statusOutput = execFileSync('node', [path.join(repoRoot, 'scripts/req-cli.mjs'), 'status'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    assert.match(statusOutput, /Active REQ: REQ-2026-777/);
+    assert.match(statusOutput, /Phase: implementation/);
+
+    const byIdOutput = execFileSync('node', [path.join(repoRoot, 'scripts/req-cli.mjs'), 'status', '--id', 'REQ-2026-777'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    assert.match(byIdOutput, /REQ: REQ-2026-777/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testReqStatusAllReadsWorktreeAggregation() {
+  const tempDir = createTempDir('req-status-worktree-aggregation');
+  try {
+    setupReqFixture(tempDir);
+    appendEvent({
+      type: 'req_started',
+      source: 'test',
+      reqId: 'REQ-2026-401',
+      phase: 'implementation',
+      payload: {},
+    }, {
+      rootDir: tempDir,
+      eventsDir: path.join(tempDir, '.claude', 'worktrees', 'feature-a', 'events'),
+      sessionId: 'feature-a-session',
+      worktree: 'feature-a',
+      now: () => '2026-05-31T00:00:01.000Z',
+      idFactory: () => 'evt_status_all_a',
+    });
+    appendEvent({
+      type: 'req_started',
+      source: 'test',
+      reqId: 'REQ-2026-402',
+      phase: 'qa',
+      payload: {},
+    }, {
+      rootDir: tempDir,
+      eventsDir: path.join(tempDir, '.claude', 'worktrees', 'feature-b', 'events'),
+      sessionId: 'feature-b-session',
+      worktree: 'feature-b',
+      now: () => '2026-05-31T00:00:02.000Z',
+      idFactory: () => 'evt_status_all_b',
+    });
+
+    const statusOutput = execFileSync('node', [path.join(repoRoot, 'scripts/req-cli.mjs'), 'status', '--all'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    assert.match(statusOutput, /Worktree statuses \(2\)/);
+    assert.match(statusOutput, /feature-a: REQ-2026-401 \(implementation\)/);
+    assert.match(statusOutput, /feature-b: REQ-2026-402 \(qa\)/);
+
+    const jsonOutput = execFileSync('node', [path.join(repoRoot, 'scripts/req-cli.mjs'), 'status', '--all', '--json'], {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+    const parsed = JSON.parse(jsonOutput);
+    assert.deepEqual(
+      parsed.worktrees.map((item) => item.worktree),
+      ['feature-a', 'feature-b']
+    );
+    assert.deepEqual(
+      parsed.worktrees.map((item) => item.projection.activeReq),
+      ['REQ-2026-401', 'REQ-2026-402']
+    );
+    assert.deepEqual(parsed.conflicts, []);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
+  ['session-start writes event ledger entry', testSessionStartWritesEvent],
+  ['session-start reads progress projection without progress.txt', testSessionStartReadsProgressProjectionWithoutProgressFile],
+  ['req:status reads progress projection without progress.txt', testReqStatusReadsProgressProjectionWithoutProgressFile],
+  ['req:status --all reads worktree aggregation', testReqStatusAllReadsWorktreeAggregation],
   ['req validation detects template placeholders and draft status', testReqValidationDetectsTemplateAndDraftIssues],
   ['harness-install copies governance files and writes hook config', testHarnessInstallArtifacts],
   ['package binding falls back to placeholder guards when commands are missing', testPackageBindingFallsBackToPlaceholderGuards],
