@@ -2,7 +2,7 @@
 
 > 起草日期: 2026-05-22  
 > 重整日期: 2026-05-31  
-> 当前阶段: **Stage 1 / S1-CP2.5 调用入口 Spike**  
+> 当前阶段: **Stage 1 / S1-CP3 verifier envelope + session runner**
 > 当前 REQ: `REQ-2026-066-stage-1-verifier-session-schema.md`
 
 ---
@@ -102,7 +102,7 @@ Stage 3: Task Graph Decision Gate
 
 - [x] **S1-CP1** — REQ 创建: `REQ-2026-066-stage-1-verifier-session-schema.md`
 - [x] **S1-CP2** — 能力 Spike:确认 Claude Code subagent 支持 schema 级 `tools` / `disallowedTools` 白名单,并有独立 context window
-- [ ] **S1-CP2.5** — 调用入口 Spike:确认本仓 Node 脚本能否稳定启动 verifier subagent 并拿回结构化输出
+- [x] **S1-CP2.5** — 调用入口 Spike:确认本仓 Node 脚本能否稳定启动 verifier subagent 并拿回结构化输出 → **结论 A(可脚本调用)**，详见 REQ-066 Spike 记录
 - [ ] **S1-CP3** — 实现 verifier envelope + runner: `scripts/verifier-session.mjs`
 - [ ] **S1-CP4** — 集成 `auto-review.mjs` / `auto-qa.mjs`,并保留 legacy fallback
 - [ ] **S1-CP5** — QA 证据:至少 1 个旧 verifier 漏报、新 verifier 查出的对照案例
@@ -389,6 +389,7 @@ Stage 3 不是工程任务。它是一次是否继续扩张的判断。
 | 2026-05-22 | Spike S1-CP2 完成:确认 Claude Code 原生 subagent 支持 schema 级 `tools` / `disallowedTools` 白名单,独立 context window 确认 | 官方文档原话 "denied access" + `~/.claude/agents/42plugin-skill-reviewer.md` 示例 | S1-CP2 通过 |
 | 2026-05-22 | Stage 2/3 实现路径调整:subagent 限 single session,跨 session / 跨 worktree 改用 background agents;subagent 不能 spawn 子 subagent | Spike 副作用发现 | Stage 2 全部 + Stage 3 决策门 |
 | 2026-05-31 | 路线图重整:插入 S1-CP2.5 调用入口 Spike;Stage 2 收窄为事件账本 MVP -> progress projection -> worktree 聚合;Stage 3 明确为决策门 | 原路线缺少 Node 脚本能否启动 subagent 的验证,且 Stage 2 写入范围过大 | S1-CP2.5, S2 全部, S3 |
+| 2026-05-31 | S1-CP2.5 Spike 完成:**结论 A — 可脚本调用**。`claude --agent <name> -p "..." --output-format json` 从 Node `child_process.spawn` 稳定调用;延迟 12–18s;需前置校验 agent 文件存在防止静默 fallback | 实测 6 组测试用例,产物记录在 REQ-066 关键决策章节 | S1-CP3 |
 
 ---
 

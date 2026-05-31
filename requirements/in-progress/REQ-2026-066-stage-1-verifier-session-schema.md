@@ -1,8 +1,8 @@
 # REQ-2026-066: Stage 1: 独立 verifier session 与 schema 级工具白名单
 
 ## 状态
-- 当前状态:draft
-- 当前阶段:design
+- 当前状态：draft
+- 当前阶段：design
 
 ## 背景
 
@@ -133,5 +133,89 @@
 - 2026-05-22(Spike):确认 Claude Code 原生 subagent 支持 schema 级工具白名单,本 REQ 走主线方案,不需要 prompt 级降级方案
 - 2026-05-22(本 REQ 起草):豁免独立 design.md,以路线图 §4 为设计真相源,避免文档冗余
 - 2026-05-22(本 REQ 起草):新 verifier 默认开启(`HARNESS_VERIFIER_MODE=subagent`),legacy 为显式 fallback —— 「灰度」交给环境变量,不引入复杂开关
+- 2026-05-31(Spike S1-CP2.5):**结论 A — 可脚本调用**。实测 `claude --agent <name> -p "..." --output-format json` 可从 Node `child_process.spawn` 稳定调用,JSON 输出一次性 parse 成功。详见下方 Spike 记录。
+
+## Spike S1-CP2.5 记录: 调用入口验证
+
+### 调用方式
+
+```bash
+claude --agent verifier-spike -p "<prompt>" --output-format json
+```
+
+从 Node:
+```javascript
+import { spawn } from 'child_process';
+const proc = spawn('claude', ['--agent', 'verifier-spike', '-p', prompt, '--output-format', 'json']);
+// proc.stdout → JSON string
+```
+
+### 实测数据
+
+| 测试项 | 结果 | 备注 |
+|--------|------|------|
+| `--agent` 从文件加载 | ✅ | `.claude/agents/verifier-spike.md` 正确解析 |
+| `--output-format json` | ✅ | 返回 `{ type, result, session_id, total_cost_usd, usage, permission_denials, ... }` |
+| Node `child_process.spawn` | ✅ | exit 0, JSON 一次性 parse |
+| 工具白名单(prompt 层) | ✅ | Agent 主动拒绝 Write 请求 |
+| 工具白名单(schema 层) | — | 未触发,因为 prompt 层已拦截;schema 层作为 runtime 兜底 |
+| `--max-turns` 超时 | ✅ | `terminal_reason: "max_turns"`, `is_error: true` |
+| 不存在 agent 名 | ⚠️ | **静默 fallback 到默认 agent**,需前置校验 |
+| 空 prompt | ⚠️ | 无 stdout 输出,JSON parse 失败 |
+| `--agents` inline | ❌ 不适用 | 只定义 subagent 供 Agent tool 调用,不约束主 session |
+
+### 性能
+
+| 指标 | 值 |
+|------|-----|
+| 总延迟 | 12–18s(含 CLI 启动 ~2s) |
+| API 延迟 | 5–13s(取决于 turn 数) |
+| 费用 | $0.05–0.06/次(简单查询) |
+
+### 输入 envelope 示例
+
+```json
+{
+  "reqId": "REQ-2026-066",
+  "checkType": "scope-compliance",
+  "artifactPaths": ["scripts/auto-review.mjs"],
+  "instructions": "Read scripts/auto-review.mjs and count functions."
+}
+```
+
+### 输出结构
+
+```json
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "result": "<agent text output, may contain JSON code block>",
+  "session_id": "uuid",
+  "total_cost_usd": 0.055,
+  "duration_ms": 11987,
+  "num_turns": 2,
+  "usage": { "input_tokens": 8639, "output_tokens": 383 },
+  "permission_denials": [],
+  "terminal_reason": "completed"
+}
+```
+
+### 失败示例
+
+| 场景 | 表现 |
+|------|------|
+| `--max-turns` 限制 | `is_error: true`, `terminal_reason: "max_turns"`, `result` 为空 |
+| 不存在 agent | 静默 fallback,无错误信号 |
+| 空 prompt | 无 stdout,parse 失败 |
+
+### 结论
+
+**A — 可脚本调用。** S1-CP3 按此路径实现 `scripts/verifier-session.mjs`。
+
+前置校验要求:
+1. 调用前确认 `.claude/agents/verifier.md` 存在(防止静默 fallback)
+2. 空结果时明确报错(而非静默)
+3. `--max-turns` 作为超时保险
 
 <!-- Source file: REQ-2026-066-stage-1-verifier-session-schema.md -->
