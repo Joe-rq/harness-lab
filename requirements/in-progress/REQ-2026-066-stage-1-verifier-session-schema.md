@@ -137,17 +137,39 @@
 
 ## Spike S1-CP2.5 记录: 调用入口验证
 
-### 调用方式
+### 调用方式对比
 
+测试了三种调用路径，**推荐 `--bare --agent`**：
+
+| 调用方式 | 解析 | 延迟 | 费用 | Session log | 工具拦截 | 可维护性 |
+|----------|------|------|------|-------------|----------|----------|
+| `--agent verifier` | ✅ | 12–18s | $0.055–0.064 | ❌ 污染 | prompt 层 | ✅ 文件定义 |
+| **`--bare --agent verifier`** | ✅ | **10s** | **$0.023** | **✅ 无** | **schema 层** | **✅ 文件定义** |
+| `--bare --system-prompt-file --allowedTools` | ✅ | 8.6s | $0.027 | ✅ 无 | schema 层 | ❌ 工具列表散在代码里 |
+
+**`--bare` 的额外好处**：
+- 跳过完整 hook 链（SessionStart/PreToolUse/PostToolUse/SessionEnd），verifier 不是开发 session，语义正确
+- 跳过 LSP、MCP、auto-memory、plugin sync，减少启动开销
+- `--bare` 下 prompt 约束更弱，反而**更好地验证了 schema 层防线**：agent 尝试了 4 次 Bash 写文件，全部被 `disallowedTools` 物理拦截，`permission_denials` 完整记录
+
+**`--bare` 注意事项**：
+- stderr 会输出 warning（`Warning: no stdin data received...`），需 `2>/dev/null` 或 `< /dev/null` 抑制
+- 需要 `ANTHROPIC_API_KEY` 认证（不走 OAuth/keychain），测试环境已满足
+
+推荐调用方式：
 ```bash
-claude --agent verifier-spike -p "<prompt>" --output-format json
+claude --bare --agent verifier -p "<prompt>" --output-format json < /dev/null 2>/dev/null
 ```
 
 从 Node:
 ```javascript
 import { spawn } from 'child_process';
-const proc = spawn('claude', ['--agent', 'verifier-spike', '-p', prompt, '--output-format', 'json']);
-// proc.stdout → JSON string
+const proc = spawn('claude', [
+  '--bare', '--agent', 'verifier',
+  '-p', prompt,
+  '--output-format', 'json'
+], { stdio: ['pipe', 'pipe', 'pipe'] });
+// proc.stdout → JSON string（stderr 有 warning，需忽略）
 ```
 
 ### 实测数据
@@ -155,22 +177,24 @@ const proc = spawn('claude', ['--agent', 'verifier-spike', '-p', prompt, '--outp
 | 测试项 | 结果 | 备注 |
 |--------|------|------|
 | `--agent` 从文件加载 | ✅ | `.claude/agents/verifier-spike.md` 正确解析 |
+| `--bare --agent` 组合 | ✅ | `--bare` 不影响 agent 文件加载 |
 | `--output-format json` | ✅ | 返回 `{ type, result, session_id, total_cost_usd, usage, permission_denials, ... }` |
 | Node `child_process.spawn` | ✅ | exit 0, JSON 一次性 parse |
-| 工具白名单(prompt 层) | ✅ | Agent 主动拒绝 Write 请求 |
-| 工具白名单(schema 层) | — | 未触发,因为 prompt 层已拦截;schema 层作为 runtime 兜底 |
+| 工具白名单(prompt 层) | ✅ | Agent 主动拒绝 Write 请求（非 bare 模式） |
+| 工具白名单(schema 层) | ✅ **实测拦截** | bare 模式下 agent 尝试 4 次 Bash 写文件，全部被 `disallowedTools` 拦截 |
 | `--max-turns` 超时 | ✅ | `terminal_reason: "max_turns"`, `is_error: true` |
 | 不存在 agent 名 | ⚠️ | **静默 fallback 到默认 agent**,需前置校验 |
 | 空 prompt | ⚠️ | 无 stdout 输出,JSON parse 失败 |
 | `--agents` inline | ❌ 不适用 | 只定义 subagent 供 Agent tool 调用,不约束主 session |
+| `--bare` stderr warning | ⚠️ | `< /dev/null 2>/dev/null` 解决 |
 
-### 性能
+### 性能（`--bare --agent` 路径）
 
 | 指标 | 值 |
 |------|-----|
-| 总延迟 | 12–18s(含 CLI 启动 ~2s) |
-| API 延迟 | 5–13s(取决于 turn 数) |
-| 费用 | $0.05–0.06/次(简单查询) |
+| 总延迟 | ~10s |
+| 费用 | $0.023–0.027/次 |
+| Session log | 无（hook 不触发） |
 
 ### 输入 envelope 示例
 
@@ -211,11 +235,12 @@ const proc = spawn('claude', ['--agent', 'verifier-spike', '-p', prompt, '--outp
 
 ### 结论
 
-**A — 可脚本调用。** S1-CP3 按此路径实现 `scripts/verifier-session.mjs`。
+**A — 可脚本调用。** S1-CP3 使用 `--bare --agent verifier` 路径实现 `scripts/verifier-session.mjs`。
 
 前置校验要求:
 1. 调用前确认 `.claude/agents/verifier.md` 存在(防止静默 fallback)
 2. 空结果时明确报错(而非静默)
 3. `--max-turns` 作为超时保险
+4. stderr 重定向 `< /dev/null 2>/dev/null` 抑制 `--bare` warning
 
 <!-- Source file: REQ-2026-066-stage-1-verifier-session-schema.md -->
