@@ -104,7 +104,8 @@
       "Bash(wc -l scripts/*.mjs scripts/*.js scripts/*.sh)",
       "Bash(wc -l /d/03resource/_Projects/harness-lab/scripts/*.mjs)",
       "Bash(xargs -I {} basename {})",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "WebFetch(domain:docs.claude.com)"
     ]
   },
   "hooks": {

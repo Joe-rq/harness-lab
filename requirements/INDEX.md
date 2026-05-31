@@ -15,7 +15,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 当前活跃 REQ
 
-- 无
+- `REQ-2026-066-stage-1-verifier-session-schema.md`（真实整改：Stage 1: 独立 verifier session 与 schema 级工具白名单）
 
 ## 当前搁置 REQ
 

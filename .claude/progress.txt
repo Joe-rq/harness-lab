@@ -1,14 +1,16 @@
-Current active REQ: none
-Current phase: idle
-Last updated: 2026-05-19
+Current active REQ: REQ-2026-066
+Current phase: design
+Last updated: 2026-05-22
 
-Summary:
+Summary: REQ-2026-066 进行中，3 个文件改动
+- Active REQ: REQ-2026-066 (design)
 - ✅ REQ-2026-065 完成：建立 legacy audit baseline，`req:audit` / `governance:health` 可展示 warning delta
 - ✅ REQ-2026-064 完成：修复 invariant incremental scan 来源去重，避免 completion 重复生成旧经验候选
 - ✅ REQ-2026-063 完成：`req:audit` 默认摘要化，`governance:health` 展示 legacy/current warning 和 top finding code
 - ✅ 验证通过：npm test、docs:verify、check:governance
 
 Next steps:
+- Continue active REQ: REQ-2026-066
 - 逐步降低 `requirements/audit-baseline.json`，优先 missing-qa-evidence 与 unchecked-items
 - 每次 legacy debt 清理后同步更新 baseline 并保留 QA 证据
 
