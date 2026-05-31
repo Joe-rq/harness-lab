@@ -8,7 +8,8 @@
  *
  * 输出格式：
  *   - 放行: exit 0, 无输出
- *   - 阻断: exit 0, { "decision": "block", "reason": "..." }
+ *   - 提醒: exit 0, { "systemMessage": "..." }（collaborative）
+ *   - 阻断: exit 0, { "decision": "block", "reason": "..." }（supervised/autonomous）
  */
 
 import fs from 'fs';
@@ -173,11 +174,7 @@ async function main() {
   } else {
     // collaborative 模式：提醒不阻断
     console.log(JSON.stringify({
-      decision: 'allow',
-      hookSpecificOutput: {
-        hookEventName: 'Stop',
-        additionalContext: `[StopEvaluator] 💡 提醒：以下验收标准可能未覆盖：\n${uncoveredList}\n\n如果确实已完成，可以继续停止。`
-      }
+      systemMessage: `[StopEvaluator] 💡 提醒：以下验收标准可能未覆盖：\n${uncoveredList}\n\n如果确实已完成，可以继续停止。`
     }));
   }
 }
