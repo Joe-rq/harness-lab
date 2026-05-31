@@ -22,7 +22,7 @@
     "req:align": "node scripts/req-align.mjs",
     "governance:health": "node scripts/governance-health.mjs",
     "lint": "node scripts/template-guard.mjs lint",
-    "test": "node tests/governance.test.mjs && node tests/req-status-json.test.mjs && node tests/req-audit.test.mjs",
+    "test": "node tests/governance.test.mjs && node tests/req-status-json.test.mjs && node tests/req-audit.test.mjs && node tests/event-store.test.mjs",
     "build": "node scripts/template-guard.mjs build",
     "verify": "node scripts/template-guard.mjs verify",
     "harness:install": "node scripts/harness-install.mjs",

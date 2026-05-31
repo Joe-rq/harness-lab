@@ -11,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { getProgressPath } from './worktree-utils.mjs';
+import { appendEvent, buildProgressProjection } from './event-store.mjs';
 
 const colors = {
   reset: '\x1b[0m',
@@ -143,19 +144,49 @@ function printReqIndex(rootDir) {
   }
 }
 
+function recordSessionStarted(rootDir, progress, progressFound) {
+  try {
+    appendEvent({
+      type: 'session_started',
+      source: 'hook',
+      reqId: progress?.activeReq && progress.activeReq !== 'none' ? progress.activeReq : undefined,
+      phase: progress?.phase && progress.phase !== 'idle' ? progress.phase : undefined,
+      payload: {
+        progressFound,
+        activeReq: progress?.activeReq || 'none',
+        phase: progress?.phase || 'idle',
+      },
+    }, {
+      rootDir,
+      worktree: rootDir,
+    });
+  } catch (error) {
+    console.warn(`[event-store] session_started event skipped: ${error.message}`);
+  }
+}
+
 function main() {
   printBanner();
 
   const rootDir = getGitRoot();
   const progressContent = readProgressFile(rootDir);
+  let projection = null;
 
-  if (!progressContent) {
+  try {
+    projection = buildProgressProjection({ rootDir, worktree: rootDir });
+  } catch (error) {
+    console.warn(`[event-store] progress projection skipped: ${error.message}`);
+  }
+
+  if (!progressContent && !projection) {
+    recordSessionStarted(rootDir, null, false);
     log('\n⚠️ 未找到 .claude/progress.txt', 'yellow');
     log('   运行 harness-setup 初始化治理框架\n', 'gray');
     return;
   }
 
-  const progress = parseProgress(progressContent);
+  const progress = projection || parseProgress(progressContent);
+  recordSessionStarted(rootDir, progress, Boolean(progressContent));
   printProgress(progress);
   printReqIndex(rootDir);
 
