@@ -18,6 +18,7 @@ YYYY-MM-DD-title.md
 | `2026-04-20-Agent Harness：让AI从聊天机器人变成真正的智能体.md` | — | Agent Harness 入门介绍 |
 | `2026-05-20-hermes-agent-harness.md` | Nature（张晨曦） | Hermes Agent 之后：AI 开发需要一层治理协议（wow-harness v3） |
 | `2026-05-31-distributed-harness-agent.md` | Nature（张晨曦） | 分布式 Harness：维度转换、上下文生成协议与智流架构 |
+| `2026-06-02-ai-autonomous-system-tips.md` | 阳志平 | AI 自主干活系统的 12 个技巧 |
 
 ## 用途
 
