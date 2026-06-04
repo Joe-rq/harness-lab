@@ -13,7 +13,11 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { execSync, spawnSync } from 'child_process';
+import { resolveVerifierMode } from './verifier-mode.mjs';
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 function getGitRoot() {
   try {
@@ -34,20 +38,21 @@ function parseArgs() {
 }
 
 function getVerifierMode() {
-  return process.env.HARNESS_VERIFIER_MODE || 'legacy';
-}
-
-function maybeRunSubagentVerifier(rootDir, args) {
-  const mode = getVerifierMode();
-  if (mode === 'legacy') return false;
-  if (mode !== 'subagent') {
-    console.error(`Unsupported HARNESS_VERIFIER_MODE for auto-qa: ${mode}`);
+  try {
+    return resolveVerifierMode(process.env, 'auto-qa');
+  } catch (error) {
+    console.error(error.message);
     process.exit(1);
   }
+}
+
+function maybeRunVerifier(rootDir, args) {
+  const mode = getVerifierMode();
+  if (mode === 'legacy') return false;
 
   const outputDir = args.outputDir || 'requirements/reports';
   const result = spawnSync('node', [
-    'scripts/verifier-session.mjs',
+    path.join(SCRIPT_DIR, 'verifier-session.mjs'),
     '--req', args.reqId,
     '--check-type', 'compliance',
     '--output', outputDir,
@@ -55,7 +60,7 @@ function maybeRunSubagentVerifier(rootDir, args) {
   ], {
     cwd: rootDir,
     stdio: 'inherit',
-    env: { ...process.env, HARNESS_VERIFIER_MODE: 'subagent' },
+    env: { ...process.env, HARNESS_VERIFIER_MODE: mode },
   });
 
   if (result.error) {
@@ -74,6 +79,10 @@ function findReqFile(rootDir, reqId) {
     if (match) return path.join(reqDir, match);
   }
   return null;
+}
+
+function resolveOutputDir(rootDir, outputDir) {
+  return path.isAbsolute(outputDir) ? outputDir : path.join(rootDir, outputDir);
 }
 
 function extractVerificationPlan(reqContent) {
@@ -277,7 +286,7 @@ async function main() {
   }
 
   const rootDir = getGitRoot();
-  maybeRunSubagentVerifier(rootDir, args);
+  maybeRunVerifier(rootDir, args);
 
   const reqFile = findReqFile(rootDir, args.reqId);
   if (!reqFile) {
@@ -316,7 +325,7 @@ async function main() {
   const report = generateReport(args.reqId, commandResults, coverageResults, plan);
 
   // Write report
-  const reportsDir = path.join(rootDir, args.outputDir || 'requirements/reports');
+  const reportsDir = resolveOutputDir(rootDir, args.outputDir || 'requirements/reports');
   if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
   const reportPath = path.join(reportsDir, `${args.reqId}-qa.md`);
   fs.writeFileSync(reportPath, report);

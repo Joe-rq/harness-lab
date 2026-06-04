@@ -23,6 +23,9 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-077-verifier-defaults-readonly-boundary.md`（真实整改：verifier defaults alignment and read-only boundary tests）
+- `REQ-2026-076-stage-3-worktree-namespace-isolation-and-stage-2-revalidation.md`（真实整改：Stage 3 worktree namespace isolation and Stage 2 revalidation）
+- `REQ-2026-075-stage-3-7-event-store-schema.md`（真实整改：Stage 3 §7 评估表口径定义 + event-store schema 扩展）
 - `REQ-2026-074-stage-2-exit-confirmation.md`（真实整改：Stage 2: exit confirmation）
 - `REQ-2026-073-stage-2-worktree-aware-event-aggregation.md`（真实整改：Stage 2: worktree-aware event aggregation）
 - `REQ-2026-072-stage-2-progress-projection.md`（真实整改：Stage 2: progress projection）

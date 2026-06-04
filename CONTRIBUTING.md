@@ -127,6 +127,27 @@ docs: 统一 commit 规范
   `docs/plans/REQ-*-design.md`（设计文档验证：`req:start` 阻断空模板）
 - 技术 / 经验索引：
   `context/*/README.md`
+
+## 事件账本测试
+
+`tests/event-store.test.mjs` 维护事件账本的核心不变量。新增事件 type 时,必须:
+
+1. 在 `scripts/event-store.mjs EVENT_TYPE_SCHEMAS` 注册 schema
+2. 在 `tests/event-store.test.mjs` 加 1 个写入/读取/校验测试
+3. 若新增 type 用于 §7 评估表维度,同步更新 `docs/plans/REQ-2026-075-evaluation-metrics.md`
+4. 若新增 type 是观察期专用,同步更新 `multi-agent-roadmap.md §6.1 / §7`
+
+`MAX_EVENT_LINES` env var(默认 1000)可在测试时调小以触发 rotation 路径。
+
+## Verifier 模式
+
+`HARNESS_VERIFIER_MODE` 的合法值为 `legacy`、`envelope`、`subagent`,默认值统一为 `envelope`。
+
+- `envelope`:生成待独立 verifier 消费的 JSON handoff package,不执行本地 QA 命令,不启动外部 `claude`。
+- `legacy`:保留旧本地 auto-review / auto-qa 行为,需要 Markdown report 或本地 QA 命令时显式设置。
+- `subagent`:显式调用 `claude --bare --agent verifier`;这会向外部模型发送 verifier prompt 和 artifact 路径上下文,不得作为默认值。
+
+修改 `scripts/verifier-session.mjs`、`scripts/auto-review.mjs`、`scripts/auto-qa.mjs` 任一入口时,必须同步检查 `scripts/verifier-mode.mjs` 和 `tests/governance.test.mjs` 中的模式回归测试。
 - 执行协议：
   `skills/**`
 - 自动化守门：

@@ -3,8 +3,8 @@
 /**
  * Verifier Session Runner
  *
- * Spawns an independent verifier agent via `claude --bare --agent verifier`
- * to review artifacts against REQ acceptance criteria in an isolated context.
+ * Generates a verifier envelope package by default, or explicitly spawns an
+ * independent verifier agent via `claude --bare --agent verifier`.
  *
  * Usage:
  *   node scripts/verifier-session.mjs --req REQ-2026-066
@@ -14,13 +14,18 @@
  *   node scripts/verifier-session.mjs --req REQ-2026-066 --report-suffix code-review
  *
  * Environment:
- *   HARNESS_VERIFIER_MODE=legacy|subagent  (default: subagent)
+ *   HARNESS_VERIFIER_MODE=legacy|envelope|subagent  (default: envelope)
  *   HARNESS_VERIFIER_MAX_TURNS=N           (default: 10)
  */
 
 import fs from 'fs';
 import path from 'path';
 import { execSync, spawn } from 'child_process';
+import {
+  DEFAULT_VERIFIER_MODE,
+  VERIFIER_READONLY_BOUNDARY,
+  resolveVerifierMode,
+} from './verifier-mode.mjs';
 
 // --- Config ---
 
@@ -58,7 +63,12 @@ function parseArgs() {
 }
 
 function getMode() {
-  return process.env.HARNESS_VERIFIER_MODE || 'subagent';
+  try {
+    return resolveVerifierMode(process.env, 'verifier-session');
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
 }
 
 function getMaxTurns(args) {
@@ -107,6 +117,10 @@ function resolveArtifactPaths(rootDir, explicitPaths) {
   return [...new Set(normalized)];
 }
 
+function resolveOutputDir(rootDir, outputDir) {
+  return path.isAbsolute(outputDir) ? outputDir : path.join(rootDir, outputDir);
+}
+
 function validateCheckType(type) {
   const valid = ['scope', 'security', 'compliance', 'full'];
   if (!valid.includes(type)) {
@@ -133,12 +147,12 @@ function validateAgentExists(rootDir) {
  * Build the JSON envelope passed to the verifier agent.
  */
 function buildEnvelope(reqId, checkType, artifactPaths, rootDir) {
-  return JSON.stringify({
+  return {
     reqId,
     checkType,
     artifactPaths,
     rootDir,
-  });
+  };
 }
 
 /**
@@ -149,13 +163,52 @@ function buildPrompt(envelope) {
     'You received a verification envelope:',
     '',
     '```json',
-    envelope,
+    JSON.stringify(envelope, null, 2),
     '```',
     '',
     'Execute the verification task as described in your instructions.',
     'Read the REQ file first, then examine each artifact.',
     'Return your findings in the structured JSON format.',
   ].join('\n');
+}
+
+function buildEnvelopePackage(envelope, prompt) {
+  return {
+    schemaVersion: '1.0',
+    mode: 'envelope',
+    defaultMode: DEFAULT_VERIFIER_MODE,
+    agent: AGENT_NAME,
+    readonlyBoundary: VERIFIER_READONLY_BOUNDARY,
+    envelope,
+    prompt,
+    handoff: {
+      status: 'pending-independent-verification',
+      note: 'This package is verifier input, not a pass/fail report.',
+    },
+  };
+}
+
+function getEnvelopePackageName(reqId, args) {
+  const suffix = args.reportSuffix
+    ? `${getReportSuffix(args)}-verifier-envelope`
+    : 'verifier-envelope';
+  return `${reqId}-${suffix}.json`;
+}
+
+function outputEnvelopePackage(rootDir, args, envelope, prompt) {
+  const envelopePackage = buildEnvelopePackage(envelope, prompt);
+
+  if (args.outputDir) {
+    const outputDir = resolveOutputDir(rootDir, args.outputDir);
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    const packagePath = path.join(outputDir, getEnvelopePackageName(args.reqId, args));
+    fs.writeFileSync(packagePath, `${JSON.stringify(envelopePackage, null, 2)}\n`, 'utf8');
+    console.log(`[verifier-session] Envelope package written: ${packagePath}`);
+    console.log('[verifier-session] Mode envelope: no commands executed and no subagent spawned.');
+    return;
+  }
+
+  console.log(JSON.stringify(envelopePackage, null, 2));
 }
 
 /**
@@ -390,9 +443,6 @@ async function main() {
     return;
   }
 
-  // Subagent mode: validate prerequisites
-  validateAgentExists(rootDir);
-
   const reqFile = findReqFile(rootDir, args.reqId);
   if (!reqFile) {
     console.error(`REQ file not found: ${args.reqId}`);
@@ -408,6 +458,15 @@ async function main() {
   // Build envelope and prompt
   const envelope = buildEnvelope(args.reqId, args.checkType, changedFiles, rootDir);
   const prompt = buildPrompt(envelope);
+
+  if (mode === 'envelope') {
+    outputEnvelopePackage(rootDir, args, envelope, prompt);
+    return;
+  }
+
+  // Subagent mode: validate prerequisites
+  validateAgentExists(rootDir);
+
   const maxTurns = getMaxTurns(args);
 
   console.log(`[verifier-session] Spawning verifier for ${args.reqId} (${args.checkType})...`);
@@ -428,7 +487,7 @@ async function main() {
 
   // Output results
   if (args.outputDir) {
-    const reportsDir = path.join(rootDir, args.outputDir);
+    const reportsDir = resolveOutputDir(rootDir, args.outputDir);
     if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
     const reportPath = path.join(reportsDir, `${args.reqId}-${getReportSuffix(args)}.md`);
     const report = generateReport(args.reqId, findings, cliResult);

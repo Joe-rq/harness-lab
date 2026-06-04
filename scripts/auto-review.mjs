@@ -13,7 +13,11 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { execSync, spawnSync } from 'child_process';
+import { resolveVerifierMode } from './verifier-mode.mjs';
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 const SECURITY_PATTERNS = [
   { pattern: /eval\s*\(/, desc: 'eval() usage — potential code injection', severity: 'high' },
@@ -43,20 +47,21 @@ function parseArgs() {
 }
 
 function getVerifierMode() {
-  return process.env.HARNESS_VERIFIER_MODE || 'legacy';
-}
-
-function maybeRunSubagentVerifier(rootDir, args) {
-  const mode = getVerifierMode();
-  if (mode === 'legacy') return false;
-  if (mode !== 'subagent') {
-    console.error(`Unsupported HARNESS_VERIFIER_MODE for auto-review: ${mode}`);
+  try {
+    return resolveVerifierMode(process.env, 'auto-review');
+  } catch (error) {
+    console.error(error.message);
     process.exit(1);
   }
+}
+
+function maybeRunVerifier(rootDir, args) {
+  const mode = getVerifierMode();
+  if (mode === 'legacy') return false;
 
   const outputDir = args.outputDir || 'requirements/reports';
   const result = spawnSync('node', [
-    'scripts/verifier-session.mjs',
+    path.join(SCRIPT_DIR, 'verifier-session.mjs'),
     '--req', args.reqId,
     '--check-type', 'full',
     '--output', outputDir,
@@ -64,7 +69,7 @@ function maybeRunSubagentVerifier(rootDir, args) {
   ], {
     cwd: rootDir,
     stdio: 'inherit',
-    env: { ...process.env, HARNESS_VERIFIER_MODE: 'subagent' },
+    env: { ...process.env, HARNESS_VERIFIER_MODE: mode },
   });
 
   if (result.error) {
@@ -109,6 +114,10 @@ function getGitDiffFiles(rootDir) {
   } catch {
     return [];
   }
+}
+
+function resolveOutputDir(rootDir, outputDir) {
+  return path.isAbsolute(outputDir) ? outputDir : path.join(rootDir, outputDir);
 }
 
 function getGitDiffContent(rootDir) {
@@ -327,7 +336,7 @@ async function main() {
   }
 
   const rootDir = getGitRoot();
-  maybeRunSubagentVerifier(rootDir, args);
+  maybeRunVerifier(rootDir, args);
 
   // Get git diff info
   const diffStat = getGitDiffStat(rootDir);
@@ -356,7 +365,7 @@ async function main() {
   const report = generateReport(args.reqId, diffStat, scopeCompliance, securityFindings, basicChecks);
 
   // Write report
-  const reportsDir = path.join(rootDir, args.outputDir || 'requirements/reports');
+  const reportsDir = resolveOutputDir(rootDir, args.outputDir || 'requirements/reports');
   if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
   const reportPath = path.join(reportsDir, `${args.reqId}-code-review.md`);
   fs.writeFileSync(reportPath, report);

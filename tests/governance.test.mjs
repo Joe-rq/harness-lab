@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   existsSync,
+  chmodSync,
   mkdtempSync,
   mkdirSync,
   readdirSync,
@@ -22,6 +23,12 @@ import {
   logError,
 } from '../scripts/error-classifier.mjs';
 import { appendEvent, readEvents } from '../scripts/event-store.mjs';
+import {
+  DEFAULT_VERIFIER_MODE,
+  ALLOWED_VERIFIER_MODES,
+  getVerifierMode,
+  assertVerifierMode,
+} from '../scripts/verifier-mode.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -115,6 +122,99 @@ Blockers:
   mkdirSync(path.join(root, 'requirements', 'in-progress'), { recursive: true });
   mkdirSync(path.join(root, 'requirements', 'completed'), { recursive: true });
   mkdirSync(path.join(root, 'docs', 'plans'), { recursive: true });
+}
+
+function setupVerifierGitFixture(root, reqId = 'REQ-2026-900') {
+  setupReqFixture(root);
+  writeFile(
+    root,
+    `requirements/in-progress/${reqId}-verifier-fixture.md`,
+    `# ${reqId}: Verifier fixture
+
+## 状态
+- 当前状态：in-progress
+- 当前阶段：implementation
+
+## 背景
+测试 verifier 模式。
+
+## 目标
+- 测试 verifier envelope
+
+## 范围
+- 涉及文件：
+  - \`src/example.js\`
+
+## 验收标准
+- [x] verifier package 只包含路径
+
+## 验证计划
+- 计划执行的命令：
+  - \`node fail-if-run.mjs\`
+- 需要的环境：本地 Node.js
+- 需要的人工验证：无
+`
+  );
+  writeFile(
+    root,
+    '.claude/agents/verifier.md',
+    [
+      '---',
+      'name: verifier',
+      'tools:',
+      '  - Read',
+      '  - Grep',
+      '  - Glob',
+      '  - LS',
+      'disallowedTools:',
+      '  - Write',
+      '  - Edit',
+      '  - Bash',
+      '---',
+      '',
+      '# Test verifier',
+    ].join('\n')
+  );
+  writeFile(root, 'src/example.js', "export const value = 'baseline';\n");
+  writeFile(
+    root,
+    'fail-if-run.mjs',
+    "import { writeFileSync } from 'node:fs'; writeFileSync('qa-command-ran.txt', 'ran'); process.exit(1);\n"
+  );
+
+  execFileSync('git', ['init'], { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Harness Test'], { cwd: root });
+  execFileSync('git', ['add', '.'], { cwd: root });
+  execFileSync('git', ['commit', '-m', 'fixture baseline'], { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+  writeFile(root, 'src/example.js', "export const value = 'changed';\nconst hiddenContent = 'SHOULD_NOT_APPEAR_IN_ENVELOPE';\n");
+
+  return { reqId, artifactPath: 'src/example.js' };
+}
+
+function runNodeScript(scriptRelPath, args, options = {}) {
+  return execFileSync(process.execPath, [path.join(repoRoot, scriptRelPath), ...args], {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    ...options,
+  });
+}
+
+function captureExecFailure(fn) {
+  try {
+    fn();
+  } catch (error) {
+    return {
+      status: error.status,
+      stdout: String(error.stdout || ''),
+      stderr: String(error.stderr || ''),
+    };
+  }
+  assert.fail('Expected command to fail');
+}
+
+function readJsonFile(filePath) {
+  return JSON.parse(readFileSync(filePath, 'utf8'));
 }
 
 async function testDocsVerifyPasses() {
@@ -1045,6 +1145,196 @@ async function testInvariantIncrementalScanSkipsProcessedSources() {
   }
 }
 
+async function testVerifierModeDefaultsAndValidation() {
+  assert.equal(DEFAULT_VERIFIER_MODE, 'envelope');
+  assert.deepEqual(ALLOWED_VERIFIER_MODES, ['legacy', 'envelope', 'subagent']);
+  assert.equal(getVerifierMode({}), 'envelope');
+  assert.equal(getVerifierMode({ HARNESS_VERIFIER_MODE: ' SUBAGENT ' }), 'subagent');
+  assert.equal(assertVerifierMode('legacy', 'test'), 'legacy');
+  assert.throws(
+    () => assertVerifierMode('invalid', 'test-entry'),
+    /Unsupported HARNESS_VERIFIER_MODE for test-entry: invalid/
+  );
+}
+
+async function testVerifierSessionDefaultEnvelopeIsReadonlyPackage() {
+  const tempDir = createTempDir('verifier-session-envelope');
+  try {
+    const { reqId, artifactPath } = setupVerifierGitFixture(tempDir);
+    const outputDir = path.join(tempDir, 'verifier-output');
+
+    const output = runNodeScript('scripts/verifier-session.mjs', [
+      '--req', reqId,
+      '--check-type', 'full',
+      '--artifact', artifactPath,
+      '--output', outputDir,
+      '--report-suffix', 'code-review',
+    ], {
+      cwd: tempDir,
+      env: { ...process.env, HARNESS_VERIFIER_MODE: '' },
+    });
+
+    assert.match(output, /Envelope package written/);
+    assert.match(output, /no commands executed and no subagent spawned/);
+
+    const packagePath = path.join(outputDir, `${reqId}-code-review-verifier-envelope.json`);
+    assert.ok(existsSync(packagePath), 'envelope package should be written');
+
+    const envelopePackage = readJsonFile(packagePath);
+    assert.equal(envelopePackage.mode, 'envelope');
+    assert.equal(envelopePackage.defaultMode, 'envelope');
+    assert.equal(envelopePackage.handoff.status, 'pending-independent-verification');
+    assert.deepEqual(envelopePackage.envelope.artifactPaths, [artifactPath]);
+    assert.ok(envelopePackage.readonlyBoundary.allowedTools.includes('Read'));
+    assert.ok(envelopePackage.readonlyBoundary.disallowedTools.includes('Write'));
+    assert.ok(envelopePackage.readonlyBoundary.disallowedTools.includes('Bash'));
+
+    const packageText = readFileSync(packagePath, 'utf8');
+    assert.ok(!packageText.includes('SHOULD_NOT_APPEAR_IN_ENVELOPE'));
+    assert.ok(!existsSync(path.join(tempDir, 'requirements/reports', `${reqId}-code-review.md`)));
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testAutoReviewAndQaDefaultEnvelopeDoNotRunLegacyWork() {
+  const tempDir = createTempDir('auto-verifier-envelope');
+  try {
+    const { reqId } = setupVerifierGitFixture(tempDir);
+    const outputDir = path.join(tempDir, 'verifier-output');
+
+    runNodeScript('scripts/auto-review.mjs', ['--req', reqId, '--output', outputDir], {
+      cwd: tempDir,
+      env: { ...process.env, HARNESS_VERIFIER_MODE: '' },
+    });
+    runNodeScript('scripts/auto-qa.mjs', ['--req', reqId, '--output', outputDir], {
+      cwd: tempDir,
+      env: { ...process.env, HARNESS_VERIFIER_MODE: '' },
+    });
+
+    assert.ok(existsSync(path.join(outputDir, `${reqId}-code-review-verifier-envelope.json`)));
+    assert.ok(existsSync(path.join(outputDir, `${reqId}-qa-verifier-envelope.json`)));
+    assert.ok(!existsSync(path.join(outputDir, `${reqId}-code-review.md`)));
+    assert.ok(!existsSync(path.join(outputDir, `${reqId}-qa.md`)));
+    assert.ok(!existsSync(path.join(tempDir, 'qa-command-ran.txt')));
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testVerifierEntrypointsRejectInvalidMode() {
+  const tempDir = createTempDir('verifier-invalid-mode');
+  try {
+    const { reqId } = setupVerifierGitFixture(tempDir);
+    const failure = captureExecFailure(() => runNodeScript('scripts/auto-review.mjs', ['--req', reqId], {
+      cwd: tempDir,
+      env: { ...process.env, HARNESS_VERIFIER_MODE: 'banana' },
+    }));
+
+    assert.equal(failure.status, 1);
+    assert.match(failure.stderr, /Unsupported HARNESS_VERIFIER_MODE for auto-review: banana/);
+
+    const sessionFailure = captureExecFailure(() => runNodeScript('scripts/verifier-session.mjs', ['--req', reqId], {
+      cwd: tempDir,
+      env: { ...process.env, HARNESS_VERIFIER_MODE: 'banana' },
+    }));
+    assert.equal(sessionFailure.status, 1);
+    assert.match(sessionFailure.stderr, /Unsupported HARNESS_VERIFIER_MODE for verifier-session: banana/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testLegacyModeStillWritesMarkdownReports() {
+  const tempDir = createTempDir('verifier-legacy-mode');
+  try {
+    const { reqId } = setupVerifierGitFixture(tempDir);
+    const outputDir = path.join(tempDir, 'legacy-output');
+
+    runNodeScript('scripts/auto-review.mjs', ['--req', reqId, '--output', outputDir], {
+      cwd: tempDir,
+      env: { ...process.env, HARNESS_VERIFIER_MODE: 'legacy' },
+    });
+
+    const reportPath = path.join(outputDir, `${reqId}-code-review.md`);
+    assert.ok(existsSync(reportPath), 'legacy auto-review should still write markdown report');
+    assert.match(readFileSync(reportPath, 'utf8'), /# REQ-2026-900 Code Review/);
+
+    runNodeScript('scripts/auto-qa.mjs', ['--req', reqId, '--output', outputDir], {
+      cwd: tempDir,
+      env: { ...process.env, HARNESS_VERIFIER_MODE: 'legacy' },
+    });
+    assert.ok(existsSync(path.join(tempDir, 'qa-command-ran.txt')), 'legacy auto-qa should execute REQ commands');
+    assert.match(readFileSync(path.join(outputDir, `${reqId}-qa.md`), 'utf8'), /FAIL/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testSubagentModeStaysExplicitAndDelegates() {
+  const tempDir = createTempDir('verifier-subagent-mode');
+  try {
+    const { reqId, artifactPath } = setupVerifierGitFixture(tempDir);
+    const binDir = path.join(tempDir, 'bin');
+    mkdirSync(binDir, { recursive: true });
+    const claudeLog = path.join(tempDir, 'claude-args.json');
+    const fakeClaude = path.join(binDir, 'claude');
+    writeFileSync(
+      fakeClaude,
+      [
+        '#!/usr/bin/env node',
+        "const fs = require('fs');",
+        `fs.writeFileSync(${JSON.stringify(claudeLog)}, JSON.stringify(process.argv.slice(2)));`,
+        "console.log(JSON.stringify({ result: JSON.stringify({ status: 'pass', findings: [], summary: 'fake subagent pass' }), duration_ms: 1, total_cost_usd: 0, num_turns: 1 }));",
+      ].join('\n'),
+      'utf8'
+    );
+    chmodSync(fakeClaude, 0o755);
+
+    const outputDir = path.join(tempDir, 'subagent-output');
+    runNodeScript('scripts/verifier-session.mjs', [
+      '--req', reqId,
+      '--artifact', artifactPath,
+      '--output', outputDir,
+      '--report-suffix', 'code-review',
+    ], {
+      cwd: tempDir,
+      env: { ...process.env, HARNESS_VERIFIER_MODE: 'subagent', PATH: `${binDir}${path.delimiter}${process.env.PATH}` },
+    });
+
+    const args = readJsonFile(claudeLog);
+    assert.ok(args.includes('--bare'));
+    assert.ok(args.includes('--agent'));
+    assert.ok(args.includes('verifier'));
+    assert.ok(existsSync(path.join(outputDir, `${reqId}-code-review.md`)));
+
+    const nodeLog = path.join(tempDir, 'node-args.json');
+    const fakeNode = path.join(binDir, 'node');
+    writeFileSync(
+      fakeNode,
+      [
+        '#!/bin/sh',
+        `printf 'mode=%s\\nargv=%s\\n' "$HARNESS_VERIFIER_MODE" "$*" > ${JSON.stringify(nodeLog)}`,
+        'exit 0',
+      ].join('\n'),
+      'utf8'
+    );
+    chmodSync(fakeNode, 0o755);
+
+    runNodeScript('scripts/auto-review.mjs', ['--req', reqId, '--output', outputDir], {
+      cwd: tempDir,
+      env: { ...process.env, HARNESS_VERIFIER_MODE: 'subagent', PATH: `${binDir}${path.delimiter}${process.env.PATH}` },
+    });
+    const delegated = readFileSync(nodeLog, 'utf8');
+    assert.match(delegated, /mode=subagent/);
+    assert.match(delegated, /verifier-session\.mjs/);
+    assert.match(delegated, /--report-suffix/);
+    assert.match(delegated, /code-review/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 async function testSessionStartWritesEvent() {
   const tempDir = createTempDir('session-start-event');
   try {
@@ -1232,6 +1522,12 @@ const tests = [
   ['error classifier formats error blocks correctly', testErrorClassifierFormatsBlocks],
   ['error classifier logs errors with structured format', testErrorClassifierLogsErrors],
   ['invariant incremental scan skips processed sources', testInvariantIncrementalScanSkipsProcessedSources],
+  ['verifier mode defaults and validation are centralized', testVerifierModeDefaultsAndValidation],
+  ['verifier-session default envelope is a read-only package', testVerifierSessionDefaultEnvelopeIsReadonlyPackage],
+  ['auto-review and auto-qa default envelope do not run legacy work', testAutoReviewAndQaDefaultEnvelopeDoNotRunLegacyWork],
+  ['verifier entrypoints reject invalid mode', testVerifierEntrypointsRejectInvalidMode],
+  ['legacy verifier mode still writes markdown reports', testLegacyModeStillWritesMarkdownReports],
+  ['subagent verifier mode stays explicit and delegates', testSubagentModeStaysExplicitAndDelegates],
 ];
 
 let failures = 0;
