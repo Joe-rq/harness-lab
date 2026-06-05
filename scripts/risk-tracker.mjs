@@ -34,7 +34,7 @@ const RATCHET_FILE = () => {
 // Risk classification rules (ordered: first match wins)
 const RISK_RULES = [
   // R4: Governance-core scripts (the scripts that enforce the rules themselves)
-  { pattern: /^scripts\/req-check\.sh$/, level: 4, label: '治理核心脚本' },
+  { pattern: /^scripts\/req-check\.js$/, level: 4, label: '治理核心脚本' },
   { pattern: /^scripts\/req-validation\.mjs$/, level: 4, label: '治理核心脚本' },
   { pattern: /^scripts\/stop-evaluator\.mjs$/, level: 4, label: '治理核心脚本' },
   { pattern: /^scripts\/scope-guard\.mjs$/, level: 4, label: '治理核心脚本' },

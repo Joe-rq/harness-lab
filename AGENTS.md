@@ -42,7 +42,9 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 ├── context/
 │   ├── business/
 │   ├── tech/
-│   └── experience/
+│   ├── experience/
+│   ├── invariants/
+│   └── references/
 ├── docs/
 │   ├── plans/
 │   └── specs/
@@ -53,7 +55,9 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 │   ├── completed/
 │   └── reports/
 ├── scripts/
-│   └── session-start.js      # 会话启动脚本
+│   ├── session-start.js      # 会话启动脚本
+│   ├── req-check.js          # PreToolUse REQ 检查
+│   └── req-cli.mjs           # REQ 生命周期 CLI
 ├── skills/
 │   ├── README.md
 │   ├── plan/
@@ -102,7 +106,18 @@ touch .claude/.req-exempt
 rm .claude/.req-exempt
 ```
 
-### 3. Hook Timeout 配置
+### 3. 高级 Hooks（PostToolUse / PreCompact / Stop / SessionEnd）
+
+| Hook 类型 | 脚本 | 用途 |
+|-----------|------|------|
+| PostToolUse | `loop-detection.mjs` / `risk-tracker.mjs` / `watchdog.mjs` | 编辑后循环检测、风险追踪、停滞看门狗 |
+| PreCompact | `precompact-notify.mjs` | 上下文压缩前生成快照 |
+| Stop | `stop-evaluator.mjs` | 防假完成评估 |
+| SessionEnd | `session-reflect.mjs` | 会话反思与经验沉淀 |
+
+> 高级 hook 不在 `--with-hook` 默认安装范围内，需手动参考 `.claude/settings.local.json` 配置。
+
+### 4. Hook Timeout 配置
 
 Hook 默认 timeout 为 10 秒。如需调整：
 
@@ -125,7 +140,7 @@ Hook 默认 timeout 为 10 秒。如需调整：
 - 机器性能较差，文件遍历耗时较长
 - 文档验证链路较长
 
-### 4. 实施前检查点
+### 5. 实施前检查点
 
 **在写代码之前必须检查：**
 

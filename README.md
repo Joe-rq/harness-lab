@@ -246,6 +246,7 @@ npm run req:align -- --id REQ-YYYY-NNN
 | `npm run req:audit` | 审计 REQ 完成态、报告链接、验收复选框和 INDEX/progress 一致性 |
 | `npm run governance:health` | 输出治理健康总览（REQ、报告、经验、不变量、脚本绑定） |
 | `npm run harness:doctor` | 诊断项目接入健康状态 |
+| `npm run req:status -- --all` | 查看所有 worktree / 全局索引中的活跃 REQ |
 
 这些命令会结合当前 git 改动做 `diff-aware` 文档同步检查，用来约束入口文档、治理脚本和交付物说明保持一致。
 GitHub Actions 也会在 `push` / `pull_request` 上自动运行 `npm test`、`npm run docs:verify` 和 `npm run check:governance`，把仓库级治理检查变成默认门禁。
@@ -258,6 +259,28 @@ Stage 2 事件账本已完成退出确认。基础 API 位于 `scripts/event-sto
 `npm test` 还覆盖 `/harness-setup` command、`source-command-harness-setup` skill 和 `harness-install` package bin 的契约同步，防止一键接入说明与真实分发入口漂移。
 安装器测试会在复制完成后的 fixture 中实际运行 `node scripts/req-cli.mjs status`、`node scripts/session-start.js` 和带豁免的 `node scripts/req-check.js`，确保迁移结果不是只有文件存在，而是核心入口可执行。
 SessionStart 与 PreToolUse hook 入口已统一为跨平台的 `scripts/session-start.js` / `scripts/req-check.js`，旧的 `*.sh` 版本不再分发；如果你的本地配置仍指向 `.sh`，请同步替换为 `node scripts/*.js`（参考 `.claude/settings.example.json`）。
+
+### 高级治理机制
+
+以下机制在模板仓库中完整运行，目标项目按需启用。
+
+**Hook 类型**：除基础的 SessionStart + PreToolUse 外，还支持：
+
+| Hook 类型 | 脚本 | 用途 |
+|-----------|------|------|
+| PostToolUse | `loop-detection.mjs` / `risk-tracker.mjs` / `watchdog.mjs` | 编辑后循环检测、风险追踪、停滞看门狗 |
+| PreCompact | `precompact-notify.mjs` | 上下文压缩前生成快照 |
+| Stop | `stop-evaluator.mjs` | 防假完成评估 |
+| SessionEnd | `session-reflect.mjs` | 会话反思与经验沉淀 |
+
+目标项目通过 `--with-hook` 获得基础 hook（SessionStart + PreToolUse）；高级 hook 需参考 `.claude/settings.local.json` 手动添加。
+
+**Harness 模式**：通过 `.claude/harness-mode` 文件切换（默认 `collaborative`）：
+- `collaborative`：hook 阻断 + 提醒
+- `supervised`：仅提醒不阻断
+- `autonomous`：静默记录，不打断流程
+
+**Verifier 系统**：`HARNESS_VERIFIER_MODE` 环境变量控制 review/QA 独立验证模式（`legacy` / `envelope` / `subagent`），详见 `CONTRIBUTING.md`。
 
 ### 模板仓库 vs 目标项目
 

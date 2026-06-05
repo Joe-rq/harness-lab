@@ -187,6 +187,8 @@ rm .claude/.req-exempt
 
 当收到 hook 注入的异常提醒时，**必须**按以下协议响应，不得忽略或继续原有路径。
 
+> **前提**：此协议依赖 PostToolUse hook。模板仓库已配置；通过 `--with-hook` 安装的目标项目不含此 hook，需手动添加。
+
 ### 停滞响应
 
 **触发信号**：`[Watchdog]` 提醒"已编辑 N 次未推进" 或 `[LoopDetection]` 提醒"已经编辑同一文件 N 次"
@@ -240,6 +242,8 @@ rm .claude/.req-exempt
 ## 📦 压缩恢复协议
 
 当收到 PreCompact hook 的压缩提醒时（`📋 上下文压缩`），**必须**按以下协议响应：
+
+> **前提**：此协议依赖 PreCompact hook。模板仓库已配置；通过 `--with-hook` 安装的目标项目不含此 hook，需手动添加。
 
 1. 压缩前：确认 `.claude/.compact-snapshot.md` 已生成（PreCompact hook 自动写入）
 2. 压缩后：立即读取 `.claude/.compact-snapshot.md` 恢复 REQ 上下文

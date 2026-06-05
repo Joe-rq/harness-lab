@@ -15,7 +15,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 当前活跃 REQ
 
-- 无
+- `REQ-2026-080-entry-docs-governance-coverage.md`（真实整改：entry-docs-governance-coverage）
 
 ## 当前搁置 REQ
 
