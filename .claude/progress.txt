@@ -1,6 +1,6 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-06-04
+Last updated: 2026-06-05
 
 Summary:
 - REQ-2026-077 已完成: verifier 三入口默认值统一为 envelope,只读 handoff package 与回归测试已落地
@@ -16,15 +16,16 @@ Summary:
 - 当前路线进入 Stage 3 / S3-CP1：Stage 1 + Stage 2 真实使用观察期
 - ✅ 2026-06-03 多角度推演综合报告落盘：requirements/observations/2026-06-03-multi-angle-roadmap-deduction.md
 - ✅ 6 个开放问题 user 决策: envelope 默认 / 2026-05-31 起算 + 1 周热身 / Stage 2 重验 / 沿用原阈值 / $5 月度预算 / §10 推迟
+- ✅ REQ-2026-078 已完成:S3-CP1 路线图 patches、sealed expectation scaffold、`s3_observation_window_start` 事件已落盘
 
 Next steps:
-- 启动后填 18 个 section patches 到 multi-agent-roadmap.md
-- 创建 requirements/observations/S3-CP1-sealed-expectation-2026-06-03.md(待 user 手写)
-- 写第 1 条 `s3_observation_window_start` 事件(REQ-075 schema 已落地,不再使用 payload.observation=true 临时标记)
+- User 填写 requirements/observations/S3-CP1-sealed-expectation-2026-06-03.md 的主观预期
+- 观察期内记录周度 `s3_observation_data_recorded` 事件,并运行 `node scripts/event-store.mjs stats --metrics`
+- 2026-06-14 后进入 S3-CP2:按 multi-agent-roadmap.md §7 填写决策评估表
 
 Open questions:
-- REQ-076 启动日:user 在 2026-06-03 决策"重新验证 Stage 2 退出确认"作为 REQ-076 硬要求,需在 worktree 复跑 S2-CP5/S2-CP6 退出测试
-- 外部 Claude CLI 复测需要用户明确授权数据外发；S1 完成采用已落盘的 S1-CP2.5 / S1-CP5 实测证据
+- Sealed expectation 仍需 user 手写,agent 不代填
+- S3-CP2 是否按 2026-06-14 收口,取决于观察期内真实事件数量和 user 可用性
 
 Blockers:
 - None.

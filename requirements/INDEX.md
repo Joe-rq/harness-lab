@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-078-s3-cp1-observation-kickoff.md`（真实整改：S3-CP1 observation window kickoff）
 - `REQ-2026-077-verifier-defaults-readonly-boundary.md`（真实整改：verifier defaults alignment and read-only boundary tests）
 - `REQ-2026-076-stage-3-worktree-namespace-isolation-and-stage-2-revalidation.md`（真实整改：Stage 3 worktree namespace isolation and Stage 2 revalidation）
 - `REQ-2026-075-stage-3-7-event-store-schema.md`（真实整改：Stage 3 §7 评估表口径定义 + event-store schema 扩展）

@@ -2,8 +2,18 @@
 
 > 起草日期: 2026-05-22  
 > 重整日期: 2026-05-31  
-> 当前阶段: **Stage 3 / S3-CP1 Stage 1 + Stage 2 真实使用观察期**
+> 当前阶段: **Stage 3 / S3-CP1 真实使用观察期**
 > 当前 REQ: 无
+
+---
+
+## TL;DR
+
+- Stage 1 和 Stage 2 已完成退出确认,但 S3-CP1 不是"自动开始"。
+- 2026-06-03 多角度推演要求先完成三件事:路线图 18 个 section patches、密封预期文件、第一条 `s3_observation_window_start` 事件。
+- 2026-05-31 作为观察期起算日;2026-05-31 至 2026-06-07 为热身,2026-06-08 至 2026-06-14 为正式观察。
+- S3-CP1 默认 verifier 模式为 `envelope`;月度 verifier 成本超过 5 USD 必须告警并降级评估。
+- 未到 S3-CP3 决策门前,禁止实现完整任务图、fixer 派生或 agent team runtime。
 
 ---
 
@@ -16,6 +26,7 @@
 3. 看该 checkpoint 的产物和退出标准,不要凭印象继续。
 4. 看 §8 决策日志,确认路线是否被修订。
 5. 如果 checkpoint 涉及代码变更,先确认已有 REQ 已 `req:start`;没有则先创建 REQ。
+6. 如果从 PreCompact / 压缩后恢复,先读最近一次 `requirements/reports/`、`context/experience/` 和事件账本最新事件,确认上一轮真正落盘到哪里。
 
 路线图不是 REQ。每个工程 checkpoint 必须落到一个 REQ,并按项目治理要求生成 review / QA / experience。
 
@@ -55,7 +66,9 @@ Harness Lab 可以从单 agent 治理演进到多 agent 协作治理,但演进�
 |------|----------|
 | Stage 1 | verifier 在独立上下文、只读工具权限下运行,并留下可复现验证证据 |
 | Stage 2 | 多 session / 多 worktree 可以追加事件,`progress.txt` 可由事件投影重建 |
-| Stage 3 | 用真实使用数据决定是否需要完整任务图,而不是按想象开工 |
+| Stage 3 | 用事件账本和密封预期对比决定是否需要完整任务图,而不是按想象开工 |
+
+Stage 1 + Stage 2 收口后,主真相源是 `.claude/worktrees/{namespace}/events/{sessionId}.jsonl` 事件流;`progress.txt` 只是投影缓存,`requirements/INDEX.md` 是 REQ 文件状态索引。三者冲突时,优先按事件流重建,再检查 REQ 文件落点。
 
 ---
 
@@ -77,7 +90,7 @@ Stage 2: Event Ledger + Progress Projection
   S2-CP5   Stage 2 退出确认
 
 Stage 3: Task Graph Decision Gate
-  S3-CP1   真实使用观察期
+  S3-CP1   真实使用观察期(2026-05-31 起算;2026-06-14 到期)
   S3-CP2   数据填表
   S3-CP3   决策:收口 / 修订 / 开启任务图专项
 ```
@@ -86,7 +99,7 @@ Stage 3: Task Graph Decision Gate
 
 - Stage 1 不依赖 Stage 2。
 - Stage 2 不依赖完整任务图。
-- Stage 3 只能在 Stage 1 + Stage 2 真实运行至少 2 周后进入。
+- Stage 3 只能在 Stage 1 + Stage 2 真实运行至少 2 周后进入;2026-06-05 之前的 REQ-075/076/077 是观察期前置修复,不算任务图实现。
 
 ---
 
@@ -120,7 +133,7 @@ Stage 3: Task Graph Decision Gate
 
 ### Stage 3: Task Graph Decision Gate
 
-- [ ] **S3-CP1** — Stage 1 + Stage 2 真实使用至少 2 周
+- [ ] **S3-CP1** — Stage 1 + Stage 2 真实使用至少 2 周:起算 2026-05-31;热身至 2026-06-07;正式观察至 2026-06-14;启动手续由 `REQ-2026-078` 完成
 - [ ] **S3-CP2** — 填写 §7 决策评估表
 - [ ] **S3-CP3** — 决策:路线收口 / 修订路线 / 开启完整任务图专项
 
@@ -199,15 +212,15 @@ Stage 3: Task Graph Decision Gate
 2. `auto-qa.mjs` 后接入,因为它当前会执行验证命令,与只读 verifier 边界冲突。
 3. legacy fallback 必须保持可用。
 
-推荐模式:
+统一模式契约:
 
 ```text
-HARNESS_VERIFIER_MODE=legacy   -> 当前逻辑
+HARNESS_VERIFIER_MODE=legacy   -> 旧逻辑
 HARNESS_VERIFIER_MODE=envelope -> 只生成 verifier 包
 HARNESS_VERIFIER_MODE=subagent -> 调用 verifier subagent
 ```
 
-默认值只在 S1-CP5 证据充分后切到 `subagent`;在此之前默认应保持 `legacy` 或 `envelope`。
+三入口 `scripts/verifier-mode.mjs`、`scripts/auto-review.mjs`、`scripts/auto-qa.mjs` 必须共享同一个模式解析规则。S3-CP1 期间默认值固定为 `envelope`;只有人工显式设置 `HARNESS_VERIFIER_MODE=subagent` 时才允许外部 verifier 调用。
 
 ### 4.6 Stage 1 退出标准
 
@@ -227,7 +240,8 @@ HARNESS_VERIFIER_MODE=subagent -> 调用 verifier subagent
 | Node 脚本无法直接启动 subagent | 降级为 envelope + manual verifier,不要硬造 runtime |
 | verifier 上下文仍被污染 | envelope 只传路径和约束,不传 worker 推理过程 |
 | auto-qa 需要 Bash,而 verifier 禁止 Bash | 把命令执行留在主 session,verifier 只审查 QA evidence |
-| 启动延迟 > 30s | 记录为已知限制,不静默 fallback |
+| 启动延迟 > 30s 或 verifier 不可用 | 记录 `verifier_degraded` 事件,降级为 `envelope`,不静默回落到未记录状态 |
+| 月度 verifier 成本 > 5 USD | 写 `s3_verifier_cost_alert` 事件,暂停默认外部调用,只保留 envelope 和人工抽查 |
 
 ---
 
@@ -252,9 +266,8 @@ Stage 2 只做治理事件账本,不做完整 ESAA replay,不做全量 determini
 推荐路径:
 
 ```text
-.claude/events/
-  session-<id>.jsonl
-  worktree-<hash>.jsonl
+.claude/worktrees/{namespace}/events/{sessionId}.jsonl
+.claude/worktrees/{namespace}/events-archive/{sessionId}-YYYY-MM.jsonl
 ```
 
 最小事件字段:
@@ -302,7 +315,7 @@ REQ 范围建议:
 - `event-store.mjs` 增加 projector。
 - `session-start.js` 改为优先读取 projection。
 - `req-cli.mjs status` 改为展示 projection 结果。
-- `progress.txt` 作为缓存输出,不再是主真相源。
+- `progress.txt` 作为缓存输出,不再是主真相源。缓存头部应能表达投影来源,建议包含 `cache_version`、`source=events`、`event_count`、`last_event_ts`。
 
 退出标准:
 
@@ -315,7 +328,7 @@ REQ 范围建议:
 REQ 范围建议:
 
 - 复用 `worktree-utils.mjs`。
-- 每个 worktree 维护自己的事件文件。
+- 每个 worktree 维护自己的 `.claude/worktrees/{namespace}/events/{sessionId}.jsonl` 事件文件。
 - 主仓提供聚合查询,不跨 worktree 写同一个文件。
 - `req:status --all` 或新参数展示多 worktree 状态。
 
@@ -346,15 +359,19 @@ Stage 3 不是工程任务。它是一次是否继续扩张的判断。
 - Stage 1 完成并真实使用至少 2 周。
 - Stage 2 完成并真实使用至少 2 周。
 - 至少有 3 个真实 REQ 经过新 verifier 或事件账本。
+- S3-CP1 观察期内至少有 3 个真实 REQ 或等价治理会话写入事件账本;若不足,必须延长观察期,不能用估计补齐。
+- `REQ-2026-075`、`REQ-2026-076`、`REQ-2026-077` 已完成,分别补齐 §7 事件口径、worktree 路径隔离、verifier 默认值与只读边界。
 - §7 评估表有真实数据,不是估计。
 
 ### 6.2 可选决策
 
 | 决策 | 触发条件 | 后续 |
 |------|----------|------|
-| 收口 | 独立 verifier + 事件账本已经解决主要痛点 | 关闭 multi-agent 路线,转入维护 |
-| 修订 | 仍痛,但痛点不是任务图 | 开新路线,例如 Context Capsule / InfoNeed |
-| 开启任务图专项 | 单 agent 推不动和并行协作仍是主要瓶颈 | 另建 REQ 组,先写架构设计 |
+| 收口 | 独立 verifier + 事件账本已经解决主要痛点,且 §7 无反向否决 | 关闭 multi-agent 路线,转入维护 |
+| 修订 | 仍痛,但痛点不是任务图,例如上下文继承、信息需求或恢复协议不足 | 开新路线,例如 Context Capsule / InfoNeed |
+| 开启任务图专项 | 单 agent 推不动和并行协作仍是主要瓶颈,且 §7 聚合规则放行 | 另建 REQ 组,先写架构设计 |
+
+修订分支不是"轻量任务图"的后门。若 §7 数据显示痛点来自上下文压缩、证据口径或恢复路径,只能修订这些能力;不得借修订名义实现 worker / verifier / fixer runtime。
 
 ### 6.3 若开启任务图,必须先回答
 
@@ -368,16 +385,40 @@ Stage 3 不是工程任务。它是一次是否继续扩张的判断。
 
 ## 7. Stage 3 决策评估表
 
-进入 Stage 3 前填写:
+S3-CP2 填表时只能使用事件账本、QA 报告和 user 明确文字,不能用 agent 事后感觉补数。推荐先运行:
 
-| 维度 | 当前数据 | 阈值 | 结论 |
-|------|----------|------|------|
-| 单 agent 复杂任务失败率 | (待填) | > 30% 才考虑任务图 | (待填) |
-| 并行任务真实数量 | (待填) | >= 3 个 REQ 同时活跃才考虑任务图 | (待填) |
-| 独立 verifier 拦截率 | (待填) | < 20% 说明 verifier 弱不是主因 | (待填) |
-| progress 冲突次数 | (待填) | Stage 2 后仍频繁冲突才考虑更强协调 | (待填) |
-| 人工调度成本 | (待填) | 每个 REQ > 20 分钟才考虑自动任务图 | (待填) |
-| 是否仍想承担复杂度 | (待填) | 主观但必须诚实 | (待填) |
+```bash
+node scripts/event-store.mjs stats --metrics
+```
+
+### 7.1 可执行指标
+
+| 维度 | 数据源 | 启用条件 | 任务图倾向阈值 | 当前数据 | 结论 |
+|------|--------|----------|----------------|----------|------|
+| 单 agent 复杂任务失败率 | `verifier_failed` + `retry_attempted` / `req_completed` | `req_completed >= 3` | > 30% 才考虑任务图 | (待 S3-CP2 填) | (待填) |
+| 并行任务真实数量 | worktree namespace 下 `req_started` 时间窗口重叠 | 至少 1 次并行窗口可复核 | >= 3 个 REQ 同时活跃才考虑任务图 | (待 S3-CP2 填) | (待填) |
+| 独立 verifier 拦截率 | `verifier_blocked` / (`verifier_blocked` + `verifier_passed`) | verifier 事件 >= 5 | < 20% 说明 verifier 弱不是主因 | (待 S3-CP2 填) | (待填) |
+| progress / projection 冲突次数 | `conflict_detected`、REQ audit、QA 报告 | 观察期内至少跑过一次聚合查询 | Stage 2 后仍频繁冲突才考虑更强协调 | (待 S3-CP2 填) | (待填) |
+| 人工调度成本 | `human_decision_made` 事件与 REQ 记录 | 至少 5 次人工决策记录 | 每个 REQ > 20 分钟才考虑自动任务图 | (待 S3-CP2 填) | (待填) |
+| verifier 成本压力 | `monthly_verifier_invocation_count`、`s3_verifier_cost_alert` | 有成本记录或明确无外部调用 | 月度 > 5 USD 先降级,不是直接上任务图 | (待 S3-CP2 填) | (待填) |
+| 主观复杂度意愿 | `S3-CP1-sealed-expectation-2026-06-03.md` 与观察后复盘 | user 已填写密封预期 | 仍愿承担复杂度才可进入任务图设计 | (待 user 填) | (待填) |
+
+### 7.2 聚合规则
+
+1. 只有当至少 4 个维度已启用,才能做 S3-CP3 决策。
+2. "开启任务图专项"至少需要 3 个维度指向任务图,且必须包含"单 agent 复杂任务失败率"或"并行任务真实数量"之一。
+3. "收口"需要 0-1 个维度指向任务图,且 user 主观复杂度意愿不支持继续扩张。
+4. "修订"用于 2 个以下任务图信号但仍有明确痛点的情况。
+
+### 7.3 反向否决
+
+任一条件成立时,不得开启任务图专项:
+
+- S3-CP1 观察期少于 2 周,且没有明确延长记录。
+- 事件账本缺少 `s3_observation_window_start` 或周度 `s3_observation_data_recorded`。
+- 密封预期文件由 agent 代填,或观察后才补主观预测。
+- verifier 默认模式混杂,无法判断数据来自 `legacy`、`envelope` 还是 `subagent`。
+- 主要痛点来自文档恢复、PreCompact、progress 投影或成本超预算,而不是并行协作本身。
 
 ---
 
@@ -399,6 +440,11 @@ Stage 3 不是工程任务。它是一次是否继续扩张的判断。
 | 2026-05-31 | S2-CP5/S2-CP6 完成:创建 `REQ-2026-073-stage-2-worktree-aware-event-aggregation.md`;`req:status --all` 支持 worktree projection 聚合和 conflict 报告 | `node tests/event-store.test.mjs`、`node tests/governance.test.mjs`、真实 `req:status --all` 文本/JSON 通过 | S2-CP5, S2-CP6, S2-CP7 |
 | 2026-05-31 | S2-CP7 完成:Stage 2 退出确认通过;事件 append、真实写入点、progress projection、worktree 聚合均有 REQ / review / QA / experience 证据 | `npm test`、`docs:verify`、`check:governance`、`req-audit` 通过;current audit warning 为 0 | S2-CP7, S3-CP1 |
 | 2026-05-31 | S1-CP2.5 Spike 完成:**结论 A — 可脚本调用**。`claude --agent <name> -p "..." --output-format json` 从 Node `child_process.spawn` 稳定调用;延迟 12–18s;需前置校验 agent 文件存在防止静默 fallback | 实测 6 组测试用例,产物记录在 REQ-066 关键决策章节 | S1-CP3 |
+| 2026-06-03 | 多角度推演报告落盘,确认 S3-CP1 正式观察前必须先修 §7 事件口径、worktree 路径隔离、verifier 默认值和只读边界 | 报告列出 18 个路线图 section patches 和 8 项立即动作 | S3-CP1 |
+| 2026-06-03 | user 决策:沿用原 §7 阈值;`HARNESS_VERIFIER_MODE` 默认 `envelope`;观察期按 2026-05-31 起算,1 周热身 + 1 周正式观察 | 保持 Stage 1/2 数据连续,避免为了上任务图而提前改口径 | S3-CP1, S3-CP2 |
+| 2026-06-03 | user 决策:月度 verifier 成本 > 5 USD 告警并降级;§10 远期待办推迟到 S3-CP3 后再看 | 控制外部调用成本,避免远期共享库议题抢占观察期 | S3-CP1, §10 |
+| 2026-06-04 | `REQ-2026-075`、`REQ-2026-076`、`REQ-2026-077` 完成前置修复:事件 schema、worktree namespace、verifier 默认值和只读边界均已落盘 | 解决观察期 CRITICAL 债务,避免 S3-CP1 采到不可解释数据 | S3-CP1 |
+| 2026-06-05 | `REQ-2026-078` 启动 S3-CP1 观察期手续:应用路线图 patches、创建密封预期、写 `s3_observation_window_start` 事件 | 用户确认"1/2/3 做完才算正式进入观察期" | S3-CP1 |
 
 ---
 
@@ -416,6 +462,15 @@ npm run req:create -- --title "Stage 2: event ledger schema"
 
 # 启动当前 REQ
 npm run req:start -- --id REQ-2026-066
+
+# S3-CP1 观察期:查看事件指标
+node scripts/event-store.mjs stats --metrics
+
+# S3-CP1 观察期:确认启动事件
+node scripts/event-store.mjs read --json | rg "s3_observation_window_start|REQ-2026-078"
+
+# S3-CP1 观察期:查看多 worktree 状态
+npm run req:status -- --all
 
 # 常规验证
 npm test
@@ -435,12 +490,42 @@ npm run check:governance
 
 **前置条件**：Stage 2 事件账本稳定运行 + 至少 2 个项目使用 harness-lab。
 
+**启动触发信号**:
+
+- S3-CP3 决策选择"收口"或"修订",且 user 明确需要跨项目经验复用。
+- 至少 2 个真实项目完成接入,并留下可脱敏的不变量、失败案例或治理经验。
+- ROI 估算显示维护共享库节省的返工时间大于每月维护成本。
+
+**ROI 占位**:
+
+| 项 | 估算方式 | 当前值 |
+|----|----------|--------|
+| 每月节省返工时间 | 复用经验命中次数 x 单次节省小时 | (S3-CP3 后填) |
+| 每月维护成本 | 分类、脱敏、验证、发布耗时 | (S3-CP3 后填) |
+| 是否值得启动 | 节省时间 > 维护成本,且至少 2 项目复用 | (S3-CP3 后填) |
+
 ---
 
 ## 11. 元约定
 
 - `docs/plans/unified-roadmap.md` 已完结（Phase 0–5 全部完成），本路线图是当前唯一的活跃路线图。
-- 本路线图状态必须和 `requirements/INDEX.md`、`.claude/progress.txt` 保持一致。
+- 本路线图状态必须和事件账本、`requirements/INDEX.md`、`.claude/progress.txt` 保持一致;冲突时以事件账本重建结果为准。
 - 任何 checkpoint 拆分、跳过、降级,都必须写入 §8。
 - Stage 1 / Stage 2 的产物必须在没有 Stage 3 的情况下仍然有价值。
 - 未通过 Stage 3 决策门前,禁止实现完整任务图。
+- S3-CP1 期间禁止为了证明"该上任务图"而改写阈值、代填 sealed expectation、忽略反向否决或把 observation 事件补成事后事实。
+
+---
+
+## 12. 维护期退役时间表草案
+
+如果 S3-CP3 选择收口,按下表进入维护期:
+
+| 时间点 | 动作 | 退役条件 |
+|--------|------|----------|
+| S3-CP3 当日 | 冻结 multi-agent 新能力入口 | §7 聚合规则不支持任务图 |
+| S3-CP3 + 1 周 | 清理观察期临时命令和临时说明 | `s3_observation_window_end` 已落账,QA 通过 |
+| S3-CP3 + 2 周 | 把路线图标记为维护状态 | 无活跃 S3 专项 REQ |
+| S3-CP3 + 1 月 | 复查 verifier 成本和事件账本噪声 | 月度成本 <= 5 USD,事件 schema 无新增债务 |
+
+如果 S3-CP3 选择修订,本表延后到修订路线完成后再执行。如果 S3-CP3 选择开启任务图专项,本表只退役 S3-CP1 观察期临时物,不得删除已用于任务图设计的数据证据。
