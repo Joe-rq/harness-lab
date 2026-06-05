@@ -15,7 +15,7 @@ Harness Lab 是一套可内嵌到已有仓库的治理框架：
 
 **核心优势**：
 - **零外部依赖**：无 npm 依赖，无供应链风险，一键接入
-- **轻量高效**：约 1500 行代码实现完整治理链路
+- **轻量高效**：零运行时依赖，约 1 万行治理脚本覆盖完整链路
 - **透明可审计**：所有数据均为 Markdown 文件，Git 友好
 
 GitHub: [Joe-rq/harness-lab](https://github.com/Joe-rq/harness-lab)

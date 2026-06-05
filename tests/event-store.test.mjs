@@ -667,6 +667,36 @@ function testRotationMovesFileWhenLimitExceeded() {
   }
 }
 
+function testRotationDoesNotDuplicateWhenArchiveAlreadyExists() {
+  const root = tempDir('event-store-rotation-dedup');
+  try {
+    for (let i = 0; i < 5; i += 1) {
+      appendEvent({
+        type: 'verifier_passed', source: 'test',
+        payload: { verdict: 'pass', target_artifact: `art-${i}` },
+      }, {
+        rootDir: root, sessionId: 's-rotate', worktree: 'main',
+        idFactory: () => `evt_rot_dedup_${i}`,
+        maxEventLines: 2,
+      });
+    }
+
+    const events = readEvents({ rootDir: root, warn: false });
+    const ids = events.map((event) => event.id);
+    assert.equal(events.length, 5);
+    assert.equal(new Set(ids).size, 5);
+    assert.deepEqual(ids, [
+      'evt_rot_dedup_0',
+      'evt_rot_dedup_1',
+      'evt_rot_dedup_2',
+      'evt_rot_dedup_3',
+      'evt_rot_dedup_4',
+    ]);
+  } finally {
+    cleanup(root);
+  }
+}
+
 function testComputeEvaluationMetricsOutputsSixDimensions() {
   const events = [
     { type: 'verifier_passed', payload: { verdict: 'pass', target_artifact: 'a' } },
@@ -747,11 +777,12 @@ testVersionRequiredInValidation();
 testTypeSchemaValidationPassesAndFails();
 testAllThirteenNewTypesAreRegistered();
 testRotationMovesFileWhenLimitExceeded();
+testRotationDoesNotDuplicateWhenArchiveAlreadyExists();
 // testComputeEvaluationMetricsOutputsSixDimensions is async, await below
 testLegacyEventsWithoutVersionAreTolerated();
 
 // 跑 async 那个
 (async () => {
   await testComputeEvaluationMetricsOutputsSixDimensions();
-  console.log('All event-store tests passed (20).');
+  console.log('All event-store tests passed (21).');
 })();

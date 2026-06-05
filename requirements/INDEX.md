@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-079-verified-governance-defects.md`（真实整改：Fix verified governance defects）
 - `REQ-2026-078-s3-cp1-observation-kickoff.md`（真实整改：S3-CP1 observation window kickoff）
 - `REQ-2026-077-verifier-defaults-readonly-boundary.md`（真实整改：verifier defaults alignment and read-only boundary tests）
 - `REQ-2026-076-stage-3-worktree-namespace-isolation-and-stage-2-revalidation.md`（真实整改：Stage 3 worktree namespace isolation and Stage 2 revalidation）

@@ -5,6 +5,7 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -357,9 +358,10 @@ function rotateIfNeeded(filePath, options = {}) {
   const archivePath = path.join(archiveDir, `${fileName}-${monthStamp}.jsonl`);
 
   if (existsSync(archivePath)) {
-    // 同月已存在 archive,直接 append
+    // 同月已存在 archive,追加后清空当前文件,避免后续 rotation 重复归档同一批事件。
     const content = readFileSync(filePath, 'utf8');
     appendFileSync(archivePath, content, 'utf8');
+    writeFileSync(filePath, '', 'utf8');
   } else {
     // rename
     renameSync(filePath, archivePath);

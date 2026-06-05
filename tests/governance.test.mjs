@@ -541,6 +541,49 @@ async function testHarnessInstallArtifacts() {
   }
 }
 
+function testReqCheckAcceptsSluggedActiveReq() {
+  const tempDir = createTempDir('req-check-slugged-active');
+  const reqFilePath = 'requirements/in-progress/REQ-2026-777-slugged-active.md';
+  const writeReq = (status, phase) => writeFile(tempDir, reqFilePath,
+    `# REQ-2026-777: Slugged active fixture\n\n## 状态\n- 当前状态：${status}\n- 当前阶段：${phase}\n\n## 背景\n真实背景。\n\n## 目标\n- 真实目标\n\n## 验收标准\n- [x] 真实标准\n`);
+  try {
+    writeFile(
+      tempDir,
+      '.claude/progress.txt',
+      `Current active REQ: REQ-2026-777
+Current phase: implementation
+Last updated: 2026-06-05
+`
+    );
+
+    writeReq('in-progress', 'implementation');
+    runNodeScript('scripts/req-check.js', [], { cwd: tempDir });
+
+    writeReq('draft', 'design');
+    const failure = captureExecFailure(() => runNodeScript('scripts/req-check.js', [], { cwd: tempDir }));
+    assert.equal(failure.status, 2);
+    assert.match(failure.stdout, /Active REQ \(REQ-2026-777\) is not ready/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+function testLocalHookConfigUsesExistingJsEntrypoints() {
+  const settings = JSON.parse(readFileSync(path.join(repoRoot, '.claude', 'settings.local.json'), 'utf8'));
+  const sessionCommand = settings.hooks.SessionStart[0].hooks[0].command;
+  const reqCheckCommand = settings.hooks.PreToolUse[0].hooks[0].command;
+  assert.match(sessionCommand, /scripts\/session-start\.js/);
+  assert.match(reqCheckCommand, /scripts\/req-check\.js/);
+  assert.ok(!sessionCommand.includes('session-start.sh'));
+  assert.ok(!reqCheckCommand.includes('req-check.sh'));
+}
+
+function testAutoReviewUsesArgArrayForShellSyntaxCheck() {
+  const content = readFileSync(path.join(repoRoot, 'scripts', 'auto-review.mjs'), 'utf8');
+  assert.match(content, /spawnSync\('bash', \['-n', fullPath\]/);
+  assert.ok(!content.includes('execSync(`bash -n "${fullPath}"`'));
+}
+
 async function testPackageBindingFallsBackToPlaceholderGuards() {
   const tempDir = createTempDir('harness-install-placeholders');
   try {
@@ -1511,6 +1554,9 @@ const tests = [
   ['req:status --all reads worktree aggregation', testReqStatusAllReadsWorktreeAggregation],
   ['req validation detects template placeholders and draft status', testReqValidationDetectsTemplateAndDraftIssues],
   ['harness-install copies governance files and writes hook config', testHarnessInstallArtifacts],
+  ['req-check accepts slugged active REQ files', testReqCheckAcceptsSluggedActiveReq],
+  ['local hook config uses existing JS entrypoints', testLocalHookConfigUsesExistingJsEntrypoints],
+  ['auto-review uses arg array for shell syntax check', testAutoReviewUsesArgArrayForShellSyntaxCheck],
   ['package binding falls back to placeholder guards when commands are missing', testPackageBindingFallsBackToPlaceholderGuards],
   ['package binding supports package-dir targets', testPackageBindingSupportsPackageDir],
   ['missing root package reports candidates and node fallback', testMissingRootPackageReportsCandidatesAndNodeFallback],

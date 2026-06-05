@@ -230,9 +230,8 @@ function checkFileBasics(rootDir, changedFiles) {
 
     // Check .sh files
     if (file.endsWith('.sh')) {
-      try {
-        execSync(`bash -n "${fullPath}"`, { stdio: 'pipe' });
-      } catch {
+      const result = spawnSync('bash', ['-n', fullPath], { stdio: 'pipe' });
+      if (result.error || result.status !== 0) {
         results.push({ file, issue: 'Shell syntax error', severity: 'high' });
       }
     }

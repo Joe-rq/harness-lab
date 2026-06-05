@@ -46,6 +46,20 @@ function parseActiveReq(content) {
   return match[1].trim();
 }
 
+function findActiveReqPath(rootDir, reqId) {
+  const reqDir = path.join(rootDir, 'requirements', 'in-progress');
+  if (!fs.existsSync(reqDir)) return null;
+
+  const exactPath = path.join(reqDir, `${reqId}.md`);
+  if (fs.existsSync(exactPath)) return exactPath;
+
+  if (!/^REQ-\d{4}-\d{3}$/.test(reqId)) return null;
+
+  const fileName = fs.readdirSync(reqDir)
+    .find((name) => name.startsWith(`${reqId}-`) && name.endsWith('.md'));
+  return fileName ? path.join(reqDir, fileName) : null;
+}
+
 function isExempt(rootDir) {
   const exemptPath = getExemptPath(rootDir);
   const globalExemptPath = path.join(rootDir, '.claude', '.req-exempt');
@@ -85,9 +99,9 @@ function printBlockMessage(activeReq) {
 
     // Try to read REQ file for more details
     const rootDir = getGitRoot();
-    const reqPath = path.join(rootDir, 'requirements', 'in-progress', `${activeReq}.md`);
+    const reqPath = findActiveReqPath(rootDir, activeReq);
 
-    if (fs.existsSync(reqPath)) {
+    if (reqPath && fs.existsSync(reqPath)) {
       const content = fs.readFileSync(reqPath, 'utf-8');
 
       // Check for template placeholders
@@ -164,9 +178,9 @@ function main() {
   // Check if there's a valid active REQ
   if (activeReq && activeReq !== 'none' && activeReq !== '无') {
     // Check if REQ file exists and is not in draft state
-    const reqPath = path.join(rootDir, 'requirements', 'in-progress', `${activeReq}.md`);
+    const reqPath = findActiveReqPath(rootDir, activeReq);
 
-    if (fs.existsSync(reqPath)) {
+    if (reqPath && fs.existsSync(reqPath)) {
       const reqContent = fs.readFileSync(reqPath, 'utf-8');
 
       // Check for draft status
