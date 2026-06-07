@@ -242,7 +242,7 @@ npm run req:align -- --id REQ-YYYY-NNN
 | `npm run docs:impact` | 查看 changed files 触发的文档义务 |
 | `npm run docs:impact:json` | JSON 格式输出（供 agent/CI 消费） |
 | `npm run docs:verify` | 检查文档链接和同步约束 |
-| `npm run check:governance` | 检查治理结构完整性 |
+| `npm run check:governance` | 检查治理结构完整性（含 hook 配置一致性和 R4 覆盖检查） |
 | `npm run req:audit` | 审计 REQ 完成态、报告链接、验收复选框和 INDEX/progress 一致性 |
 | `npm run governance:health` | 输出治理健康总览（REQ、报告、经验、不变量、脚本绑定） |
 | `npm run harness:doctor` | 诊断项目接入健康状态 |

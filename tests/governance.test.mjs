@@ -1545,6 +1545,88 @@ async function testReqStatusAllReadsWorktreeAggregation() {
   }
 }
 
+async function testRiskTrackerR4CoversAllHookScripts() {
+  const settings = JSON.parse(readFileSync(path.join(repoRoot, '.claude', 'settings.local.json'), 'utf8'));
+  const riskTrackerSrc = readFileSync(path.join(repoRoot, 'scripts', 'risk-tracker.mjs'), 'utf8');
+
+  // Extract hook scripts from settings
+  const hookScripts = new Set();
+  for (const entries of Object.values(settings.hooks || {})) {
+    for (const entry of entries) {
+      for (const hook of (entry.hooks || [])) {
+        if (hook.type === 'command') {
+          const m = hook.command.match(/scripts\/([\w.-]+)/);
+          if (m) hookScripts.add(`scripts/${m[1]}`);
+        }
+      }
+    }
+  }
+
+  // Extract R4 script names from risk-tracker.mjs
+  const r4Scripts = new Set();
+  for (const line of riskTrackerSrc.split('\n')) {
+    if (!line.includes('level: 4')) continue;
+    const pm = line.match(/\/\^scripts\\\/(.*?)\$\//);
+    if (pm) {
+      r4Scripts.add('scripts/' + pm[1].replace(/\\\./g, '.'));
+    }
+  }
+
+  for (const script of hookScripts) {
+    assert.ok(r4Scripts.has(script), `Hook script "${script}" should be classified as R4 in risk-tracker.mjs`);
+  }
+}
+
+function testRiskTrackerCallsGitRevParseOnce() {
+  const riskTrackerSrc = readFileSync(path.join(repoRoot, 'scripts', 'risk-tracker.mjs'), 'utf8');
+  const matches = riskTrackerSrc.match(/git rev-parse --show-toplevel/g) || [];
+  assert.equal(matches.length, 1, `risk-tracker.mjs should call git rev-parse exactly once, found ${matches.length}`);
+}
+
+function testPermissionsTableIsClean() {
+  const settings = JSON.parse(readFileSync(path.join(repoRoot, '.claude', 'settings.local.json'), 'utf8'));
+  const permissions = settings.permissions?.allow || [];
+  assert.ok(permissions.length <= 45, `Permissions should be ≤45, got ${permissions.length}`);
+
+  for (const perm of permissions) {
+    assert.ok(!perm.includes('/Users/qrq/Documents/'), `Permission should not contain hardcoded path: ${perm}`);
+    assert.ok(!perm.includes('/d/03resource/'), `Permission should not contain hardcoded path: ${perm}`);
+  }
+}
+
+async function testHookConfigConsistencyBetweenCodexAndSettings() {
+  const settings = JSON.parse(readFileSync(path.join(repoRoot, '.claude', 'settings.local.json'), 'utf8'));
+  const codexPath = path.join(repoRoot, '.codex', 'hooks.json');
+  assert.ok(existsSync(codexPath), '.codex/hooks.json should exist');
+  const codexHooks = JSON.parse(readFileSync(codexPath, 'utf8'));
+
+  const sHooks = settings.hooks || {};
+  const cHooks = codexHooks.hooks || {};
+  const sTypes = new Set(Object.keys(sHooks));
+  const cTypes = new Set(Object.keys(cHooks));
+
+  assert.deepEqual([...sTypes].sort(), [...cTypes].sort(), 'Hook event types should match between settings.local.json and .codex/hooks.json');
+
+  for (const t of sTypes) {
+    if (!cTypes.has(t)) continue;
+    const sEntries = sHooks[t];
+    const cEntries = cHooks[t];
+    assert.equal(sEntries.length, cEntries.length, `Hook "${t}" should have same entry count`);
+    for (let i = 0; i < sEntries.length; i++) {
+      const sm = sEntries[i].matcher || '*';
+      const cm = cEntries[i].matcher || '*';
+      assert.equal(sm, cm, `Hook "${t}" entry ${i}: matcher should match`);
+      const sh = sEntries[i].hooks || [];
+      const ch = cEntries[i].hooks || [];
+      assert.equal(sh.length, ch.length, `Hook "${t}" entry ${i}: hook count should match`);
+      for (let j = 0; j < sh.length; j++) {
+        assert.equal(sh[j].command, ch[j].command, `Hook "${t}[${i}].hooks[${j}]: command should match`);
+        assert.equal(sh[j].timeout, ch[j].timeout, `Hook "${t}[${i}].hooks[${j}]: timeout should match`);
+      }
+    }
+  }
+}
+
 const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
@@ -1574,6 +1656,10 @@ const tests = [
   ['verifier entrypoints reject invalid mode', testVerifierEntrypointsRejectInvalidMode],
   ['legacy verifier mode still writes markdown reports', testLegacyModeStillWritesMarkdownReports],
   ['subagent verifier mode stays explicit and delegates', testSubagentModeStaysExplicitAndDelegates],
+  ['risk-tracker R4 covers all hook scripts', testRiskTrackerR4CoversAllHookScripts],
+  ['risk-tracker calls git rev-parse exactly once', testRiskTrackerCallsGitRevParseOnce],
+  ['permissions table is clean and within limits', testPermissionsTableIsClean],
+  ['hook config is consistent between .codex/hooks.json and settings.local.json', testHookConfigConsistencyBetweenCodexAndSettings],
 ];
 
 let failures = 0;

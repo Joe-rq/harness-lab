@@ -141,7 +141,7 @@ requireText('skills/README.md', [
   'qa/qa.md',
   'ship/ship.md',
 ]);
-requireText('.claude/settings.local.json', ['node scripts/check-governance.mjs']);
+requireText('.claude/settings.local.json', ['Bash(node:*)', 'hooks']);
 
 const packageJson = JSON.parse(read('package.json'));
 if (!packageJson.scripts?.test?.startsWith(expectedTestScriptPrefix)) {
@@ -215,6 +215,81 @@ if (!progressMatch) {
 
   if (activeItems.length > 0 && !activeItems.some((item) => item.includes(progressActive))) {
     errors.push('Active REQ in progress.txt must appear in requirements/INDEX.md');
+  }
+}
+
+// Hook config consistency and R4 coverage checks
+const codexHooksPath = '.codex/hooks.json';
+if (existsSync(path.join(root, codexHooksPath))) {
+  const settings = JSON.parse(read('.claude/settings.local.json'));
+  const codexHooks = JSON.parse(read(codexHooksPath));
+
+  const sHooks = settings.hooks || {};
+  const cHooks = codexHooks.hooks || {};
+  const sTypes = new Set(Object.keys(sHooks));
+  const cTypes = new Set(Object.keys(cHooks));
+
+  // Hook event type set differences
+  for (const t of cTypes) {
+    if (!sTypes.has(t)) errors.push(`Hook type "${t}" in .codex/hooks.json but missing from settings.local.json`);
+  }
+  for (const t of sTypes) {
+    if (!cTypes.has(t)) errors.push(`Hook type "${t}" in settings.local.json but missing from .codex/hooks.json`);
+  }
+
+  // Entry-level consistency for shared types
+  for (const t of sTypes) {
+    if (!cTypes.has(t)) continue;
+    const sEntries = sHooks[t];
+    const cEntries = cHooks[t];
+    if (sEntries.length !== cEntries.length) {
+      errors.push(`Hook "${t}": ${sEntries.length} entries in settings.local.json vs ${cEntries.length} in .codex/hooks.json`);
+      continue;
+    }
+    for (let i = 0; i < sEntries.length; i++) {
+      const sm = sEntries[i].matcher || '*';
+      const cm = cEntries[i].matcher || '*';
+      if (sm !== cm) errors.push(`Hook "${t}" entry ${i}: matcher "${sm}" vs "${cm}"`);
+      const sh = sEntries[i].hooks || [];
+      const ch = cEntries[i].hooks || [];
+      if (sh.length !== ch.length) {
+        errors.push(`Hook "${t}" entry ${i}: ${sh.length} hooks vs ${ch.length}`);
+        continue;
+      }
+      for (let j = 0; j < sh.length; j++) {
+        if (sh[j].command !== ch[j].command) errors.push(`Hook "${t}[${i}].hooks[${j}]: command mismatch`);
+        if (sh[j].timeout !== ch[j].timeout) errors.push(`Hook "${t}[${i}].hooks[${j}]: timeout ${sh[j].timeout} vs ${ch[j].timeout}`);
+      }
+    }
+  }
+
+  // R4 coverage: all hook scripts must be classified as R4
+  const hookScripts = new Set();
+  for (const entries of Object.values(sHooks)) {
+    for (const entry of entries) {
+      for (const hook of (entry.hooks || [])) {
+        if (hook.type === 'command') {
+          const m = hook.command.match(/scripts\/([\w.-]+)/);
+          if (m) hookScripts.add(`scripts/${m[1]}`);
+        }
+      }
+    }
+  }
+
+  const riskTrackerSrc = read('scripts/risk-tracker.mjs');
+  const r4Scripts = new Set();
+  for (const line of riskTrackerSrc.split('\n')) {
+    if (!line.includes('level: 4')) continue;
+    const pm = line.match(/\/\^scripts\\\/(.*?)\$\//);
+    if (pm) {
+      r4Scripts.add('scripts/' + pm[1].replace(/\\\./g, '.'));
+    }
+  }
+
+  for (const script of hookScripts) {
+    if (!r4Scripts.has(script)) {
+      errors.push(`Hook script "${script}" not in R4 rules — risk level degraded`);
+    }
   }
 }
 

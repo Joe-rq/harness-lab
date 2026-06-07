@@ -15,7 +15,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 当前活跃 REQ
 
-- 无
+- `REQ-2026-081-governance-safety-hardening.md`（真实整改：governance-safety-hardening）
 
 ## 当前搁置 REQ
 

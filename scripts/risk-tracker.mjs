@@ -22,14 +22,9 @@ import path from 'path';
 import { execSync } from 'child_process';
 
 // Session-level ratchet state
-const RATCHET_FILE = () => {
-  try {
-    const root = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
-    return path.join(root, '.claude', '.risk-ratchet');
-  } catch {
-    return null;
-  }
-};
+function RATCHET_FILE(rootDir) {
+  return path.join(rootDir, '.claude', '.risk-ratchet');
+}
 
 // Risk classification rules (ordered: first match wins)
 const RISK_RULES = [
@@ -45,6 +40,12 @@ const RISK_RULES = [
   { pattern: /^scripts\/invariant-extractor\.mjs$/, level: 4, label: '治理核心脚本' },
   { pattern: /^scripts\/invariant-gate\.mjs$/, level: 4, label: '治理核心脚本' },
   { pattern: /^scripts\/req-cli\.mjs$/, level: 4, label: '治理核心脚本' },
+  { pattern: /^scripts\/session-start\.js$/, level: 4, label: '治理核心脚本' },
+  { pattern: /^scripts\/review-gatekeeper\.mjs$/, level: 4, label: '治理核心脚本' },
+  { pattern: /^scripts\/deploy-guard\.mjs$/, level: 4, label: '治理核心脚本' },
+  { pattern: /^scripts\/risk-tracker\.mjs$/, level: 4, label: '治理核心脚本' },
+  { pattern: /^scripts\/watchdog\.mjs$/, level: 4, label: '治理核心脚本' },
+  { pattern: /^scripts\/precompact-notify\.mjs$/, level: 4, label: '治理核心脚本' },
 
   // R3: Hook-adjacent scripts and configuration
   { pattern: /^scripts\/.*\.mjs$/, level: 3, label: 'Hook 脚本' },
@@ -80,9 +81,8 @@ function classifyRisk(relPath) {
   return { level: 2, label: '未知文件' };
 }
 
-function readRatchet() {
-  const file = RATCHET_FILE();
-  if (!file) return 0;
+function readRatchet(rootDir) {
+  const file = RATCHET_FILE(rootDir);
   try {
     return parseInt(fs.readFileSync(file, 'utf-8').trim(), 10) || 0;
   } catch {
@@ -90,9 +90,8 @@ function readRatchet() {
   }
 }
 
-function writeRatchet(level) {
-  const file = RATCHET_FILE();
-  if (!file) return;
+function writeRatchet(rootDir, level) {
+  const file = RATCHET_FILE(rootDir);
   try {
     fs.writeFileSync(file, String(level));
   } catch {
@@ -151,9 +150,9 @@ async function main() {
   const { level, label } = classifyRisk(relPath);
 
   // Ratchet: only go up
-  const currentMax = readRatchet();
+  const currentMax = readRatchet(rootDir);
   if (level > currentMax) {
-    writeRatchet(level);
+    writeRatchet(rootDir, level);
   }
 
   // R3+ handling with mode differentiation
