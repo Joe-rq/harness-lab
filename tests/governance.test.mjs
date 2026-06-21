@@ -448,6 +448,7 @@ async function testHarnessInstallArtifacts() {
     assert.ok(harnessInstall.modules.cli.files.includes('scripts/template-guard.mjs'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/session-start.js'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/req-check.js'));
+    assert.ok(harnessInstall.modules.hook.files.includes('scripts/scope-guard.mjs'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/event-store.mjs'));
 
     writeFile(
@@ -480,6 +481,7 @@ async function testHarnessInstallArtifacts() {
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'event-store.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'worktree-utils.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'req-check.js')));
+    assert.ok(existsSync(path.join(tempDir, 'scripts', 'scope-guard.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'session-start.js')));
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'template-guard.mjs')));
     assert.ok(existsSync(path.join(tempDir, 'context', 'README.md')));
@@ -498,7 +500,9 @@ async function testHarnessInstallArtifacts() {
     assert.match(settings.hooks.SessionStart[0].hooks[0].command, expectedSessionStart);
     assert.equal(settings.hooks.PreToolUse[0].hooks[0].type, 'command');
     assert.match(settings.hooks.PreToolUse[0].hooks[0].command, expectedReqCheck);
+    assert.match(settings.hooks.PreToolUse[0].hooks[1].command, /scope-guard\.mjs/);
     assert.ok(settings.permissions.allow.includes('Bash(node scripts/req-check.js)'));
+    assert.ok(settings.permissions.allow.includes('Bash(node scripts/scope-guard.mjs)'));
 
     const packageJson = JSON.parse(readFileSync(path.join(tempDir, 'package.json'), 'utf8'));
     assert.equal(packageJson.scripts.lint, 'eslint .');
@@ -513,7 +517,8 @@ async function testHarnessInstallArtifacts() {
     );
     assert.match(report, /- \[x\] 治理 hooks/);
     assert.match(report, /`verify`：generated/);
-    assert.match(report, /PreToolUse 为硬阻断/);
+    assert.match(report, /PreToolUse 为 REQ 状态与 scope 硬阻断/);
+    assert.doesNotMatch(report, /`scope-guard`、`watchdog`/);
     assert.match(report, /req:create` 只会生成骨架/);
 
     const progress = readFileSync(path.join(tempDir, '.claude', 'progress.txt'), 'utf8');
@@ -568,12 +573,134 @@ Last updated: 2026-06-05
   }
 }
 
+function runScopeGuard(root, relPath, toolName = 'Write') {
+  return execFileSync(process.execPath, [path.join(repoRoot, 'scripts/scope-guard.mjs')], {
+    cwd: root,
+    input: JSON.stringify({
+      cwd: root,
+      tool_name: toolName,
+      tool_input: {
+        file_path: path.join(root, relPath),
+      },
+    }),
+    encoding: 'utf8',
+  });
+}
+
+function testScopeGuardBlocksReadOnlyReqWrites() {
+  const tempDir = createTempDir('scope-guard-readonly');
+  try {
+    writeFile(
+      tempDir,
+      '.claude/progress.txt',
+      `Current active REQ: REQ-2026-999
+Current phase: implementation
+Last updated: 2026-06-10
+`
+    );
+    writeFile(
+      tempDir,
+      'requirements/in-progress/REQ-2026-999-readonly-audit.md',
+      `# REQ-2026-999: Read-only audit
+
+## 状态
+- 当前状态：in-progress
+- 当前阶段：implementation
+
+## 背景
+审计当前代码健康度。
+
+## 目标
+- 产出审计报告
+
+## 非目标
+- 不在本次审计中修复任何 finding（只产出报告）
+
+## 范围
+- 影响接口 / 页面 / 脚本：无代码改动，仅产出审计报告
+
+### 约束（Scope Control）
+
+**允许（CAN）**：
+- 读取所有源代码和测试文件
+- 产出审计报告到 requirements/reports/
+
+**禁止（CANNOT）**：
+- 修改任何源代码或测试代码
+- 修改任何配置文件
+
+## 验收标准
+- [ ] 审计报告产出到 requirements/reports/REQ-2026-999-audit-report.md
+- [ ] 无代码改动
+`
+    );
+
+    const sourceOutput = runScopeGuard(tempDir, 'server/app/main.py');
+    const sourceDecision = JSON.parse(sourceOutput);
+    assert.equal(sourceDecision.decision, 'block');
+    assert.match(sourceDecision.reason, /只读 REQ/);
+
+    const frontendOutput = runScopeGuard(tempDir, 'app/src/App.tsx');
+    assert.equal(JSON.parse(frontendOutput).decision, 'block');
+
+    const testOutput = runScopeGuard(tempDir, 'server/tests/test_api.py');
+    assert.equal(JSON.parse(testOutput).decision, 'block');
+
+    const configOutput = runScopeGuard(tempDir, 'Dockerfile');
+    assert.equal(JSON.parse(configOutput).decision, 'block');
+
+    const reportOutput = runScopeGuard(tempDir, 'requirements/reports/REQ-2026-999-audit-report.md');
+    assert.equal(reportOutput, '');
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+function testScopeGuardAllowsLegacyReqWithoutScope() {
+  const tempDir = createTempDir('scope-guard-legacy');
+  try {
+    writeFile(
+      tempDir,
+      '.claude/progress.txt',
+      `Current active REQ: REQ-2026-998
+Current phase: implementation
+Last updated: 2026-06-10
+`
+    );
+    writeFile(
+      tempDir,
+      'requirements/in-progress/REQ-2026-998-legacy.md',
+      `# REQ-2026-998: Legacy fixture
+
+## 状态
+- 当前状态：in-progress
+- 当前阶段：implementation
+
+## 背景
+历史 REQ 没有结构化范围声明。
+
+## 目标
+- 保持向后兼容
+
+## 验收标准
+- [ ] 不阻断旧 REQ
+`
+    );
+
+    assert.equal(runScopeGuard(tempDir, 'server/app/main.py'), '');
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 function testLocalHookConfigUsesExistingJsEntrypoints() {
   const settings = JSON.parse(readFileSync(path.join(repoRoot, '.claude', 'settings.local.json'), 'utf8'));
   const sessionCommand = settings.hooks.SessionStart[0].hooks[0].command;
   const reqCheckCommand = settings.hooks.PreToolUse[0].hooks[0].command;
+  const scopeGuardCommand = settings.hooks.PreToolUse[0].hooks[1].command;
   assert.match(sessionCommand, /scripts\/session-start\.js/);
   assert.match(reqCheckCommand, /scripts\/req-check\.js/);
+  assert.match(scopeGuardCommand, /scripts\/scope-guard\.mjs/);
   assert.ok(!sessionCommand.includes('session-start.sh'));
   assert.ok(!reqCheckCommand.includes('req-check.sh'));
 }
@@ -1637,6 +1764,8 @@ const tests = [
   ['req validation detects template placeholders and draft status', testReqValidationDetectsTemplateAndDraftIssues],
   ['harness-install copies governance files and writes hook config', testHarnessInstallArtifacts],
   ['req-check accepts slugged active REQ files', testReqCheckAcceptsSluggedActiveReq],
+  ['scope-guard blocks write attempts under read-only REQs', testScopeGuardBlocksReadOnlyReqWrites],
+  ['scope-guard allows legacy REQs without scope declarations', testScopeGuardAllowsLegacyReqWithoutScope],
   ['local hook config uses existing JS entrypoints', testLocalHookConfigUsesExistingJsEntrypoints],
   ['auto-review uses arg array for shell syntax check', testAutoReviewUsesArgArrayForShellSyntaxCheck],
   ['package binding falls back to placeholder guards when commands are missing', testPackageBindingFallsBackToPlaceholderGuards],

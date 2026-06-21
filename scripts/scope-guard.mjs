@@ -5,7 +5,8 @@
  *
  * Checks if the target file is within the active REQ's declared scope.
  * Out-of-scope writes → block with reason + log to scope-violations.log
- * No scope declaration in REQ → allow (backward compatible)
+ * No scope declaration in REQ → allow (backward compatible), unless the REQ
+ * declares a read-only/no-code-change boundary.
  * No active REQ → allow (req-check.js handles that separately)
  *
  * Output format (exit 0 always):
@@ -74,44 +75,45 @@ function extractScopePatterns(reqContent) {
   const patterns = [];
   let inScope = false;
   let inCan = false;
+  let inCannot = false;
 
   for (const line of reqContent.split('\n')) {
     // Track section boundaries
     if (/^##\s/.test(line)) {
       inScope = false;
       inCan = false;
+      inCannot = false;
       if (/^##\s*范围/.test(line)) inScope = true;
       continue;
     }
     if (/^###\s/.test(line) && inScope) {
       inCan = false;
+      inCannot = false;
     }
 
     if (!inScope) continue;
 
     // Track CAN/CANNOT subsections
-    if (/^\*\*允许/.test(line)) { inCan = true; continue; }
-    if (/^\*\*禁止/.test(line)) { inCan = false; continue; }
-    if (/^\*\*/.test(line)) { inCan = false; }
+    if (/^\*\*允许/.test(line)) { inCan = true; inCannot = false; continue; }
+    if (/^\*\*禁止/.test(line)) { inCan = false; inCannot = true; continue; }
+    if (/^\*\*/.test(line)) { inCan = false; inCannot = false; }
 
     // Strip list marker and indentation
     const trimmed = line.replace(/^\s*-\s*/, '').trim();
 
-    // Extract from backtick-wrapped paths: `scripts/foo.mjs`
-    const backtickMatch = trimmed.match(/^`([^`]+)`$/);
-    if (backtickMatch) {
-      const p = backtickMatch[1];
-      if (!patterns.some(e => e.pattern === p)) {
-        patterns.push({ pattern: p, type: 'allow' });
+    // Extract from backtick-wrapped paths anywhere in the line.
+    const backtickPatterns = extractBacktickPatterns(trimmed);
+    if (backtickPatterns.length > 0) {
+      for (const p of backtickPatterns) {
+        addPattern(patterns, p, inCannot ? 'deny' : 'allow');
       }
       continue;
     }
 
     // Extract from CAN list items: "可修改的文件 / 模块：scripts/foo.mjs（新建）"
-    if (inCan) {
-      const filePattern = extractFilePattern(trimmed);
-      if (filePattern && !patterns.some(e => e.pattern === filePattern)) {
-        patterns.push({ pattern: filePattern, type: 'allow' });
+    if (inCan || inCannot) {
+      for (const filePattern of extractFilePatterns(trimmed)) {
+        addPattern(patterns, filePattern, inCannot ? 'deny' : 'allow');
       }
       continue;
     }
@@ -123,11 +125,29 @@ function extractScopePatterns(reqContent) {
 
     // Try to extract file patterns from free-form lines
     const filePattern = extractFilePattern(trimmed);
-    if (filePattern && !patterns.some(e => e.pattern === filePattern)) {
-      patterns.push({ pattern: filePattern, type: 'allow' });
+    if (filePattern) {
+      addPattern(patterns, filePattern, 'allow');
     }
   }
 
+  return patterns;
+}
+
+function addPattern(patterns, pattern, type) {
+  if (!pattern) return;
+  if (!patterns.some(e => e.pattern === pattern && e.type === type)) {
+    patterns.push({ pattern, type });
+  }
+}
+
+function extractBacktickPatterns(text) {
+  const patterns = [];
+  const regex = /`([^`]+)`/g;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const pattern = extractFilePattern(match[1]);
+    if (pattern) patterns.push(pattern);
+  }
   return patterns;
 }
 
@@ -139,12 +159,48 @@ function extractScopePatterns(reqContent) {
  */
 function extractFilePattern(text) {
   // Remove trailing parenthetical annotations like （新建）、（修改）
-  const cleaned = text.replace(/[（(][^）)]*[）)]\s*$/, '').trim();
+  const cleaned = normalizePatternCandidate(text);
   // Check if it looks like a file path or glob pattern
-  if (/^[\w./\-*]+$/.test(cleaned) && (cleaned.includes('/') || cleaned.includes('*') || cleaned.includes('.'))) {
+  if (/^[\w./\-*]+$/.test(cleaned) && looksLikeRepoPath(cleaned)) {
     return cleaned;
   }
   return null;
+}
+
+function extractFilePatterns(text) {
+  const patterns = [];
+  const direct = extractFilePattern(text);
+  if (direct) patterns.push(direct);
+
+  const pathRegex = /(^|[\s:：,，、])([.\w-]+(?:\/[.\w*{}@+-]+)+\/?)/g;
+  let match;
+  while ((match = pathRegex.exec(text)) !== null) {
+    const pattern = extractFilePattern(match[2]);
+    if (pattern) patterns.push(pattern);
+  }
+
+  return [...new Set(patterns)];
+}
+
+function normalizePatternCandidate(text) {
+  let cleaned = text
+    .replace(/[（(][^）)]*[）)]\s*$/, '')
+    .replace(/^.*[：:]\s*/, '')
+    .replace(/^["'`]|["'`]$/g, '')
+    .replace(/[，,。；;、]+$/g, '')
+    .trim();
+
+  if (cleaned.endsWith('/')) {
+    cleaned = `${cleaned}**`;
+  }
+
+  return cleaned;
+}
+
+function looksLikeRepoPath(value) {
+  if (value.startsWith('http://') || value.startsWith('https://')) return false;
+  if (value.includes('*') || value.includes('.')) return true;
+  return /^(requirements|docs|scripts|app|server|src|tests|context|skills|\.claude|\.codex|\.github)\//.test(value);
 }
 
 /**
@@ -177,9 +233,78 @@ function matchGlob(filePath, pattern) {
 /**
  * Check if a file path matches any of the scope patterns.
  */
-function isInRange(filePath, patterns) {
-  if (patterns.length === 0) return true; // No patterns = no restriction
-  return patterns.some(p => p.type === 'allow' && matchGlob(filePath, p.pattern));
+function evaluateRange(filePath, patterns, { failClosed = false } = {}) {
+  const denyPatterns = patterns.filter(p => p.type === 'deny');
+  const deniedBy = denyPatterns.find(p => matchGlob(filePath, p.pattern));
+  if (deniedBy) {
+    return { allowed: false, reason: `denied by ${deniedBy.pattern}` };
+  }
+
+  const allowPatterns = patterns.filter(p => p.type === 'allow');
+  if (allowPatterns.length === 0) {
+    return {
+      allowed: !failClosed,
+      reason: failClosed ? 'no writable scope declared for read-only REQ' : 'no scope declaration',
+    };
+  }
+
+  const allowed = allowPatterns.some(p => matchGlob(filePath, p.pattern));
+  return {
+    allowed,
+    reason: allowed ? 'matched allow pattern' : 'not in declared allow scope',
+  };
+}
+
+function hasReadOnlyBoundary(reqContent) {
+  const boundaryText = [
+    getMarkdownSection(reqContent, '## 非目标'),
+    getMarkdownSection(reqContent, '## 范围'),
+    getMarkdownSection(reqContent, '## 风险与回滚'),
+  ].join('\n').replace(/\s+/g, ' ');
+
+  const acceptanceText = getMarkdownSection(reqContent, '## 验收标准');
+  const cannotText = getCannotSection(getMarkdownSection(reqContent, '## 范围'));
+
+  return /只读分析|无代码改动|只产出报告|仅产出报告|仅做静态分析|不运行应用|无代码风险/.test(boundaryText) ||
+    /^-\s*(\[[ xX]\]\s*)?无代码改动/m.test(acceptanceText) ||
+    /(修改任何源代码|修改源代码|源代码或测试代码|测试代码|修改任何配置文件|修改配置文件)/i.test(cannotText);
+}
+
+function getMarkdownSection(content, heading) {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = content.match(new RegExp(`${escaped}\\n+([\\s\\S]*?)(?=\\n## |$)`));
+  return match ? match[1] : '';
+}
+
+function getCannotSection(scopeText) {
+  const match = scopeText.match(/\*\*禁止（CANNOT）\*\*：?\n+([\s\S]*?)(?=\n\*\*|\n### |\n## |$)/);
+  return match ? match[1] : '';
+}
+
+function isReadOnlyAllowPattern(pattern) {
+  return pattern.startsWith('requirements/reports/') ||
+    pattern === 'requirements/reports/**' ||
+    pattern.startsWith('docs/reports/') ||
+    pattern.includes('audit-report');
+}
+
+function buildEffectivePatterns(reqContent, patterns) {
+  if (!hasReadOnlyBoundary(reqContent)) {
+    return { patterns, readOnly: false };
+  }
+
+  const denyPatterns = patterns.filter(p => p.type === 'deny');
+  const allowPatterns = patterns
+    .filter(p => p.type === 'allow' && isReadOnlyAllowPattern(p.pattern));
+
+  if (allowPatterns.length === 0) {
+    allowPatterns.push({ pattern: 'requirements/reports/**', type: 'allow' });
+  }
+
+  return {
+    patterns: [...allowPatterns, ...denyPatterns],
+    readOnly: true,
+  };
 }
 
 /**
@@ -188,7 +313,9 @@ function isInRange(filePath, patterns) {
 function logViolation(rootDir, reqId, filePath, patterns) {
   const logFile = path.join(rootDir, '.claude', 'scope-violations.log');
   const timestamp = new Date().toISOString();
-  const entry = `${timestamp} | ${reqId} | BLOCKED | ${filePath} | allowed: ${patterns.map(p => p.pattern).join(', ')}\n`;
+  const allowPatterns = patterns.filter(p => p.type === 'allow').map(p => p.pattern).join(', ');
+  const denyPatterns = patterns.filter(p => p.type === 'deny').map(p => p.pattern).join(', ');
+  const entry = `${timestamp} | ${reqId} | BLOCKED | ${filePath} | allowed: ${allowPatterns || '(none)'} | denied: ${denyPatterns || '(none)'}\n`;
   try {
     fs.appendFileSync(logFile, entry);
   } catch {
@@ -240,28 +367,36 @@ async function main() {
   }
 
   // 4. Extract scope patterns
-  const patterns = extractScopePatterns(reqContent);
-  if (patterns.length === 0) return; // No scope declaration = backward compatible, allow
+  const extractedPatterns = extractScopePatterns(reqContent);
+  const { patterns, readOnly } = buildEffectivePatterns(reqContent, extractedPatterns);
+  if (patterns.length === 0 && !readOnly) return; // No scope declaration = backward compatible, allow
 
   // 5. Check if target is in range
-  if (isInRange(relPath, patterns)) return; // In range, allow
+  const range = evaluateRange(relPath, patterns, { failClosed: readOnly });
+  if (range.allowed) return; // In range, allow
 
   // 6. Out of range — block + log
   const mode = getHarnessMode(rootDir);
   logViolation(rootDir, reqId, relPath, patterns);
 
-  const patternList = patterns.map(p => `  - ${p.pattern}`).join('\n');
+  const patternList = patterns
+    .filter(p => p.type === 'allow')
+    .map(p => `  - ${p.pattern}`)
+    .join('\n') || '  - (none)';
+  const prefix = readOnly
+    ? `[ScopeGuard] 文件 "${relPath}" 被只读 REQ ${reqId} 阻断：${range.reason}。`
+    : `[ScopeGuard] 文件 "${relPath}" 不在 REQ ${reqId} 的声明范围内：${range.reason}。`;
 
   if (mode === 'supervised') {
     console.log(JSON.stringify({
       decision: 'block',
-      reason: `[ScopeGuard] 文件 "${relPath}" 不在 REQ ${reqId} 的声明范围内。\n\n允许的范围：\n${patternList}\n\n如需修改此文件，请先更新 REQ 的范围声明。`
+      reason: `${prefix}\n\n允许的范围：\n${patternList}\n\n如需修改此文件，请先更新 REQ 的范围声明。`
     }));
   } else {
     // collaborative 模式：温和提醒
     console.log(JSON.stringify({
       decision: 'block',
-      reason: `[ScopeGuard] 提醒：文件 "${relPath}" 不在 REQ ${reqId} 的声明范围内。\n\n允许的范围：\n${patternList}\n\n如果确实需要修改此文件，请先更新 REQ 的范围声明，或再次尝试。`
+      reason: `${prefix}\n\n允许的范围：\n${patternList}\n\n如果确实需要修改此文件，请先更新 REQ 的范围声明，或再次尝试。`
     }));
   }
 }

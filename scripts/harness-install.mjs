@@ -130,6 +130,7 @@ export const modules = {
       '.claude/settings.example.json',
       'scripts/session-start.js',
       'scripts/req-check.js',
+      'scripts/scope-guard.mjs',
       'scripts/event-store.mjs',
     ],
     hook: true,
@@ -634,10 +635,11 @@ function getPlatform() {
 function isHarnessHook(hook) {
   if (!hook || !hook.hooks || !Array.isArray(hook.hooks)) return false;
   return hook.hooks.some(h =>
-    h.command && (
-      h.command.includes('session-start') ||
-      h.command.includes('req-check')
-    )
+      h.command && (
+        h.command.includes('session-start') ||
+        h.command.includes('req-check') ||
+        h.command.includes('scope-guard')
+      )
   );
 }
 
@@ -664,6 +666,10 @@ export function configureHook(targetDir) {
     ? 'node "scripts/req-check.js"'
     : 'node "$(git rev-parse --show-toplevel)/scripts/req-check.js"';
 
+  const scopeGuardCommand = isWindows()
+    ? 'node "scripts/scope-guard.mjs"'
+    : 'node "$(git rev-parse --show-toplevel)/scripts/scope-guard.mjs"';
+
   const sessionStartHooks = [
     {
       matcher: '*',
@@ -686,6 +692,11 @@ export function configureHook(targetDir) {
           command: reqCheckCommand,
           timeout: 10,
         },
+        {
+          type: 'command',
+          command: scopeGuardCommand,
+          timeout: 10,
+        },
       ],
     },
   ];
@@ -697,6 +708,7 @@ export function configureHook(targetDir) {
     'Bash(git rev-parse:*)',
     'Bash(node scripts/session-start.js)',
     'Bash(node scripts/req-check.js)',
+    'Bash(node scripts/scope-guard.mjs)',
     'Bash(npm run:*)',
   ];
 
@@ -928,7 +940,7 @@ function formatCapabilityGaps(selectedModules, packageUpdate) {
     gaps.push('- package scripts 未绑定：当前只能直接运行 `node scripts/req-cli.mjs ...`，或指定 `--package-dir` / `--package-json` 后重新安装。');
   }
 
-  gaps.push('- 高级治理脚本未安装：`scope-guard`、`watchdog`、`risk-tracker`、`auto-review` 等不属于默认迁移模块，需后续按需迁移。');
+  gaps.push('- 高级治理脚本未安装：`watchdog`、`risk-tracker`、`auto-review` 等不属于默认迁移模块，需后续按需迁移。');
   gaps.push('- 测试、CI、`.claude/commands/` 不属于默认安装清单；默认安装是治理引导，不是完整镜像。');
 
   return gaps.join('\n');
@@ -977,7 +989,7 @@ ${results.failed.length > 0 ? `### 失败 (${results.failed.length} 个文件)\n
 
 ## PreToolUse Hook
 
-${hookEnabled ? '✅ 已配置（SessionStart + PreToolUse command hooks，PreToolUse 为硬阻断）' : '❌ 未配置'}
+${hookEnabled ? '✅ 已配置（SessionStart + PreToolUse command hooks，PreToolUse 为 REQ 状态与 scope 硬阻断）' : '❌ 未配置'}
 
 ## 命令绑定状态
 
@@ -1031,7 +1043,7 @@ ${verifyResults.passed.slice(0, 10).map(item => `- ${item}`).join('\n')}${verify
 
 ## 注意事项
 
-- 如果选择了 PreToolUse hook，无活跃 REQ、空模板 REQ 或 draft REQ 都会阻断 Write/Edit
+- 如果选择了 PreToolUse hook，无活跃 REQ、空模板 REQ、draft REQ 或 REQ scope 越界都会阻断 Write/Edit
 - \`req:create\` 只会生成骨架，不代表 REQ 已经可以直接实施
 - 可以使用 \`.claude/.req-exempt\` 临时豁免检查
 - 自动绑定只会复用目标项目已存在的标准脚本名，不会猜测非标准脚本语义
