@@ -1,8 +1,10 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-06-10
+Last updated: 2026-06-21
 
 Summary:
+- REQ-2026-084 已完成归档：S3-CP2 §7 决策评估表填实（七维度基于 `stats --metrics`、§7.2.5 聚合判定 0 任务图信号、§7.3.1 反向否决第 5 条命中：痛点=治理工具摩擦非并行协作）
+- REQ-2026-083 已完成归档：S3-CP1 退出确认（W23/W24/W25 周度 `s3_observation_data_recorded` 诚实回填、sealed expectation user 未填记录为协议缺陷、路线图 §3 勾选 + §8 日志、顶部阶段推进 S3-CP2）
 - REQ-2026-081 已完成归档：R4 规则补齐、git rev-parse 去重、hook 配置一致性/R4 覆盖检查、权限表清理
 - REQ-2026-082 已完成归档：scope-guard 默认安装链路与只读 REQ fail-closed 修复
 - REQ-2026-077 已完成: verifier 三入口默认值统一为 envelope,只读 handoff package 与回归测试已落地
@@ -15,19 +17,21 @@ Summary:
 - REQ-2026-070 已完成：Stage 2 / S2-CP1 事件 schema + append API 已落地
 - REQ-2026-066 已完成：Stage 1 / S1-CP6 退出确认通过，Independent Verifier 阶段收口
 - REQ-2026-067 已完成：历史 duplicate completed REQ ID 已修复，`check:governance` 通过
-- 当前路线进入 Stage 3 / S3-CP1：Stage 1 + Stage 2 真实使用观察期
+- 当前路线进入 Stage 3 / S3-CP3：§7 已填实（REQ-084），数据指向不开任务图，收口/修订待 user 拍板
 - ✅ 2026-06-03 多角度推演综合报告落盘：requirements/observations/2026-06-03-multi-angle-roadmap-deduction.md
 - ✅ 6 个开放问题 user 决策: envelope 默认 / 2026-05-31 起算 + 1 周热身 / Stage 2 重验 / 沿用原阈值 / $5 月度预算 / §10 推迟
 - ✅ REQ-2026-078 已完成:S3-CP1 路线图 patches、sealed expectation scaffold、`s3_observation_window_start` 事件已落盘
 
 Next steps:
-- User 填写 requirements/observations/S3-CP1-sealed-expectation-2026-06-03.md 的主观预期
-- 观察期内记录周度 `s3_observation_data_recorded` 事件,并运行 `node scripts/event-store.mjs stats --metrics`
-- 2026-06-14 后进入 S3-CP2:按 multi-agent-roadmap.md §7 填写决策评估表
+- S3-CP3 决策待 user 拍板：收口（single-agent + envelope 已够用，13 REQ 全过/0 失败/0 拦截/0 人工决策，转维护）vs 修订（建议：修治理工具摩擦 + §7 采数工作流，不开任务图）
+- §7.3 反向否决第 5 条命中（痛点=治理工具摩擦，非并行协作）→ 不开任务图；§7.2 维度实质不足（可信 2/4）但不影响该结论
+- 治理工具摩擦（scope-guard REQ-self 死锁、req-check hook module 噪声）+ governance warnings=125：收口或修订后另开 REQ 排查
 
 Open questions:
-- Sealed expectation 仍需 user 手写,agent 不代填
-- S3-CP2 是否按 2026-06-14 收口,取决于观察期内真实事件数量和 user 可用性
+- Sealed expectation user 选择不填（REQ-083 已记录为协议缺陷，主观维度 N/A）；user 后续可补填，agent 逐字记录
+- §7 维度不足（3/4）：是否需在 REQ-B 后另开 REQ 修工作流（默认 subagent verifier + human_decision 记录点）以采全维度，还是接受维度不足走收口/修订
+- governance warnings=125（REQ-083 前后一致，非本 REQ 引入）：值得另开 REQ 排查 baseline
+- 治理 hook 噪声：req-check.js 的 node module-type warning 污染 stderr 拦截 Edit、scope-guard 无 REQ-self 豁免导致起草死锁——两者均需另开 REQ 打磨
 
 Blockers:
 - None.

@@ -2,7 +2,7 @@
 
 > 起草日期: 2026-05-22  
 > 重整日期: 2026-05-31  
-> 当前阶段: **Stage 3 / S3-CP1 真实使用观察期**
+> 当前阶段: **Stage 3 / S3-CP3 决策（§7 已填实，待 user 拍板收口 / 修订）**
 > 当前 REQ: 无
 
 ---
@@ -133,8 +133,8 @@ Stage 3: Task Graph Decision Gate
 
 ### Stage 3: Task Graph Decision Gate
 
-- [ ] **S3-CP1** — Stage 1 + Stage 2 真实使用至少 2 周:起算 2026-05-31;热身至 2026-06-07;正式观察至 2026-06-14;启动手续由 `REQ-2026-078` 完成
-- [ ] **S3-CP2** — 填写 §7 决策评估表
+- [x] **S3-CP1** — Stage 1 + Stage 2 真实使用至少 2 周:起算 2026-05-31;热身至 2026-06-07;正式观察至 2026-06-14;启动手续由 `REQ-2026-078` 完成,收口手续由 `REQ-2026-083` 完成(周度 `s3_observation_data_recorded` 诚实回填 W23/W24/W25、sealed expectation user 未填记录为协议缺陷、退出确认报告落盘)
+- [x] **S3-CP2** — 填写 §7 决策评估表（REQ-2026-084：§7.1 七维度基于 `stats --metrics` 填实、§7.2.5 聚合判定、§7.3.1 反向否决核验；数据结论 = 不开任务图，收口 / 修订交 S3-CP3）
 - [ ] **S3-CP3** — 决策:路线收口 / 修订路线 / 开启完整任务图专项
 
 ---
@@ -395,13 +395,13 @@ node scripts/event-store.mjs stats --metrics
 
 | 维度 | 数据源 | 启用条件 | 任务图倾向阈值 | 当前数据 | 结论 |
 |------|--------|----------|----------------|----------|------|
-| 单 agent 复杂任务失败率 | `verifier_failed` + `retry_attempted` / `req_completed` | `req_completed >= 3` | > 30% 才考虑任务图 | (待 S3-CP2 填) | (待填) |
-| 并行任务真实数量 | worktree namespace 下 `req_started` 时间窗口重叠 | 至少 1 次并行窗口可复核 | >= 3 个 REQ 同时活跃才考虑任务图 | (待 S3-CP2 填) | (待填) |
-| 独立 verifier 拦截率 | `verifier_blocked` / (`verifier_blocked` + `verifier_passed`) | verifier 事件 >= 5 | < 20% 说明 verifier 弱不是主因 | (待 S3-CP2 填) | (待填) |
-| progress / projection 冲突次数 | `conflict_detected`、REQ audit、QA 报告 | 观察期内至少跑过一次聚合查询 | Stage 2 后仍频繁冲突才考虑更强协调 | (待 S3-CP2 填) | (待填) |
-| 人工调度成本 | `human_decision_made` 事件与 REQ 记录 | 至少 5 次人工决策记录 | 每个 REQ > 20 分钟才考虑自动任务图 | (待 S3-CP2 填) | (待填) |
-| verifier 成本压力 | `monthly_verifier_invocation_count`、`s3_verifier_cost_alert` | 有成本记录或明确无外部调用 | 月度 > 5 USD 先降级,不是直接上任务图 | (待 S3-CP2 填) | (待填) |
-| 主观复杂度意愿 | `S3-CP1-sealed-expectation-2026-06-03.md` 与观察后复盘 | user 已填写密封预期 | 仍愿承担复杂度才可进入任务图设计 | (待 user 填) | (待填) |
+| 单 agent 复杂任务失败率 | `verifier_failed` + `retry_attempted` / `req_completed` | `req_completed >= 3` | > 30% 才考虑任务图 | 0%（0/13；verifier_failed=0、retry_attempted=0、req_completed=13） | 远低于 30%，**不指向任务图** |
+| 并行任务真实数量 | worktree namespace 下 `req_started` 时间窗口重叠 | 至少 1 次并行窗口可复核 | >= 3 个 REQ 同时活跃才考虑任务图 | 13 个 req_started，**口径不可信**（脚本自标注时间窗口聚合未实现） | 无法判定，不计有效信号 |
+| 独立 verifier 拦截率 | `verifier_blocked` / (`verifier_blocked` + `verifier_passed`) | verifier 事件 >= 5 | < 20% 说明 verifier 弱不是主因 | verifier 事件 0（默认 envelope 未跑 subagent），分母 0 | **维度禁用**（启用条件 verifier 事件 >=5 未达） |
+| progress / projection 冲突次数 | `conflict_detected`、REQ audit、QA 报告 | 观察期内至少跑过一次聚合查询 | Stage 2 后仍频繁冲突才考虑更强协调 | 0 次（conflict_detected=0；观察期跑过 `req:status --all` 聚合） | 不指向更强协调 |
+| 人工调度成本 | `human_decision_made` 事件与 REQ 记录 | 至少 5 次人工决策记录 | 每个 REQ > 20 分钟才考虑自动任务图 | 0 次人工决策记录（human_decision_made=0） | **维度禁用**（启用条件 >=5 未达） |
+| verifier 成本压力 | `monthly_verifier_invocation_count`、`s3_verifier_cost_alert` | 有成本记录或明确无外部调用 | 月度 > 5 USD 先降级,不是直接上任务图 | 0 外部调用、0 成本（默认 envelope，明确无外部调用） | 无压力，不指向任务图 |
+| 主观复杂度意愿 | `S3-CP1-sealed-expectation-2026-06-03.md` 与观察后复盘 | user 已填写密封预期 | 仍愿承担复杂度才可进入任务图设计 | sealed 未填（REQ-083 记录为协议缺陷，密封已破） | **N/A**（主观数据缺失，维度降级） |
 
 ### 7.2 聚合规则
 
@@ -409,6 +409,27 @@ node scripts/event-store.mjs stats --metrics
 2. "开启任务图专项"至少需要 3 个维度指向任务图,且必须包含"单 agent 复杂任务失败率"或"并行任务真实数量"之一。
 3. "收口"需要 0-1 个维度指向任务图,且 user 主观复杂度意愿不支持继续扩张。
 4. "修订"用于 2 个以下任务图信号但仍有明确痛点的情况。
+
+### 7.2.5 S3-CP2 填表判定（2026-06-21，REQ-2026-084）
+
+**维度启用盘点**（数据源 `stats --metrics`，Total 69、req_completed=13）：
+
+- enabled=true（机械数 4）：failure_rate、parallel_req_count、conflict_count、subjective_honesty。
+- 实质可信可用（2）：failure_rate、conflict_count。
+- parallel_req_count：enabled 但口径不可信（时间窗口聚合未实现），不计有效。
+- subjective_honesty：enabled 但数据 N/A（sealed 未填），不计有效。
+- interception_rate、decision_time：enabled=false（采集前提未达）。
+
+**任务图指向信号数**：0（所有有效维度数据均不指向任务图）。
+
+**规则套用**：
+
+- §7.2.1（≥4 维度启用才能决策）：机械数 4，但去不可信/无数据后实质 2 → 不满足决策实质门槛。
+- §7.2.2（开任务图需 ≥3 指向 + 含失败率/并行）：指向任务图 0 个 → 不满足。
+- §7.2.3（收口需 0-1 指向 + user 主观不支持）：指向 0 个 ✓，但 user 主观 N/A → 主观条件无法由 sealed 确认。
+- §7.2.4（修订用于 ≤2 信号 + 仍有明确痛点）：信号 0 个 ✓ + 明确痛点（治理工具摩擦，见 REQ-083 experience）✓ → 修订匹配。
+
+**数据结论**：不开任务图。收口 vs 修订因 subjective N/A 无法由 §7.2 自动区分，交 S3-CP3 user 拍板；建议倾向**修订**（修治理工具摩擦 + 采数工作流，而非任务图）。
 
 ### 7.3 反向否决
 
@@ -419,6 +440,18 @@ node scripts/event-store.mjs stats --metrics
 - 密封预期文件由 agent 代填,或观察后才补主观预测。
 - verifier 默认模式混杂,无法判断数据来自 `legacy`、`envelope` 还是 `subagent`。
 - 主要痛点来自文档恢复、PreCompact、progress 投影或成本超预算,而不是并行协作本身。
+
+### 7.3.1 S3-CP2 反向否决核验（2026-06-21，REQ-2026-084）
+
+| # | 反向否决条件 | 核验 | 命中 |
+|---|---|---|---|
+| 1 | 观察期 <2 周且无延长记录 | 满 2 周（5/31–6/14）+ 超期 7 天已记录 | 否 |
+| 2 | 缺 window_start 或周度 data_recorded | start=1、data_recorded=3（REQ-083 补齐） | 否 |
+| 3 | sealed 由 agent 代填或观察后补主观预测 | user 未填、agent 未代填、未事后补（缺失≠造假；主观维度降级 N/A） | 否 |
+| 4 | verifier 默认模式混杂 | 统一 envelope，verifier 事件 0，口径一致 | 否 |
+| 5 | 主要痛点非并行协作（文档恢复/压缩/projection/成本） | 观察期实际痛点 = 治理工具摩擦（scope-guard 死锁、req-check hook 噪声），非并行协作 | **是** |
+
+**第 5 条命中 → 不得开启任务图专项。** 与 §7.2（0 任务图信号）一致。
 
 ---
 
@@ -445,6 +478,8 @@ node scripts/event-store.mjs stats --metrics
 | 2026-06-03 | user 决策:月度 verifier 成本 > 5 USD 告警并降级;§10 远期待办推迟到 S3-CP3 后再看 | 控制外部调用成本,避免远期共享库议题抢占观察期 | S3-CP1, §10 |
 | 2026-06-04 | `REQ-2026-075`、`REQ-2026-076`、`REQ-2026-077` 完成前置修复:事件 schema、worktree namespace、verifier 默认值和只读边界均已落盘 | 解决观察期 CRITICAL 债务,避免 S3-CP1 采到不可解释数据 | S3-CP1 |
 | 2026-06-05 | `REQ-2026-078` 启动 S3-CP1 观察期手续:应用路线图 patches、创建密封预期、写 `s3_observation_window_start` 事件 | 用户确认"1/2/3 做完才算正式进入观察期" | S3-CP1 |
+| 2026-06-21 | S3-CP1 退出确认(`REQ-2026-083`):诚实补记 W23/W24/W25 周度 `s3_observation_data_recorded`(ts=补记时刻,metrics 来自真实落盘事件);sealed expectation user 未填、密封已破坏,主观维度降级 N/A 作为协议缺陷记录;进入 S3-CP2 §7 填表 | 观察期已到期 7 天但周度数据缺失(命中 §7.3 反向否决第 2 条),需先诚实补齐客观数据才能进入 S3-CP2;不为凑 §7 维度改口径或代填 sealed | S3-CP1, S3-CP2 |
+| 2026-06-21 | S3-CP2 §7 填表完成(`REQ-2026-084`):§7.1 七维度基于 `stats --metrics` 填实、§7.2.5 聚合判定(0 任务图信号)、§7.3.1 反向否决核验(第 5 条命中:痛点为治理工具摩擦非并行协作) | 数据强烈指向不开任务图;收口 vs 修订因 sealed N/A 无法自动区分,交 S3-CP3 user 拍板,建议修订 | S3-CP2, S3-CP3 |
 
 ---
 

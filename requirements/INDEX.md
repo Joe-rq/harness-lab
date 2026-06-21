@@ -23,6 +23,8 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-084-s3-cp2-section-7-decision-table-fill.md`（真实整改：S3-CP2 section 7 decision table fill）
+- `REQ-2026-083-s3-cp1-exit-confirmation-and-weekly-data-record.md`（真实整改：S3-CP1 exit confirmation and weekly data record）
 - `REQ-2026-081-governance-safety-hardening.md`（真实整改：governance-safety-hardening）
 - `REQ-2026-082-scope-guard-hook-installation-drift.md`（真实整改：Fix scope guard enforcement and hook installation drift）
 - `REQ-2026-080-entry-docs-governance-coverage.md`（真实整改：entry-docs-governance-coverage）
