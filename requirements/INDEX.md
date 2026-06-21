@@ -15,7 +15,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 当前活跃 REQ
 
-- `REQ-2026-081-governance-safety-hardening.md`（真实整改：governance-safety-hardening）
+- 无
 
 ## 当前搁置 REQ
 
@@ -23,6 +23,8 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-081-governance-safety-hardening.md`（真实整改：governance-safety-hardening）
+- `REQ-2026-082-scope-guard-hook-installation-drift.md`（真实整改：Fix scope guard enforcement and hook installation drift）
 - `REQ-2026-080-entry-docs-governance-coverage.md`（真实整改：entry-docs-governance-coverage）
 - `REQ-2026-079-verified-governance-defects.md`（真实整改：Fix verified governance defects）
 - `REQ-2026-078-s3-cp1-observation-kickoff.md`（真实整改：S3-CP1 observation window kickoff）

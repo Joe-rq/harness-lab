@@ -81,7 +81,7 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 
 ### 2. PreToolUse Hook
 
-在 Write/Edit 操作前强制检查 REQ 状态：
+在 Write/Edit 操作前强制检查 REQ 状态与写入范围：
 
 ```
 触发条件：Write 或 Edit 文件
@@ -89,7 +89,8 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
   1. 当前是否有活跃 REQ
   2. REQ 是否有实际内容（非模板状态）
   3. REQ 状态是否为 draft
-输出：如无活跃 REQ 或 REQ 为模板状态，输出阻断信息并拒绝操作
+  4. 写入文件是否超出当前 REQ 的 Scope Control / 只读边界
+输出：如无活跃 REQ、REQ 为模板状态或写入越界，输出阻断信息并拒绝操作
 行为：硬阻断，必须先创建并填写 REQ 或使用豁免机制
 ```
 
@@ -110,12 +111,13 @@ rm .claude/.req-exempt
 
 | Hook 类型 | 脚本 | 用途 |
 |-----------|------|------|
+| PreToolUse | `req-check.js` / `scope-guard.mjs` | REQ 状态检查、scope 越界阻断 |
 | PostToolUse | `loop-detection.mjs` / `risk-tracker.mjs` / `watchdog.mjs` | 编辑后循环检测、风险追踪、停滞看门狗 |
 | PreCompact | `precompact-notify.mjs` | 上下文压缩前生成快照 |
 | Stop | `stop-evaluator.mjs` | 防假完成评估 |
 | SessionEnd | `session-reflect.mjs` | 会话反思与经验沉淀 |
 
-> 高级 hook 不在 `--with-hook` 默认安装范围内，需手动参考 `.claude/settings.local.json` 配置。
+> `--with-hook` 默认安装 SessionStart + PreToolUse（含 `req-check.js` 与 `scope-guard.mjs`）。PostToolUse、PreCompact、Stop、SessionEnd 等高级 hook 需手动参考 `.claude/settings.local.json` 配置。
 
 ### 4. Hook Timeout 配置
 

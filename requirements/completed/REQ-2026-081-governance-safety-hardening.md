@@ -1,8 +1,8 @@
 # REQ-2026-081: governance-safety-hardening
 
 ## 状态
-- 当前状态：in-progress
-- 当前阶段：implementation
+- 当前状态：completed
+- 当前阶段：qa
 
 ## 背景
 /simplify 审查和用户核实发现四个治理问题：
@@ -55,13 +55,13 @@
 - [x] skip-design-validation（代码修正 + 小范围增强，不需要设计稿）
 
 ## 验收标准
-- [ ] 6 个缺失的 hook 脚本在 R4 规则中（session-start.js、review-gatekeeper.mjs、deploy-guard.mjs、risk-tracker.mjs、watchdog.mjs、precompact-notify.mjs）
-- [ ] risk-tracker.mjs 每次 PostToolUse 只调用 1 次 git rev-parse
-- [ ] check:governance 检测 .codex/hooks.json 与 settings.local.json 的 hook 类型集合差异和每个 hook entry 的 matcher/command/timeout 字段一致性
-- [ ] check:governance 检测 hook 脚本未在 R4 规则中的降级情况
-- [ ] settings.local.json 权限表从 118 条清理到 ~45 条，保留所有通配符和 MCP 权限
-- [ ] `npm test` 通过
-- [ ] `npm run check:governance` 通过
+- [x] 6 个缺失的 hook 脚本在 R4 规则中（session-start.js、review-gatekeeper.mjs、deploy-guard.mjs、risk-tracker.mjs、watchdog.mjs、precompact-notify.mjs）
+- [x] risk-tracker.mjs 每次 PostToolUse 只调用 1 次 git rev-parse
+- [x] check:governance 检测 .codex/hooks.json 与 settings.local.json 的 hook 类型集合差异和每个 hook entry 的 matcher/command/timeout 字段一致性
+- [x] check:governance 检测 hook 脚本未在 R4 规则中的降级情况
+- [x] settings.local.json 权限表从 118 条清理到 ~45 条，保留所有通配符和 MCP 权限
+- [x] `npm test` 通过
+- [x] `npm run check:governance` 通过
 
 ## 设计与实现链接
 - 设计稿：无
@@ -79,16 +79,16 @@
 ### 反馈与质量检查
 
 #### 元反思检查（verify 阶段）
-- [ ] 目标实现
-- [ ] 旧功能保护
-- [ ] 逻辑正确性
-- [ ] 完整性
-- [ ] 可维护性
+- [x] 目标实现
+- [x] 旧功能保护
+- [x] 逻辑正确性
+- [x] 完整性
+- [x] 可维护性
 
 #### 对齐检查（record 阶段）
-- [ ] 目标对齐
-- [ ] 设计对齐
-- [ ] 验收标准对齐
+- [x] 目标对齐
+- [x] 设计对齐
+- [x] 验收标准对齐
 
 ## 阻塞 / 搁置说明（可选）
 - 原因：无

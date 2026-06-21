@@ -1,9 +1,10 @@
-Current active REQ: REQ-2026-081
-Current phase: implementation
-Last updated: 2026-06-06
+Current active REQ: none
+Current phase: idle
+Last updated: 2026-06-10
 
-Summary: REQ-2026-081 进行中，3 个文件改动
-- Active REQ: REQ-2026-081 (implementation)
+Summary:
+- REQ-2026-081 已完成归档：R4 规则补齐、git rev-parse 去重、hook 配置一致性/R4 覆盖检查、权限表清理
+- REQ-2026-082 已完成归档：scope-guard 默认安装链路与只读 REQ fail-closed 修复
 - REQ-2026-077 已完成: verifier 三入口默认值统一为 envelope,只读 handoff package 与回归测试已落地
 - REQ-2026-076 已完成: worktree 命名空间隔离落地,S2-CP5/S2-CP6 重验证据已通过
 - REQ-2026-075 已完成实现 + 自查 review + QA：Stage 3 §7 6 维度事件 type + version 字段 + rotation + stats --metrics CLI 落地
@@ -20,7 +21,6 @@ Summary: REQ-2026-081 进行中，3 个文件改动
 - ✅ REQ-2026-078 已完成:S3-CP1 路线图 patches、sealed expectation scaffold、`s3_observation_window_start` 事件已落盘
 
 Next steps:
-- Continue active REQ: REQ-2026-081
 - User 填写 requirements/observations/S3-CP1-sealed-expectation-2026-06-03.md 的主观预期
 - 观察期内记录周度 `s3_observation_data_recorded` 事件,并运行 `node scripts/event-store.mjs stats --metrics`
 - 2026-06-14 后进入 S3-CP2:按 multi-agent-roadmap.md §7 填写决策评估表

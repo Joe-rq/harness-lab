@@ -51,7 +51,7 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --package-dir a
 # 包含 PreToolUse hook
 node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 # --with-hook 会配置 SessionStart + PreToolUse hooks
-# PreToolUse 为硬阻断：无活跃 REQ 时禁止 Write/Edit
+# PreToolUse 为硬阻断：无活跃 REQ 或 REQ scope 越界时禁止 Write/Edit
 ```
 
 如果通过包分发方式安装，`package.json` 已暴露 `harness-install` bin，可使用：
@@ -63,7 +63,7 @@ npx harness-install --defaults --package-dir app
 npx harness-install --defaults --with-hook
 ```
 
-默认安装是治理引导，不是完整镜像；高级治理脚本、测试、CI 和 `.claude/commands/` 不在默认安装清单中。
+默认安装是治理引导，不是完整镜像；`watchdog`、`risk-tracker`、测试、CI 和 `.claude/commands/` 等高级治理能力不在默认安装清单中。
 默认 CLI 清单包含 `worktree-utils.mjs` 等运行时依赖，安装器回归测试会在迁移后的临时项目中实际执行 `req-cli.mjs` 与跨平台 hook，避免只复制入口脚本却遗漏依赖。
 
 **平台支持**：
@@ -92,7 +92,7 @@ npx harness-install --defaults --with-hook
 
 3. **替换 placeholder guard**：如果安装器没有找到真实命令，会在目标 `package.json` 中写入 `node scripts/template-guard.mjs <name>` 作为占位提示；这些脚本需要后续替换成真实链路
 
-4. **确认 hook 行为**：如果启用了 `--with-hook`，目标项目会在无活跃 REQ 时阻止文件修改；紧急小改动可用 `.claude/.req-exempt` 临时豁免
+4. **确认 hook 行为**：如果启用了 `--with-hook`，目标项目会在无活跃 REQ 或 REQ scope 越界时阻止文件修改；紧急小改动可用 `.claude/.req-exempt` 临时豁免
 
 5. **创建第一个 REQ**：
    ```bash
@@ -258,7 +258,7 @@ Stage 2 事件账本已完成退出确认。基础 API 位于 `scripts/event-sto
 安装器默认保留目标项目已有 REQ、报告和经验历史；如需清理带 Harness Lab 模板标记的历史文件，必须显式传入 `--clean-template-history`。
 `npm test` 还覆盖 `/harness-setup` command、`source-command-harness-setup` skill 和 `harness-install` package bin 的契约同步，防止一键接入说明与真实分发入口漂移。
 安装器测试会在复制完成后的 fixture 中实际运行 `node scripts/req-cli.mjs status`、`node scripts/session-start.js` 和带豁免的 `node scripts/req-check.js`，确保迁移结果不是只有文件存在，而是核心入口可执行。
-SessionStart 与 PreToolUse hook 入口已统一为跨平台的 `scripts/session-start.js` / `scripts/req-check.js`，旧的 `*.sh` 版本不再分发；如果你的本地配置仍指向 `.sh`，请同步替换为 `node scripts/*.js`（参考 `.claude/settings.example.json`）。
+SessionStart 与 PreToolUse hook 入口已统一为跨平台的 `scripts/session-start.js` / `scripts/req-check.js` / `scripts/scope-guard.mjs`，旧的 `*.sh` 版本不再分发；如果你的本地配置仍指向 `.sh`，请同步替换为 `node scripts/*.js` / `node scripts/*.mjs`（参考 `.claude/settings.example.json`）。
 
 ### 高级治理机制
 
@@ -273,7 +273,7 @@ SessionStart 与 PreToolUse hook 入口已统一为跨平台的 `scripts/session
 | Stop | `stop-evaluator.mjs` | 防假完成评估 |
 | SessionEnd | `session-reflect.mjs` | 会话反思与经验沉淀 |
 
-目标项目通过 `--with-hook` 获得基础 hook（SessionStart + PreToolUse）；高级 hook 需参考 `.claude/settings.local.json` 手动添加。
+目标项目通过 `--with-hook` 获得基础 hook（SessionStart + PreToolUse，其中 PreToolUse 包含 REQ 状态检查和 scope-guard）；高级 hook 需参考 `.claude/settings.local.json` 手动添加。
 
 **Harness 模式**：通过 `.claude/harness-mode` 文件切换（默认 `collaborative`）：
 - `collaborative`：hook 阻断 + 提醒

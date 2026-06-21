@@ -72,7 +72,7 @@ npx harness-install --defaults --with-hook
 | `context/` | 业务/技术/经验索引 | yes |
 | `skills/` 与 `.agents/skills/source-command-*` | 阶段导航技能、Claude Code source-command skills（含 `worktree-req`） | yes |
 | CLI 脚本 | `req-cli.mjs`, `req-audit.mjs`, `governance-health.mjs`, `req-validation.mjs`, `error-classifier.mjs`, `event-store.mjs`, `worktree-utils.mjs`, `docs-verify.mjs`, `check-governance.mjs`, `docs-sync-rules.json`, `template-guard.mjs` | yes |
-| 治理 hooks | `.claude/settings.example.json`, `scripts/session-start.js`, `scripts/req-check.js`, 本地 hook 配置 | no，需 `--with-hook` |
+| 治理 hooks | `.claude/settings.example.json`, `scripts/session-start.js`, `scripts/req-check.js`, `scripts/scope-guard.mjs`, 本地 hook 配置 | no，需 `--with-hook` |
 
 ## 安装器真实行为
 
@@ -94,7 +94,7 @@ npx harness-install --defaults --with-hook
 4. **配置 hooks（如果选择）**
    - 创建或更新 `.claude/settings.local.json`
    - 添加 `SessionStart + PreToolUse` 的 `command` hooks
-   - `PreToolUse` 为硬阻断：无活跃 REQ、空模板 REQ 或 draft REQ 时拒绝 `Write/Edit`
+   - `PreToolUse` 为硬阻断：无活跃 REQ、空模板 REQ、draft REQ 或 REQ scope 越界时拒绝 `Write/Edit`
    - macOS/Linux 使用 Git 根目录定位脚本；Windows 使用 Node.js 跨平台脚本
 
 5. **绑定目标项目命令**
@@ -136,9 +136,9 @@ npm run req:start -- --id REQ-YYYY-NNN --phase implementation
 ## 注意事项
 
 - `req:create` 只会生成骨架，不代表 REQ 已可直接实施
-- 如果启用 PreToolUse hook，无活跃 REQ、空模板 REQ 或 draft REQ 都会阻断 Write/Edit
+- 如果启用 PreToolUse hook，无活跃 REQ、空模板 REQ、draft REQ 或 REQ scope 越界都会阻断 Write/Edit
 - Claude Code 下遵循“一个 worktree 一个 active REQ”；需要并行新开 REQ 时使用 `source-command-worktree-req`
 - 紧急小改动可用 `.claude/.req-exempt` 临时豁免，完成后应删除
 - 自动绑定只会复用标准脚本名，不猜测 `test:unit`、`check`、`build:prod` 等非标准脚本语义
 - `npx harness-install` 依赖包分发时暴露 `bin`，本地开发时优先使用 `node scripts/harness-install.mjs`
-- 默认安装是治理引导，不是完整镜像；`scope-guard`、`watchdog`、`risk-tracker`、测试、CI 和 `.claude/commands/` 不在默认安装清单中
+- 默认安装是治理引导，不是完整镜像；`watchdog`、`risk-tracker`、测试、CI 和 `.claude/commands/` 不在默认安装清单中

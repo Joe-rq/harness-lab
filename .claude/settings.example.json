@@ -20,6 +20,11 @@
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/scripts/req-check.js\"",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/scope-guard.mjs\"",
+            "timeout": 10
           }
         ]
       }
@@ -33,6 +38,7 @@
       "Bash(git rev-parse:*)",
       "Bash(node scripts/session-start.js)",
       "Bash(node scripts/req-check.js)",
+      "Bash(node scripts/scope-guard.mjs)",
       "Bash(npm run:*)"
     ]
   }
