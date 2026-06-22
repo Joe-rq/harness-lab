@@ -562,10 +562,10 @@ Last updated: 2026-06-05
     );
 
     writeReq('in-progress', 'implementation');
-    runNodeScript('scripts/req-check.js', [], { cwd: tempDir });
+    runReqCheck(tempDir, 'Write', { file_path: path.join(tempDir, 'src/app.js') });
 
     writeReq('draft', 'design');
-    const failure = captureExecFailure(() => runNodeScript('scripts/req-check.js', [], { cwd: tempDir }));
+    const failure = captureExecFailure(() => runReqCheck(tempDir, 'Write', { file_path: path.join(tempDir, 'src/app.js') }));
     assert.equal(failure.status, 2);
     assert.match(failure.stdout, /Active REQ \(REQ-2026-777\) is not ready/);
   } finally {
@@ -583,6 +583,24 @@ function runScopeGuard(root, relPath, toolName = 'Write') {
         file_path: path.join(root, relPath),
       },
     }),
+    encoding: 'utf8',
+  });
+}
+
+// OPT-1A: run req-check with a synthetic PreToolUse stdin event.
+function runReqCheck(root, toolName, toolInput) {
+  return execFileSync(process.execPath, [path.join(repoRoot, 'scripts/req-check.js')], {
+    cwd: root,
+    input: JSON.stringify({ cwd: root, tool_name: toolName, tool_input: toolInput }),
+    encoding: 'utf8',
+  });
+}
+
+// OPT-1A: run scope-guard with a raw event (used for Bash branch tests).
+function runScopeGuardRaw(root, event) {
+  return execFileSync(process.execPath, [path.join(repoRoot, 'scripts/scope-guard.mjs')], {
+    cwd: root,
+    input: JSON.stringify({ cwd: root, ...event }),
     encoding: 'utf8',
   });
 }
@@ -688,6 +706,78 @@ Last updated: 2026-06-10
     );
 
     assert.equal(runScopeGuard(tempDir, 'server/app/main.py'), '');
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// OPT-1A: Bash write without a REQ must be blocked (closes the bypass).
+function testReqCheckBlocksBashWriteWithoutReq() {
+  const tempDir = createTempDir('req-check-bash-write');
+  try {
+    setupReqFixture(tempDir); // no active REQ
+    const redirect = captureExecFailure(() =>
+      runReqCheck(tempDir, 'Bash', { command: 'echo x > src/a.ts' })
+    );
+    assert.equal(redirect.status, 2);
+
+    const inplace = captureExecFailure(() =>
+      runReqCheck(tempDir, 'Bash', { command: "sed -i 's/a/b/' src/a.ts" })
+    );
+    assert.equal(inplace.status, 2);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// OPT-1A: pure-read Bash commands must pass without a REQ (zero friction).
+function testReqCheckAllowsBashPureReadWithoutReq() {
+  const tempDir = createTempDir('req-check-bash-read');
+  try {
+    setupReqFixture(tempDir); // no active REQ
+    runReqCheck(tempDir, 'Bash', { command: 'ls -la' });
+    runReqCheck(tempDir, 'Bash', { command: 'grep foo src/a.ts' });
+    runReqCheck(tempDir, 'Bash', { command: 'cat src/a.ts' });
+    runReqCheck(tempDir, 'Bash', { command: 'git status' });
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// OPT-1A: governance-dir whitelist must work now that stdin path is read (dead-code fix).
+function testReqCheckWhitelistRestoresGovernanceWrites() {
+  const tempDir = createTempDir('req-check-whitelist');
+  try {
+    setupReqFixture(tempDir); // no active REQ
+    runReqCheck(tempDir, 'Write', { file_path: path.join(tempDir, 'requirements/in-progress/REQ-x.md') });
+    runReqCheck(tempDir, 'Write', { file_path: path.join(tempDir, 'docs/plans/x.md') });
+    runReqCheck(tempDir, 'Write', { file_path: path.join(tempDir, '.claude/progress.txt') });
+    runReqCheck(tempDir, 'Bash', { command: 'echo x > .claude/state.json' });
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// OPT-1A: scope-guard judges Bash write targets against the active REQ scope.
+function testScopeGuardJudgesBashWriteScope() {
+  const tempDir = createTempDir('scope-guard-bash');
+  try {
+    writeFile(
+      tempDir,
+      '.claude/progress.txt',
+      `Current active REQ: REQ-2026-950\nCurrent phase: implementation\nLast updated: 2026-06-21\n`
+    );
+    writeFile(
+      tempDir,
+      'requirements/in-progress/REQ-2026-950-bash-scope.md',
+      `# REQ-2026-950: Bash scope fixture\n\n## 状态\n- 当前状态：in-progress\n- 当前阶段：implementation\n\n## 背景\n测 Bash 写范围判定。\n\n## 目标\n- 验证 Bash 写范围判定\n\n## 范围\n- 涉及文件：\n  - \`scripts/foo.mjs\`\n\n## 验收标准\n- [x] Bash 范围判定正确\n`
+    );
+    // In-scope Bash write → allow (empty output)
+    const inScope = runScopeGuardRaw(tempDir, { tool_name: 'Bash', tool_input: { command: 'echo x > scripts/foo.mjs' } });
+    assert.equal(inScope, '');
+    // Out-of-scope Bash write → block
+    const outScope = runScopeGuardRaw(tempDir, { tool_name: 'Bash', tool_input: { command: 'echo x > scripts/bar.mjs' } });
+    assert.equal(JSON.parse(outScope).decision, 'block');
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -1766,6 +1856,10 @@ const tests = [
   ['req-check accepts slugged active REQ files', testReqCheckAcceptsSluggedActiveReq],
   ['scope-guard blocks write attempts under read-only REQs', testScopeGuardBlocksReadOnlyReqWrites],
   ['scope-guard allows legacy REQs without scope declarations', testScopeGuardAllowsLegacyReqWithoutScope],
+  ['req-check blocks Bash writes without a REQ (OPT-1A)', testReqCheckBlocksBashWriteWithoutReq],
+  ['req-check allows Bash pure reads without a REQ (OPT-1A)', testReqCheckAllowsBashPureReadWithoutReq],
+  ['req-check whitelist restores governance-dir writes (OPT-1A)', testReqCheckWhitelistRestoresGovernanceWrites],
+  ['scope-guard judges Bash write targets against REQ scope (OPT-1A)', testScopeGuardJudgesBashWriteScope],
   ['local hook config uses existing JS entrypoints', testLocalHookConfigUsesExistingJsEntrypoints],
   ['auto-review uses arg array for shell syntax check', testAutoReviewUsesArgArrayForShellSyntaxCheck],
   ['package binding falls back to placeholder guards when commands are missing', testPackageBindingFallsBackToPlaceholderGuards],

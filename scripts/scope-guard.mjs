@@ -323,6 +323,63 @@ function logViolation(rootDir, reqId, filePath, patterns) {
   }
 }
 
+/**
+ * Classify a Bash command: does it write to the filesystem?
+ * Inlined copy kept in sync with scripts/req-check.js.
+ * If they drift, extract to scripts/bash-write-detect.mjs (REQ-2026-086).
+ */
+function classifyBashCommand(command) {
+  if (!command || typeof command !== 'string') {
+    return { writes: false, reason: null, targetPath: null };
+  }
+
+  const cleaned = command
+    .replace(/(?:^|[\s;|&(])2>&1\b/g, ' ')
+    .replace(/(?:2>&?|&>)\s*\/dev\/null\b/g, ' ')
+    .replace(/>{1,2}\s*\/dev\/null\b/g, ' ')
+    .replace(/(?:^|[\s;|&(])2>/g, ' ');
+
+  let m = cleaned.match(/(?:^|[\s;|&(])>{1,2}\s*(?!&[12])([^\s;&|)]+)/);
+  if (m) return { writes: true, reason: 'redirect', targetPath: m[1] };
+
+  m = command.match(/\|\s*(?:tee|sponge)\b(?:\s+-a)?\s+([^\s;&|]+)/);
+  if (m) return { writes: true, reason: 'pipe-write', targetPath: m[1] };
+
+  if (/\b(?:sed|perl)\s+(?:[^;]*?\s)?-i(?:nplace)?\b/.test(command) ||
+      /\bgawk\s+-i\s+inplace\b/.test(command) ||
+      /\bawk\s+-i\s+inplace\b/.test(command)) {
+    return { writes: true, reason: 'inplace-edit', targetPath: null };
+  }
+
+  m = command.match(/(?:^|[\s;|&(])(rm|mv|cp|touch|mkdir|ln)\b((?:\s+-[a-zA-Z-]+)*)(?:\s+([^\s;&|)]))/);
+  if (m) {
+    const opPart = command.slice(m.index);
+    const tokens = opPart.split(/\s+/).filter(Boolean);
+    let target = null;
+    for (let i = 1; i < tokens.length; i++) {
+      if (!tokens[i].startsWith('-')) { target = tokens[i]; break; }
+    }
+    return { writes: true, reason: 'file-op', targetPath: target };
+  }
+
+  if (/\bcat\s+<<.*?>/.test(command) || /\bcat\s*>{1,2}\s+/.test(command)) {
+    m = command.match(/\bcat\s*>{1,2}\s+([^\s;&|]+)/);
+    return { writes: true, reason: 'heredoc', targetPath: m ? m[1] : null };
+  }
+
+  return { writes: false, reason: null, targetPath: null };
+}
+
+/**
+ * Return the repo write target of a Bash command, or null if not a write
+ * or target unextractable. Used to judge scope for Bash writes.
+ */
+function bashWriteTarget(command) {
+  const v = classifyBashCommand(command);
+  if (!v.writes) return null;
+  return v.targetPath; // null for inplace-edit → caller skips scope judgment
+}
+
 async function main() {
   let event;
   try {
@@ -338,17 +395,23 @@ async function main() {
 
   const rootDir = event.cwd ? event.cwd.replace(/\/+$/, '') : getGitRoot();
 
-  // Only intercept Write and Edit
   const toolName = event.tool_name || '';
-  if (toolName !== 'Write' && toolName !== 'Edit') return;
 
-  // Extract target file path from tool input
-  const filePath = event.tool_input?.file_path;
-  if (!filePath) return; // No file path, can't check
-
-  // Get relative path from repo root
-  const relPath = path.relative(rootDir, filePath);
-  if (!relPath || relPath.startsWith('..')) return; // Outside repo, don't interfere
+  // Resolve the write target as a repo-relative path.
+  let relPath = null;
+  if (toolName === 'Write' || toolName === 'Edit' || toolName === 'NotebookEdit') {
+    const filePath = event.tool_input?.file_path;
+    if (!filePath) return; // No file path, can't check
+    relPath = path.relative(rootDir, filePath);
+    if (!relPath || relPath.startsWith('..')) return; // Outside repo, don't interfere
+  } else if (toolName === 'Bash') {
+    const target = bashWriteTarget(event.tool_input?.command || '');
+    if (!target) return; // Pure read, or unextractable write target → can't judge scope, allow (req-check still enforces REQ)
+    relPath = path.isAbsolute(target) ? path.relative(rootDir, target) : target.replace(/^\.\//, '');
+    if (!relPath || relPath.startsWith('..')) return; // Outside repo, don't interfere
+  } else {
+    return; // Other tools not governed by scope
+  }
 
   // 1. Check if there's an active REQ
   const reqId = getActiveReqId(rootDir);

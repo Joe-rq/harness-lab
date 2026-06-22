@@ -139,6 +139,15 @@ docs: 统一 commit 规范
 
 `MAX_EVENT_LINES` env var(默认 1000)可在测试时调小以触发 rotation 路径。
 
+## REQ 门禁 hook（PreToolUse，OPT-1A）
+
+`scripts/req-check.js` 与 `scripts/scope-guard.mjs` 从 stdin 读取 PreToolUse 事件（`{tool_name, tool_input, cwd}`），按 `tool_name` 分流：
+
+- `Write` / `Edit` / `NotebookEdit`：取 `file_path`，先过治理目录白名单（`requirements/` / `docs/plans/` / `.claude/`），再做 REQ 状态检查。
+- `Bash`：启发式判写命令（重定向 `>`/`>>`、`| tee`/`| sponge`、`sed -i`/`perl -i`/`gawk -i inplace`、`rm`/`mv`/`cp`/`touch`/`mkdir`/`ln`、heredoc `cat >`）；**纯读命令放行**，写命令等同 Write 走 REQ 检查。
+
+未覆盖 `perl -e` / `python -c` 等任意解释器写文件（理论不可封）；策略为覆盖高频模式 + 文档明示剩余缺口（REQ-2026-086 在 README「已知限制」补充声明）。改这两个 hook 的输入契约或 Bash 检测模式后，在 `tests/governance.test.mjs` 用 `runReqCheck` / `runScopeGuardRaw` 喂 stdin 补回归用例，并跑 `npm test`。
+
 ## Verifier 模式
 
 `HARNESS_VERIFIER_MODE` 的合法值为 `legacy`、`envelope`、`subagent`,默认值统一为 `envelope`。
