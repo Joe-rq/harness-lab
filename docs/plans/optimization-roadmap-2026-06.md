@@ -31,7 +31,7 @@ Harness Lab 已被外部验证的设计（**不要动**）：文件式跨会话�
 
 ---
 
-## OPT-1 🔴 强制执行完整性修复（Bash 绕过 + hook 失效偏移）
+## OPT-1 ✅ 强制执行完整性修复（Bash 绕过 + hook 失效偏移）— 已完成 REQ-2026-085 / REQ-2026-086
 
 **优先级**：最高。治理工具自身的承诺完整性是生命线；"号称硬阻断实际可绕过"比"声明为软约束"更伤信任。
 
@@ -88,6 +88,13 @@ Harness Lab 已被外部验证的设计（**不要动**）：文件式跨会话�
 
 - **误杀风险**：Bash 启发式拦截合法命令（如向 `/tmp` 写临时文件）→ 路径判定限定 repo 内 + `supervised` harness-mode 可整体降级为仅提醒；回滚 = matcher 还原 `Write|Edit`
 - **`"type": "module"` 副作用**：影响所有 `.js` 脚本加载 → REQ-B 单独成 REQ，失败可独立回滚
+
+### 完成记录（2026-06-22）
+
+- **REQ-2026-085（OPT-1A，commit `5ec9513`）**：req-check.js 从 env-var 死代码改为 stdin 契约 + tool_name 分流 + Bash 写启发式；scope-guard.mjs 加 Bash 写目标→范围判定；matcher 三处同步（settings.example/local + .codex）。范围实际 7 文件（matcher 三处同步 + docs-sync 强制 CONTRIBUTING，强耦合不可拆）。
+- **REQ-2026-086（OPT-1B，commit `4b0ec44`）**：harness-install `configureHook` matcher 传播 Bash 到目标项目；README/AGENTS 声明三类不可强制缺口；harness-doctor 三自检（Bash 覆盖 / stdin 契约 self-test / 平台缺口）。
+- **与原设计偏离**：原 REQ-B 含 `"type": "module"`（.mjs 后缀）与 hook 输出格式迁移，实际**显式缓做**——④ hook 格式旧兼容仍有效；⑤ .mjs 改名牵连 ~8 处引用 + 3 测试断言，高风险低收益。记于 REQ-086 关键决策，待真出现警告困扰或动机时再做。
+- **验证**：npm test（governance 40）/ docs:verify / check:governance / harness:doctor（7✅ 1⚠ 0❌）全绿。1⚠ 为 REQ 模板占位符（pre-existing，模板本就该留占位符）。
 
 ---
 
