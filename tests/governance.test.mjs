@@ -1933,6 +1933,63 @@ async function testExperienceAutoDraftFlow() {
   }
 }
 
+// REQ-088 #2: exemption heading lenient match (no "，可选" still detects skip-design).
+async function testExemptionHeadingLenient() {
+  const { validateDesignDocument } = await importFreshModule('scripts/req-validation.mjs');
+  const req = `# REQ-2026-999: Lenient heading
+
+## 状态
+- 当前状态：draft
+- 当前阶段：design
+
+## 背景
+Real background content.
+
+## 目标
+- Real goal
+
+## 验收标准
+- [ ] Real acceptance criteria
+
+### 约束（Scope Control）
+
+**豁免项**：
+- [x] skip-design-validation（小改动）
+`;
+  const result = validateDesignDocument('REQ-2026-999', req, repoRoot);
+  assert.ok(result.skipped, 'lenient heading (no ，可选) should still detect skip-design exemption');
+  assert.ok(result.valid);
+}
+
+// REQ-088 #3 + doctor: install appends .gitignore runtime ignores, ships harness-doctor.mjs, idempotent.
+async function testHarnessInstallGitignoreAndDoctor() {
+  const tempDir = createTempDir('harness-install-gitignore-doctor');
+  try {
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+    writeFile(tempDir, 'package.json', JSON.stringify({ name: 'fixture', scripts: {} }, null, 2));
+    harnessInstall.copyFiles(repoRoot, tempDir, ['cli']);
+    harnessInstall.appendGitignore(tempDir);
+
+    // T2: .gitignore contains harness runtime ignore marker
+    const gitignore = readFileSync(path.join(tempDir, '.gitignore'), 'utf8');
+    assert.match(gitignore, /Harness Lab 运行时状态/);
+    assert.match(gitignore, /\.claude\/\.req-exempt/);
+
+    // T3: scripts/ ships harness-doctor.mjs
+    assert.ok(existsSync(path.join(tempDir, 'scripts', 'harness-doctor.mjs')), 'doctor should be installed');
+
+    // T4: idempotent — second append does not duplicate the marker block
+    harnessInstall.appendGitignore(tempDir);
+    const markerCount = (readFileSync(path.join(tempDir, '.gitignore'), 'utf8').match(/Harness Lab 运行时状态/g) || []).length;
+    assert.equal(markerCount, 1, 'appendGitignore should be idempotent');
+
+    // cli module manifest includes doctor
+    assert.ok(harnessInstall.modules.cli.files.includes('scripts/harness-doctor.mjs'));
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
@@ -1975,6 +2032,8 @@ const tests = [
   ['README declares unenforceable REQ-gate gaps (OPT-1B)', testReadmeDeclaresUnenforceableGaps],
   ['harness-doctor includes OPT-1 self-checks (OPT-1B)', testDoctorIncludesOpt1Checks],
   ['experience auto-draft aggregates sources and complete does not block AUTO-DRAFT (OPT-3)', testExperienceAutoDraftFlow],
+  ['exemption heading match is lenient (REQ-088 #2)', testExemptionHeadingLenient],
+  ['install appends .gitignore, ships doctor, idempotent (REQ-088 #3)', testHarnessInstallGitignoreAndDoctor],
 ];
 
 let failures = 0;

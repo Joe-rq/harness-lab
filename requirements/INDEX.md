@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-088-second-project-defects.md`（真实整改：第二项目实验 3 缺陷修复（标题宽松 + install .gitignore + doctor 传播））
 - `REQ-2026-087-opt3-experience-auto-draft.md`（真实整改：OPT-3 — 经验文档自动草稿（聚合 commit/报告/事件账本））
 - `REQ-2026-086-opt1b-install-doctor-docs.md`（真实整改：OPT-1B — 目标项目 matcher 传播 + 缺口声明 + doctor 自检）
 - `REQ-2026-085-opt1a-req-check-stdin-bash.md`（真实整改：OPT-1A — req-check stdin 契约 + Bash 写入门禁）

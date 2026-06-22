@@ -108,6 +108,7 @@ export const modules = {
       'scripts/check-governance.mjs',
       'scripts/docs-sync-rules.json',
       'scripts/template-guard.mjs',
+      'scripts/harness-doctor.mjs',
     ],
     packageScripts: {
       'req:create': 'node scripts/req-cli.mjs create',
@@ -120,6 +121,7 @@ export const modules = {
       'docs:impact': 'node scripts/docs-verify.mjs --impact-only',
       'docs:impact:json': 'node scripts/docs-verify.mjs --impact-only --format json',
       'check:governance': 'node scripts/check-governance.mjs',
+      'harness:doctor': 'node scripts/harness-doctor.mjs',
     },
   },
   hook: {
@@ -646,6 +648,40 @@ function isHarnessHook(hook) {
 // 检测是否为 Windows 平台
 function isWindows() {
   return getPlatform() === 'win32';
+}
+
+// REQ-088 #3: 追加 harness 运行时状态忽略到目标 .gitignore（幂等）
+export function appendGitignore(targetDir) {
+  const gitignorePath = path.join(targetDir, '.gitignore');
+  const marker = '# Harness Lab 运行时状态（不提交）';
+  let existing = '';
+  if (fs.existsSync(gitignorePath)) {
+    existing = fs.readFileSync(gitignorePath, 'utf8');
+  }
+  if (existing.includes(marker)) return; // 幂等：已含标记段则不重复追加
+  const block = [
+    '',
+    marker,
+    '.claude/.docs-verify-status',
+    '.claude/.docs-impact-status',
+    '.claude/.docs-impact-json-status',
+    '.claude/.check-governance-status',
+    '.claude/.req-complete-status',
+    '.claude/.req-exempt',
+    '.claude/.loop-state/',
+    '.claude/.risk-ratchet',
+    '.claude/.watchdog-state',
+    '.claude/.compact-snapshot.md',
+    '.claude/.deploy-guard.log',
+    '.claude/.bash-write-audit.log',
+    '.claude/error.log',
+    '.claude/exempt-audit.log',
+    '.claude/scope-violations.log',
+    '.claude/events/',
+    '.claude/worktrees/',
+    '',
+  ].join('\n');
+  fs.writeFileSync(gitignorePath, existing + block, 'utf8');
 }
 
 // 配置 PreToolUse hook
@@ -1242,6 +1278,9 @@ export async function main() {
     hookEnabled = true;
     log('   ✅ 已配置', 'green');
   }
+
+  // REQ-088 #3: 追加 harness 运行时状态忽略到目标 .gitignore（防止状态文件污染 git status）
+  appendGitignore(targetDir);
 
   const packageUpdate = updateTargetPackageJson(targetDir, {
     packageDir: options.packageDir,

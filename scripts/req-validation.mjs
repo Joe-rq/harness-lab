@@ -199,7 +199,12 @@ const designPlaceholderPatterns = [
 // Check if a specific exemption is marked (checkbox [x] format or legacy text format)
 function hasExemption(reqContent, exemptionId) {
   // Use the full heading from REQ_TEMPLATE.md
-  const constraintSection = getSection(reqContent, '### 约束（Scope Control，可选）');
+  let constraintSection = getSection(reqContent, '### 约束（Scope Control，可选）');
+  if (!constraintSection) {
+    // 宽松回退（REQ-088 #2）：匹配 ### 约束 前缀，兼容漏写"，可选"的标题
+    const m = reqContent.match(/(?:^|\n)(### 约束[^\n]*)\n+([\s\S]*?)(?=\n## |$)/);
+    constraintSection = m ? m[2].trimEnd() : '';
+  }
   // New format: - [x] skip-design-validation
   const checkboxPattern = new RegExp(`- \\[x\\]\\s*${exemptionId}`, 'i');
   if (checkboxPattern.test(constraintSection)) {

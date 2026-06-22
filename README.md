@@ -94,6 +94,8 @@ npx harness-install --defaults --with-hook
 
 4. **确认 hook 行为**：如果启用了 `--with-hook`，目标项目会在无活跃 REQ 或 REQ scope 越界时阻止文件修改；紧急小改动可用 `.claude/.req-exempt` 临时豁免
 
+5. **自动配置**：`harness-install` 会自动追加 Harness Lab 运行时状态忽略段到目标 `.gitignore`（`.claude/.xxx-status` / `events/` / `worktrees/` 等，幂等），并安装 `harness-doctor.mjs`（`npm run harness:doctor` 诊断接入健康 + OPT-1 自检）
+
 5. **创建第一个 REQ**：
    ```bash
    npm run req:create -- --title "Your first requirement"
