@@ -685,7 +685,7 @@ export function configureHook(targetDir) {
 
   const preToolUseHooks = [
     {
-      matcher: 'Write|Edit',
+      matcher: 'Write|Edit|NotebookEdit|Bash',
       hooks: [
         {
           type: 'command',

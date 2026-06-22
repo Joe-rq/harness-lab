@@ -23,6 +23,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-086-opt1b-install-doctor-docs.md`（真实整改：OPT-1B — 目标项目 matcher 传播 + 缺口声明 + doctor 自检）
 - `REQ-2026-085-opt1a-req-check-stdin-bash.md`（真实整改：OPT-1A — req-check stdin 契约 + Bash 写入门禁）
 - `REQ-2026-084-s3-cp2-section-7-decision-table-fill.md`（真实整改：S3-CP2 section 7 decision table fill）
 - `REQ-2026-083-s3-cp1-exit-confirmation-and-weekly-data-record.md`（真实整改：S3-CP1 exit confirmation and weekly data record）

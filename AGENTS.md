@@ -81,10 +81,10 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 
 ### 2. PreToolUse Hook
 
-在 Write/Edit 操作前强制检查 REQ 状态与写入范围：
+在 Write/Edit/NotebookEdit 操作与 Bash 写命令前强制检查 REQ 状态与写入范围：
 
 ```
-触发条件：Write 或 Edit 文件
+触发条件：Write / Edit / NotebookEdit / Bash 写命令（纯读如 ls/grep/cat 放行）
 检查内容：
   1. 当前是否有活跃 REQ
   2. REQ 是否有实际内容（非模板状态）
@@ -93,6 +93,8 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 输出：如无活跃 REQ、REQ 为模板状态或写入越界，输出阻断信息并拒绝操作
 行为：硬阻断，必须先创建并填写 REQ 或使用豁免机制
 ```
+
+**不可强制边界**（上游平台限制，`npm run harness:doctor` 会提示）：subagent 工具调用不触发 PreToolUse（claude-code #21460 / #34692）、`claude -p` 非交互不触发（#40506）、`perl -e` / `python -c` 等解释器写（理论不可封）。剩余缺口靠 OS 级兜底（文件权限、容器化、CI 侧校验），详见 README「已知限制」。
 
 **补充说明**：
 - `req:create` 只负责创建骨架，不代表 REQ 已可实施

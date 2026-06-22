@@ -501,6 +501,7 @@ async function testHarnessInstallArtifacts() {
     assert.equal(settings.hooks.PreToolUse[0].hooks[0].type, 'command');
     assert.match(settings.hooks.PreToolUse[0].hooks[0].command, expectedReqCheck);
     assert.match(settings.hooks.PreToolUse[0].hooks[1].command, /scope-guard\.mjs/);
+    assert.match(settings.hooks.PreToolUse[0].matcher, /Bash/);
     assert.ok(settings.permissions.allow.includes('Bash(node scripts/req-check.js)'));
     assert.ok(settings.permissions.allow.includes('Bash(node scripts/scope-guard.mjs)'));
 
@@ -1844,6 +1845,33 @@ async function testHookConfigConsistencyBetweenCodexAndSettings() {
   }
 }
 
+// OPT-1B: README declares the three unenforceable gaps.
+function testReadmeDeclaresUnenforceableGaps() {
+  const readme = readFileSync(path.join(repoRoot, 'README.md'), 'utf8');
+  assert.match(readme, /REQ 门禁不可强制场景/);
+  assert.match(readme, /subagent/);
+  assert.match(readme, /claude -p/);
+  assert.match(readme, /perl -e|python -c|解释器/);
+}
+
+// OPT-1B: harness-doctor includes the three OPT-1 checks and they appear in --json output.
+function testDoctorIncludesOpt1Checks() {
+  const src = readFileSync(path.join(repoRoot, 'scripts', 'harness-doctor.mjs'), 'utf8');
+  assert.match(src, /checkPreToolUseBashMatcher/);
+  assert.match(src, /checkReqCheckStdinSelfTest/);
+  assert.match(src, /checkPlatformGaps/);
+
+  const json = execFileSync(process.execPath, [path.join(repoRoot, 'scripts/harness-doctor.mjs'), '--json'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  const results = JSON.parse(json);
+  const names = results.map((r) => r.name);
+  assert.ok(names.some((n) => /Bash 覆盖/.test(n)), 'doctor should report PreToolUse Bash coverage');
+  assert.ok(names.some((n) => /stdin 契约/.test(n)), 'doctor should report req-check stdin self-test');
+  assert.ok(names.some((n) => /不可强制边界/.test(n)), 'doctor should report platform gaps');
+}
+
 const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
@@ -1883,6 +1911,8 @@ const tests = [
   ['risk-tracker calls git rev-parse exactly once', testRiskTrackerCallsGitRevParseOnce],
   ['permissions table is clean and within limits', testPermissionsTableIsClean],
   ['hook config is consistent between .codex/hooks.json and settings.local.json', testHookConfigConsistencyBetweenCodexAndSettings],
+  ['README declares unenforceable REQ-gate gaps (OPT-1B)', testReadmeDeclaresUnenforceableGaps],
+  ['harness-doctor includes OPT-1 self-checks (OPT-1B)', testDoctorIncludesOpt1Checks],
 ];
 
 let failures = 0;

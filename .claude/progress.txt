@@ -1,6 +1,6 @@
 Current active REQ: none
 Current phase: idle
-Last updated: 2026-06-21
+Last updated: 2026-06-22
 
 Summary:
 - REQ-2026-084 已完成归档：S3-CP2 §7 决策评估表填实（七维度基于 `stats --metrics`、§7.2.5 聚合判定 0 任务图信号、§7.3.1 反向否决第 5 条命中：痛点=治理工具摩擦非并行协作）

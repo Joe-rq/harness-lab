@@ -333,6 +333,11 @@ SessionStart 与 PreToolUse hook 入口已统一为跨平台的 `scripts/session
 **已知限制**：
 - 单用户设计：无多租户/权限系统，不适合多人同时操作同一仓库
 - 无并发控制：文件系统存储，多人/多 agent 同时写入可能导致数据丢失
+- **REQ 门禁不可强制场景**（PreToolUse 上游限制，`npm run harness:doctor` 会提示）：
+  - subagent 工具调用不触发 PreToolUse（claude-code #21460 / #34692）
+  - `claude -p` 非交互模式不触发（#40506）
+  - `perl -e` / `python -c` 等任意解释器写文件（理论不可封；req-check 仅覆盖高频模式 `>` / `>>` / `tee` / `sed -i` / `rm` / `mv` / `cp` / `touch` / `mkdir` / `ln` / heredoc）
+  - 剩余缺口建议 OS 级兜底：文件权限（只读 checkout）、容器化隔离、CI 侧独立校验
 
 **worktree 支持**：
 - 可用 `git worktree` 为每个 REQ 创建独立工作目录并行推进

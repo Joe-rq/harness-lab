@@ -7,6 +7,7 @@
 
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
+import { spawnSync } from "child_process";
 
 const ROOT = process.cwd();
 const args = process.argv.slice(2);
@@ -277,15 +278,67 @@ function checkInvariants() {
   };
 }
 
+// ── 检查 6: PreToolUse Bash 覆盖（OPT-1B）─────────────────────
+
+function checkPreToolUseBashMatcher() {
+  const settingsPath = join(ROOT, ".claude", "settings.local.json");
+  const settings = readJson(settingsPath);
+  if (!settings || !Array.isArray(settings.hooks?.PreToolUse)) {
+    return {
+      name: "PreToolUse Bash 覆盖",
+      status: "warn",
+      detail: "无 PreToolUse 配置，Bash 写绕过 REQ 门禁",
+      fix: "运行 /harness-setup --with-hook 安装治理 hook"
+    };
+  }
+  const coversBash = settings.hooks.PreToolUse.some(e => /\bBash\b/.test(e.matcher || ""));
+  return coversBash
+    ? { name: "PreToolUse Bash 覆盖", status: "pass", detail: "PreToolUse matcher 含 Bash（req-check/scope-guard 对 Bash 写生效）", fix: null }
+    : { name: "PreToolUse Bash 覆盖", status: "warn", detail: "PreToolUse matcher 未含 Bash，Bash 写绕过 REQ 门禁", fix: "将 PreToolUse matcher 扩为 Write|Edit|NotebookEdit|Bash" };
+}
+
+// ── 检查 7: req-check stdin 契约 self-test（OPT-1B）──────────
+
+function checkReqCheckStdinSelfTest() {
+  const reqCheckPath = join(ROOT, "scripts", "req-check.js");
+  if (!existsSync(reqCheckPath)) {
+    return { name: "req-check stdin 契约", status: "warn", detail: "scripts/req-check.js 不存在，跳过 self-test", fix: null };
+  }
+  // 纯读 Bash 命令应放行（exit 0），与 active REQ 无关 —— 作为 stdin 契约存活信号
+  // （防止 OPT-1A 修复的 env-var 死代码回归）
+  const result = spawnSync(process.execPath, [reqCheckPath], {
+    input: JSON.stringify({ cwd: ROOT, tool_name: "Bash", tool_input: { command: "ls -la" } }),
+    encoding: "utf8",
+  });
+  if (result.status === 0) {
+    return { name: "req-check stdin 契约", status: "pass", detail: "self-test: 纯读 Bash 命令正确放行（stdin 解析生效，非 env-var 死代码）", fix: null };
+  }
+  return { name: "req-check stdin 契约", status: "warn", detail: `self-test: 纯读命令未放行（exit ${result.status}），stdin 契约可能退化`, fix: "检查 req-check.js 是否从 stdin 读取 tool_name（OPT-1A）" };
+}
+
+// ── 检查 8: 不可强制边界提示（OPT-1B）────────────────────────
+
+function checkPlatformGaps() {
+  return {
+    name: "不可强制边界（平台缺口）",
+    status: "pass",
+    detail: "subagent / claude -p 不触发 PreToolUse；perl -e / python -c 等解释器写不可封。剩余缺口靠 OS 级兜底（文件权限/容器化/CI 校验），见 README「已知限制」",
+    fix: null,
+  };
+}
+
 // ── 主流程 ────────────────────────────────────────────────────
 
 function runAllChecks() {
   return [
     checkHookConfig(),
     checkHookScripts(),
+    checkPreToolUseBashMatcher(),
+    checkReqCheckStdinSelfTest(),
     checkReqTemplate(),
     checkExperience(),
-    checkInvariants()
+    checkInvariants(),
+    checkPlatformGaps()
   ];
 }
 
