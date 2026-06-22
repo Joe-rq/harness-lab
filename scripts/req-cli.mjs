@@ -28,6 +28,7 @@ import {
 import { auditReqClosure, auditReqPostComplete } from './req-audit.mjs';
 import {
   appendEvent,
+  readEvents,
   buildProgressProjection,
   buildWorktreeProgressProjections,
 } from './event-store.mjs';
@@ -1482,6 +1483,14 @@ export function completeCommand(options) {
     }
 
     console.log(`Experience document check passed: ${expResult.files.join(', ')}`);
+
+    // OPT-3: AUTO-DRAFT reminder (non-blocking — human confirmation is the gate, not the hook)
+    for (const expFile of expResult.files) {
+      const expContent = readFileSync(toFullPath(`context/experience/${expFile}`), 'utf8');
+      if (expContent.includes('AUTO-DRAFT')) {
+        console.warn(`Experience document ${expFile} still contains AUTO-DRAFT marker — confirm sediment points then remove the marker (non-blocking).`);
+      }
+    }
   } else if (typeof skipExperience === 'string') {
     // Log the skip reason for audit purposes
     console.log(`Experience document check skipped: ${skipExperience}`);
@@ -1568,8 +1577,8 @@ export function experienceCommand(options) {
     fail(`Experience document already exists: ${expPath}`);
   }
 
-  // Build experience content from template
-  const content = buildExperienceContent(reqId, req.title, date);
+  // OPT-3: build experience content from aggregated draft (REQ sections + git + reports + event ledger)
+  const content = buildExperienceDraft(reqId, req, date);
   write(expPath, content);
 
   console.log(`Created experience document for ${reqId}`);
@@ -1582,44 +1591,99 @@ export function experienceCommand(options) {
   console.log('  - Patterns worth reusing in future projects');
 }
 
-function buildExperienceContent(reqId, title, date) {
-  return [
-    `# ${date} ${title}`,
-    '',
-    '## 场景',
-    '',
-    `{描述 ${reqId} 解决的核心问题或场景}`,
-    '',
-    '## 关联材料',
-    '',
-    `- REQ: \`requirements/completed/${reqId}.md\``,
-    `- Design: \`docs/plans/${reqId}-design.md\`（如有）`,
-    `- Code Review: \`requirements/reports/${reqId}-code-review.md\``,
-    `- QA: \`requirements/reports/${reqId}-qa.md\``,
-    '',
-    '## 问题 / 模式',
-    '',
-    '- {遇到的关键问题或重复模式}',
-    '- {踩过的坑}',
-    '- {意外的复杂度}',
-    '',
-    '## 关键决策',
-    '',
-    `- {决策 1：为什么这样做，而不是那样做}`,
-    `- {决策 2：权衡了哪些因素}`,
-    '',
-    '## 解决方案',
-    '',
-    '1. {具体步骤或方法}',
-    '2. {工具或技术的使用方式}',
-    '3. {验证手段}',
-    '',
-    '## 复用建议',
-    '',
-    '- {下次遇到类似场景如何直接套用}',
-    '- {需要调整的边界条件}',
-    '- {相关的其他经验文档}',
-  ].join('\n');
+// ── OPT-3: experience auto-draft (aggregate sources, no LLM) ────────────────
+
+function collectReqSections(reqContent) {
+  const get = (heading) => {
+    const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const m = reqContent.match(new RegExp(`${escaped}\\s*\\n([\\s\\S]*?)(?=\\n## |$)`));
+    return m ? m[1].trim() : '';
+  };
+  return {
+    background: get('## 背景'),
+    decisions: get('## 关键决策'),
+  };
+}
+
+function collectGitCommits(reqId, root) {
+  try {
+    const log = execSync(`git log --grep=${reqId} --format='%h %s'`, {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+    return log ? log.split('\n').map((l) => l.trim()).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function collectReports(reqId, root) {
+  const dir = path.join(root, 'requirements', 'reports');
+  const out = [];
+  if (!existsSync(dir)) return out;
+  for (const f of readdirSync(dir).filter((n) => n.startsWith(reqId) && n.endsWith('.md'))) {
+    const content = readFileSync(path.join(dir, f), 'utf8');
+    const m = content.match(/([✅❌⚠️✓✗][^\n*)]{0,80})/);
+    out.push({ file: f, conclusion: m ? m[1].trim() : '(无明确状态标记)' });
+  }
+  return out;
+}
+
+function collectTimeline(reqId, root) {
+  let events = [];
+  try {
+    events = readEvents({ rootDir: root, warn: false });
+  } catch {
+    events = [];
+  }
+  return events
+    .filter((e) => e.reqId === reqId)
+    .map((e) => `- ${e.ts} ${e.type}${e.phase ? ` (${e.phase})` : ''}`);
+}
+
+function buildExperienceDraft(reqId, req, date) {
+  const root = process.cwd();
+  const sections = collectReqSections(req.content);
+  const commits = collectGitCommits(reqId, root);
+  const reports = collectReports(reqId, root);
+  const timeline = collectTimeline(reqId, root);
+
+  const lines = [];
+  lines.push('<!-- AUTO-DRAFT: 以下内容为脚本聚合，需人工确认后删除本标记 -->');
+  lines.push(`# ${date} ${req.title}`);
+  lines.push('');
+  lines.push('## 场景（来自 REQ 背景）');
+  lines.push('');
+  lines.push(sections.background || '(REQ 背景为空)');
+  lines.push('');
+  lines.push('## 实施时间线（来自事件账本）');
+  lines.push('');
+  lines.push(timeline.length > 0 ? timeline.join('\n') : '(无事件记录)');
+  lines.push('');
+  lines.push('## 关联提交（来自 git log --grep）');
+  lines.push('');
+  lines.push(commits.length > 0 ? commits.map((c) => `- ${c}`).join('\n') : '(无关联提交)');
+  lines.push('');
+  lines.push('## 验证结论（来自报告）');
+  lines.push('');
+  lines.push(reports.length > 0 ? reports.map((r) => `- ${r.file}: ${r.conclusion}`).join('\n') : '(无报告)');
+  lines.push('');
+  lines.push('## 关键决策（来自 REQ）');
+  lines.push('');
+  lines.push(sections.decisions || '(REQ 无关键决策段)');
+  lines.push('');
+  lines.push('## 沉淀要点（人工填写）');
+  lines.push('');
+  lines.push('- (待人工确认后补充：可复用模式 / 踩坑 / 反模式)');
+  lines.push('');
+  lines.push('## 关联材料');
+  lines.push('');
+  lines.push(`- REQ: \`requirements/completed/${reqId}.md\``);
+  lines.push(`- Design: \`docs/plans/${reqId}-design.md\`（如有）`);
+  lines.push(`- Code Review: \`requirements/reports/${reqId}-code-review.md\``);
+  lines.push(`- QA: \`requirements/reports/${reqId}-qa.md\``);
+  return lines.join('\n');
 }
 
 export function printHelp() {

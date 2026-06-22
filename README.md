@@ -206,7 +206,7 @@ npm run req:status -- --json
 # 按 REQ ID 查询任意 REQ 状态（含 completed / blocked）
 npm run req:status -- --json --id REQ-YYYY-NNN
 
-# 创建经验文档（完成前必须）
+# 创建经验文档（完成前必须；OPT-3 起自动聚合 REQ 背景/git 关联提交/报告结论/事件账本时间线为草稿，人工确认沉淀要点后删除 AUTO-DRAFT 标记）
 npm run req:experience -- --id REQ-YYYY-NNN
 
 # 完成

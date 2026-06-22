@@ -1872,6 +1872,67 @@ function testDoctorIncludesOpt1Checks() {
   assert.ok(names.some((n) => /不可强制边界/.test(n)), 'doctor should report platform gaps');
 }
 
+// OPT-3: experience auto-draft aggregates REQ/git/reports/events, complete does not block AUTO-DRAFT.
+async function testExperienceAutoDraftFlow() {
+  const tempDir = createTempDir('exp-autodraft-flow');
+  const previousCwd = process.cwd();
+  try {
+    setupReqFixture(tempDir);
+    process.chdir(tempDir);
+    const reqCli = await importFreshModule('scripts/req-cli.mjs');
+    reqCli.createCommand({ title: 'Exp autodraft flow', slug: 'exp-autodraft-flow' });
+    const reqPath = path.join(tempDir, 'requirements/in-progress/REQ-2026-001-exp-autodraft-flow.md');
+    let c = readFileSync(reqPath, 'utf8');
+    c = c.replace('说明为什么要做这件事。', '测 OPT-3 experience 自动草稿聚合与 complete 不阻断。');
+    c = c.replace('- 目标 1', '- 验证聚合草稿生成');
+    c = c.replace('- 目标 2', '- 验证 complete 不阻断 AUTO-DRAFT');
+    c = c.replace(/- \[ \] 标准 1/g, '- [x] 草稿含 AUTO-DRAFT + 聚合内容');
+    c = c.replace(/- \[ \] 标准 2/g, '- [x] complete 成功完成');
+    c = c.replace(/- \[ \] 目标实现/g, '- [x] 目标实现');
+    c = c.replace(/- \[ \] 旧功能保护/g, '- [x] 旧功能保护');
+    c = c.replace(/- \[ \] 逻辑正确性/g, '- [x] 逻辑正确性');
+    c = c.replace(/- \[ \] 完整性/g, '- [x] 完整性');
+    c = c.replace(/- \[ \] 可维护性/g, '- [x] 可维护性');
+    c = c.replace(/- \[ \] 目标对齐/g, '- [x] 目标对齐');
+    c = c.replace(/- \[ \] 设计对齐/g, '- [x] 设计对齐');
+    c = c.replace(/- \[ \] 验收标准对齐/g, '- [x] 验收标准对齐');
+    c = c.replace('### 约束（Scope Control，可选）', '### 约束（Scope Control，可选）\n\n**豁免项**：\n- [x] skip-design-validation');
+    writeFileSync(reqPath, c, 'utf8');
+    reqCli.startCommand({ id: 'REQ-2026-001', phase: 'implementation' });
+
+    // report for 验证结论 aggregation
+    const reportsDir = path.join(tempDir, 'requirements', 'reports');
+    mkdirSync(reportsDir, { recursive: true });
+    writeFileSync(path.join(reportsDir, 'REQ-2026-001-qa.md'), '# QA\n\n## 状态\n\n- ✅ 通过\n\n## 验证证据\n\n| 类型 | 项目 | 结果 | 摘要 |\n|------|------|------|------|\n| 命令 | npm test | PASS | fixture |\n', 'utf8');
+
+    // T1+T3: experience auto-draft (aggregated; no git → degraded)
+    reqCli.experienceCommand({ id: 'REQ-2026-001' });
+    const expDir = path.join(tempDir, 'context/experience');
+    const expFile = readdirSync(expDir).find((f) => f.startsWith('REQ-2026-001'));
+    assert.ok(expFile, 'experience file should be created');
+    const expContent = readFileSync(path.join(expDir, expFile), 'utf8');
+    assert.match(expContent, /AUTO-DRAFT/, 'draft should carry AUTO-DRAFT marker');
+    assert.match(expContent, /场景（来自 REQ 背景）/, 'should aggregate REQ background section');
+    assert.match(expContent, /测 OPT-3 experience 自动草稿聚合/, 'background content should be aggregated');
+    assert.match(expContent, /验证结论（来自报告）/, 'should aggregate report conclusions');
+    assert.match(expContent, /\(无关联提交\)/, 'no git history → degraded gracefully');
+    assert.match(expContent, /实施时间线（来自事件账本）/, 'should aggregate event ledger timeline');
+
+    // T2: complete with AUTO-DRAFT experience must NOT block
+    writeFileSync(path.join(reportsDir, 'REQ-2026-001-code-review.md'), '# Code Review\n\n## 状态\n\n- ✅ 通过\n', 'utf8');
+    const statusFile = path.join(tempDir, '.claude', '.req-complete-status');
+    writeFileSync(statusFile, 'M requirements/INDEX.md\n', 'utf8');
+    reqCli.completeCommand({ id: 'REQ-2026-001', phase: 'qa', 'no-docs-gate': true, 'status-file': statusFile });
+    assert.ok(
+      existsSync(path.join(tempDir, 'requirements/completed/REQ-2026-001-exp-autodraft-flow.md')),
+      'AUTO-DRAFT experience must not block req:complete'
+    );
+  } finally {
+    process.chdir(previousCwd);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
@@ -1913,6 +1974,7 @@ const tests = [
   ['hook config is consistent between .codex/hooks.json and settings.local.json', testHookConfigConsistencyBetweenCodexAndSettings],
   ['README declares unenforceable REQ-gate gaps (OPT-1B)', testReadmeDeclaresUnenforceableGaps],
   ['harness-doctor includes OPT-1 self-checks (OPT-1B)', testDoctorIncludesOpt1Checks],
+  ['experience auto-draft aggregates sources and complete does not block AUTO-DRAFT (OPT-3)', testExperienceAutoDraftFlow],
 ];
 
 let failures = 0;
