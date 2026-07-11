@@ -15,7 +15,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 当前活跃 REQ
 
-- 无
+- `REQ-2026-091-p0-executable-user-docs.md`（真实整改：P0 用户可执行文档与首个 REQ 向导）
 
 ## 当前搁置 REQ
 
@@ -23,6 +23,8 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-090-p0-canonical-path-multi-target-guard.md`（真实整改：P0 canonical path 与多写目标门禁）
+- `REQ-2026-089-review-plan-p0-distribution-installation.md`（真实整改：P0 公开分发与安装闭环）
 - `REQ-2026-088-second-project-defects.md`（真实整改：第二项目实验 3 缺陷修复（标题宽松 + install .gitignore + doctor 传播））
 - `REQ-2026-087-opt3-experience-auto-draft.md`（真实整改：OPT-3 — 经验文档自动草稿（聚合 commit/报告/事件账本））
 - `REQ-2026-086-opt1b-install-doctor-docs.md`（真实整改：OPT-1B — 目标项目 matcher 传播 + 缺口声明 + doctor 自检）

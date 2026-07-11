@@ -14,9 +14,9 @@ Harness Lab 是一套可内嵌到已有仓库的治理框架：
 - **上下文延续**：跨会话恢复工作状态，减少重复沟通
 
 **核心优势**：
-- **零外部依赖**：无 npm 依赖，无供应链风险，一键接入
+- **零第三方运行依赖**：无 npm 依赖，依赖攻击面较小，一键接入
 - **轻量高效**：零运行时依赖，约 1 万行治理脚本覆盖完整链路
-- **透明可审计**：所有数据均为 Markdown 文件，Git 友好
+- **透明可审计**：人工维护的治理资产以 Markdown 为主，运行时状态使用 JSON / JSONL，均可由 Git 和本地工具审阅
 
 GitHub: [Joe-rq/harness-lab](https://github.com/Joe-rq/harness-lab)
 
@@ -57,14 +57,17 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 如果通过包分发方式安装，`package.json` 已暴露 `harness-install` bin，可使用：
 
 ```bash
-npx harness-install --defaults
-npx harness-install --defaults --dry-run
-npx harness-install --defaults --package-dir app
-npx harness-install --defaults --with-hook
+npx --yes --package=harness-lab harness-install --defaults
+npx --yes --package=harness-lab harness-install --defaults --dry-run
+npx --yes --package=harness-lab harness-install --defaults --package-dir app
+npx --yes --package=harness-lab harness-install --defaults --with-hook
 ```
 
+这里显式区分 npm 包名 `harness-lab` 与 bin 名 `harness-install`，避免 `npx` 把 bin 名误当成另一个包名。发布前回归会从本地 tarball 执行同一个 bin，不依赖源码目录或 registry 缓存。
+
 默认安装是治理引导，不是完整镜像；`watchdog`、`risk-tracker`、测试、CI 和 `.claude/commands/` 等高级治理能力不在默认安装清单中。
-默认 CLI 清单包含 `worktree-utils.mjs` 等运行时依赖，安装器回归测试会在迁移后的临时项目中实际执行 `req-cli.mjs` 与跨平台 hook，避免只复制入口脚本却遗漏依赖。
+默认 CLI 清单包含 status / experience / reflect / align / doctor / invariant 及 `worktree-utils.mjs` 等运行依赖。安装器回归测试会从真实 npm tarball 的 bin 完成安装并执行 REQ 生命周期，避免源码可运行却发布包不可运行。
+重复安装会保留已有 `.claude/progress.txt` 和自定义 settings；只有复制与安装后验证全部成功时才返回 0 并显示“安装完成”，partial/failed 结果会保留诊断报告并返回非零。
 
 **平台支持**：
 - 支持 Windows、macOS、Linux
@@ -94,9 +97,9 @@ npx harness-install --defaults --with-hook
 
 4. **确认 hook 行为**：如果启用了 `--with-hook`，目标项目会在无活跃 REQ 或 REQ scope 越界时阻止文件修改；紧急小改动可用 `.claude/.req-exempt` 临时豁免
 
-5. **自动配置**：`harness-install` 会自动追加 Harness Lab 运行时状态忽略段到目标 `.gitignore`（`.claude/.xxx-status` / `events/` / `worktrees/` 等，幂等），并安装 `harness-doctor.mjs`（`npm run harness:doctor` 诊断接入健康 + OPT-1 自检）
+5. **自动配置**：`harness-install` 会自动追加 Harness Lab 运行时状态忽略段到目标 `.gitignore`（`.claude/.xxx-status` / `events/` / `worktrees/` 等，幂等），并安装 `harness-doctor.mjs`（`npm run harness:doctor` 诊断接入健康 + OPT-1 自检）。已有 progress 与合法 settings 默认保留；非法 settings 会在复制前报错且不被覆盖
 
-5. **创建第一个 REQ**：
+6. **创建第一个 REQ**：
    ```bash
    npm run req:create -- --title "Your first requirement"
    ```
@@ -111,9 +114,9 @@ npx harness-install --defaults --with-hook
    /first-req
    ```
 
-6. **写实 REQ 内容**：`req:create` 只会生成骨架。开始实施前，需要先补齐真实背景、目标、验收标准
+7. **写实 REQ 内容**：`req:create` 只会生成骨架。开始实施前，需要先补齐真实背景、目标、验收标准
 
-7. **开始治理流程**
+8. **开始治理流程**
 
 #### 自动绑定结果怎么看
 
@@ -197,7 +200,7 @@ npm run req:create -- --title "Feature name"
 npm run req:start -- --id REQ-YYYY-NNN
 
 # 阻塞（可选）
-npm run req:block -- --id REQ-YYYY-NNN --reason "等待依赖"
+npm run req:block -- --id REQ-YYYY-NNN --reason "等待依赖" --condition "依赖交付并验证" --next "恢复 implementation"
 
 # 查看当前 REQ 状态（人类可读）
 npm run req:status
@@ -259,8 +262,12 @@ Stage 2 事件账本已完成退出确认。基础 API 位于 `scripts/event-sto
 对于目标项目，`harness-install` 现在会尝试自动绑定已有真实 `lint / test / build`，并在缺失时写入 placeholder guard，避免接入后只剩 README 提示；治理脚本使用 git-status-backed 命令，`req:complete` / `docs:verify` / `check:governance` 都会读取 `.claude/.xxx-status`。
 安装器默认保留目标项目已有 REQ、报告和经验历史；如需清理带 Harness Lab 模板标记的历史文件，必须显式传入 `--clean-template-history`。
 `npm test` 还覆盖 `/harness-setup` command、`source-command-harness-setup` skill 和 `harness-install` package bin 的契约同步，防止一键接入说明与真实分发入口漂移。
-安装器测试会在复制完成后的 fixture 中实际运行 `node scripts/req-cli.mjs status`、`node scripts/session-start.js` 和带豁免的 `node scripts/req-check.js`，确保迁移结果不是只有文件存在，而是核心入口可执行。
+安装器测试会从真实 npm tarball 安装 fixture，通过目标项目的 npm aliases 跑完整 REQ lifecycle，并实际运行 `session-start.js` 与带豁免的 `req-check.js`，确保迁移结果不是只有文件存在，而是公开入口可执行。
 SessionStart 与 PreToolUse hook 入口已统一为跨平台的 `scripts/session-start.js` / `scripts/req-check.js` / `scripts/scope-guard.mjs`，旧的 `*.sh` 版本不再分发；如果你的本地配置仍指向 `.sh`，请同步替换为 `node scripts/*.js` / `node scripts/*.mjs`（参考 `.claude/settings.example.json`）。
+
+PreToolUse 的 Bash 判断由共享 `write-target-policy.mjs` 提供：明确支持重定向、`tee` / `sponge`、`rm` / `touch` / `mkdir`、`cp` / `mv` / `ln`、`sed` / `perl` 原地编辑及其复合命令。策略会收集全部写目标，并通过 `.` / `..`、反斜杠、绝对路径和现有符号链接祖先的 canonical path 判断范围；只有所有目标均属于治理目录时，req-check 才允许无 REQ 的引导写入。
+
+对已识别但含变量、glob 或缺失 operand 的写命令，策略会标记为 unresolved：有显式 scope 或只读边界时 scope-guard 阻断，无 scope 的历史 REQ 保持兼容。确需执行时应使用有审计记录的 `.claude/.req-exempt`，而不是依赖第一个合法目标绕过后续目标。
 
 ### 高级治理机制
 
@@ -338,7 +345,7 @@ SessionStart 与 PreToolUse hook 入口已统一为跨平台的 `scripts/session
 - **REQ 门禁不可强制场景**（PreToolUse 上游限制，`npm run harness:doctor` 会提示）：
   - subagent 工具调用不触发 PreToolUse（claude-code #21460 / #34692）
   - `claude -p` 非交互模式不触发（#40506）
-  - `perl -e` / `python -c` 等任意解释器写文件（理论不可封；req-check 仅覆盖高频模式 `>` / `>>` / `tee` / `sed -i` / `rm` / `mv` / `cp` / `touch` / `mkdir` / `ln` / heredoc）
+  - `perl -e` / `python -c` 等任意解释器写文件（理论不可封；共享策略只覆盖明确列出的高频 shell 写模式，不求值变量、command substitution 或任意脚本代码）
   - 剩余缺口建议 OS 级兜底：文件权限（只读 checkout）、容器化隔离、CI 侧独立校验
 
 **worktree 支持**：

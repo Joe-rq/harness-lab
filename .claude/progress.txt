@@ -1,8 +1,9 @@
-Current active REQ: none
-Current phase: idle
-Last updated: 2026-06-22
+Current active REQ: REQ-2026-091
+Current phase: implementation
+Last updated: 2026-07-11
 
 Summary:
+- Active REQ: REQ-2026-091 (implementation)
 - ✅ Stage 3 / S3-CP3 决策完成（2026-06-22）：选择**修订路线**，不开任务图。依据：§7.3 第 5 条命中（痛点=治理工具摩擦非并行协作）+ 第二项目实验（academic-paper-workflow）证实接入摩擦
 - REQ-2026-088 已完成：第二项目实验 3 缺陷修复（标题宽松 + .gitignore + doctor 传播）
 - REQ-2026-087 已完成：OPT-3 experience 自动草稿（聚合 commit/报告/事件账本）
@@ -18,6 +19,7 @@ Summary:
 - ✅ 2026-06-22 第二项目实验报告落盘：requirements/observations/2026-06-22-second-project-experiment.md
 
 Next steps:
+- Continue active REQ: REQ-2026-091
 - 用户在 academic-paper-workflow 的 claude session 跑 hook 实测清单（6 项，见 `requirements/observations/2026-06-22-second-project-experiment.md` §"hook 误杀实测清单"）—— OPT-1A/1B 在真实场景的唯一闭环验证
 - governance warnings=125 基线调查：另开 REQ 排查（非紧急，长期债务）
 - `package.json` 添加 `"type": "module"` 消除 MODULE_TYPELESS_PACKAGE_JSON 警告（OPT-1A 已修死代码 bug，剩余仅 stderr 噪声）—— 缓做

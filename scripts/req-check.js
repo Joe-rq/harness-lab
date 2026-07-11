@@ -16,8 +16,9 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { getExemptPath, getProgressPath } from './worktree-utils.mjs';
+import { analyzeHookWrite, allTargetsAreGovernanceWrites } from './write-target-policy.mjs';
 
 const colors = {
   reset: '\x1b[0m',
@@ -30,11 +31,20 @@ function log(message, color = 'reset') {
   console.log(`${colors[color] || ''}${message}${colors.reset}`);
 }
 
-function getGitRoot() {
+function getGitRoot(startDir = process.cwd()) {
+  let candidate = process.cwd();
   try {
-    return execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
+    if (typeof startDir === 'string' && fs.statSync(startDir).isDirectory()) candidate = path.resolve(startDir);
   } catch {
-    return process.cwd();
+    // Invalid/unreadable event cwd falls back to the hook process cwd.
+  }
+  try {
+    return execFileSync('git', ['-C', candidate, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return candidate;
   }
 }
 
@@ -72,22 +82,6 @@ function isExempt(rootDir) {
   return fs.existsSync(exemptPath) || fs.existsSync(globalExemptPath);
 }
 
-function isRequirementsOrDocsFile(targetFile, rootDir) {
-  if (!targetFile) return false;
-
-  // Normalize path separators for Windows
-  const normalizedTarget = targetFile.replace(/\\/g, '/');
-  const normalizedRoot = rootDir.replace(/\\/g, '/');
-
-  const relPath = normalizedTarget.startsWith(normalizedRoot)
-    ? normalizedTarget.slice(normalizedRoot.length + 1)
-    : normalizedTarget;
-
-  return relPath.startsWith('requirements/') ||
-         relPath.startsWith('docs/plans/') ||
-         relPath.startsWith('.claude/');
-}
-
 /**
  * Read PreToolUse hook event from stdin (Claude Code passes JSON via stdin).
  * Returns null on missing/invalid input → allow (don't block on parse failure).
@@ -103,69 +97,6 @@ async function readHookEvent() {
   } catch {
     return null;
   }
-}
-
-/**
- * Classify a Bash command: does it write to the filesystem?
- * High-frequency write patterns only; unmatched → reads (allow).
- * Returns { writes: bool, reason: string|null, targetPath: string|null }.
- *
- * targetPath is best-effort (the suspected write target) for whitelist/scope checks.
- * Theory: cannot be 100% complete (perl -e / python -c etc.) — strategy is
- * cover common patterns + document residual gaps (see REQ-2026-086).
- */
-function classifyBashCommand(command) {
-  if (!command || typeof command !== 'string') {
-    return { writes: false, reason: null, targetPath: null };
-  }
-
-  // Strip non-governed noise: stderr redirections, discarded output.
-  // (2> / &> to /dev/null, 2>&1, bare 2> are not "governed writes".)
-  const cleaned = command
-    .replace(/(?:^|[\s;|&(])2>&1\b/g, ' ')
-    .replace(/(?:2>&?|&>)\s*\/dev\/null\b/g, ' ')
-    .replace(/>{1,2}\s*\/dev\/null\b/g, ' ')
-    .replace(/(?:^|[\s;|&(])2>/g, ' ');
-
-  // 1. File write redirection: > or >> (to a real path, not &1/&2)
-  let m = cleaned.match(/(?:^|[\s;|&(])>{1,2}\s*(?!&[12])([^\s;&|)]+)/);
-  if (m) {
-    return { writes: true, reason: 'redirect', targetPath: m[1] };
-  }
-
-  // 2. Pipe write: | tee / | sponge
-  m = command.match(/\|\s*(?:tee|sponge)\b(?:\s+-a)?\s+([^\s;&|]+)/);
-  if (m) {
-    return { writes: true, reason: 'pipe-write', targetPath: m[1] };
-  }
-
-  // 3. In-place edit: sed -i / perl -i / gawk -i inplace / awk -i inplace
-  if (/\b(?:sed|perl)\s+(?:[^;]*?\s)?-i(?:nplace)?\b/.test(command) ||
-      /\bgawk\s+-i\s+inplace\b/.test(command) ||
-      /\bawk\s+-i\s+inplace\b/.test(command)) {
-    return { writes: true, reason: 'inplace-edit', targetPath: null };
-  }
-
-  // 4. File ops: rm/mv/cp/touch/mkdir/ln (first non-flag arg = target)
-  m = command.match(/(?:^|[\s;|&(])(rm|mv|cp|touch|mkdir|ln)\b((?:\s+-[a-zA-Z-]+)*)(?:\s+([^\s;&|)]))/);
-  if (m) {
-    // Re-extract the first non-flag operand for targetPath
-    const opPart = command.slice(m.index);
-    const tokens = opPart.split(/\s+/).filter(Boolean);
-    let target = null;
-    for (let i = 1; i < tokens.length; i++) {
-      if (!tokens[i].startsWith('-')) { target = tokens[i]; break; }
-    }
-    return { writes: true, reason: 'file-op', targetPath: target };
-  }
-
-  // 5. Heredoc / cat redirection write
-  if (/\bcat\s+<<.*?>/.test(command) || /\bcat\s*>{1,2}\s+/.test(command)) {
-    m = command.match(/\bcat\s*>{1,2}\s+([^\s;&|]+)/);
-    return { writes: true, reason: 'heredoc', targetPath: m ? m[1] : null };
-  }
-
-  return { writes: false, reason: null, targetPath: null };
 }
 
 function printBlockMessage(activeReq) {
@@ -283,7 +214,10 @@ async function main() {
     process.exit(0);
   }
 
-  const rootDir = event.cwd ? event.cwd.replace(/\/+$/, '') : getGitRoot();
+  const eventCwd = typeof event.cwd === 'string'
+    ? path.resolve(event.cwd)
+    : process.cwd();
+  const rootDir = getGitRoot(eventCwd);
 
   // Check exemption
   if (isExempt(rootDir)) {
@@ -293,37 +227,17 @@ async function main() {
   const toolName = event.tool_name || '';
   const toolInput = event.tool_input || {};
 
-  // 2. Dispatch by tool_name
-  if (toolName === 'Write' || toolName === 'Edit' || toolName === 'NotebookEdit') {
-    const filePath = toolInput.file_path;
-
-    // Whitelist: allow writing to requirements/ docs/plans/ .claude/ without a REQ
-    // (needed to fill REQ content before starting implementation)
-    if (filePath && isRequirementsOrDocsFile(filePath, rootDir)) {
-      process.exit(0);
-    }
-
+  // 2. Resolve every supported write target through the shared policy.
+  const analysis = analyzeHookWrite({ tool_name: toolName, tool_input: toolInput }, rootDir);
+  if (analysis.writes) {
+    // Governance bootstrap is allowed only when every canonical target is a
+    // governance artifact. A mixed or unresolved write must pass normal REQ enforcement.
+    if (allTargetsAreGovernanceWrites(analysis)) process.exit(0);
     enforceReqOrBlock(rootDir);
     return; // enforceReqOrBlock always exits
   }
 
-  if (toolName === 'Bash') {
-    const cmd = toolInput.command || '';
-    const verdict = classifyBashCommand(cmd);
-
-    // Pure read commands → allow (zero friction for ls/grep/cat/find/etc.)
-    if (!verdict.writes) {
-      process.exit(0);
-    }
-
-    // Write command: whitelist by target path (e.g. writing into .claude/)
-    if (verdict.targetPath && isRequirementsOrDocsFile(verdict.targetPath, rootDir)) {
-      process.exit(0);
-    }
-
-    enforceReqOrBlock(rootDir);
-    return;
-  }
+  if (toolName === 'Bash') process.exit(0); // Pure read Bash command.
 
   // Other tool_name (not in matcher in practice) → allow
   process.exit(0);

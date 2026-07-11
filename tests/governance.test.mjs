@@ -7,6 +7,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import os from 'node:os';
@@ -23,6 +24,13 @@ import {
   logError,
 } from '../scripts/error-classifier.mjs';
 import { appendEvent, readEvents } from '../scripts/event-store.mjs';
+import { getExemptPath } from '../scripts/worktree-utils.mjs';
+import {
+  analyzeHookWrite,
+  canonicalizeWriteTarget,
+  classifyBashWrites,
+  tokenizeShell,
+} from '../scripts/write-target-policy.mjs';
 import {
   DEFAULT_VERIFIER_MODE,
   ALLOWED_VERIFIER_MODES,
@@ -33,6 +41,89 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
+
+const REQUIRED_DEFAULT_TARGET_ASSETS = [
+  'AGENTS.md',
+  'CLAUDE.md',
+  '.claude/settings.example.json',
+  '.agents/skills/source-command-bugfix/SKILL.md',
+  '.agents/skills/source-command-feature/SKILL.md',
+  '.agents/skills/source-command-first-req/SKILL.md',
+  '.agents/skills/source-command-harness-setup/SKILL.md',
+  '.agents/skills/source-command-refactor/SKILL.md',
+  '.agents/skills/source-command-worktree-req/SKILL.md',
+  'requirements/REQ_TEMPLATE.md',
+  'requirements/in-progress/README.md',
+  'requirements/completed/README.md',
+  'requirements/reports/README.md',
+  'docs/plans/README.md',
+  'docs/specs/README.md',
+  'context/README.md',
+  'context/business/README.md',
+  'context/experience/README.md',
+  'context/experience/TEMPLATE.md',
+  'context/invariants/TEMPLATE.md',
+  'context/references/README.md',
+  'context/tech/README.md',
+  'context/tech/architecture.md',
+  'context/tech/deployment-runbook.md',
+  'context/tech/env-contract.md',
+  'context/tech/tech-stack.md',
+  'context/tech/testing-strategy.md',
+  'skills/README.md',
+  'skills/plan/ceo-review.md',
+  'skills/plan/design-review.md',
+  'skills/plan/eng-review.md',
+  'skills/review/code-review.md',
+  'skills/qa/qa.md',
+  'skills/ship/ship.md',
+  'scripts/check-governance.mjs',
+  'scripts/docs-sync-rules.json',
+  'scripts/docs-verify.mjs',
+  'scripts/error-classifier.mjs',
+  'scripts/event-store.mjs',
+  'scripts/governance-health.mjs',
+  'scripts/harness-doctor.mjs',
+  'scripts/invariant-extractor.mjs',
+  'scripts/invariant-gate.mjs',
+  'scripts/req-align.mjs',
+  'scripts/req-audit.mjs',
+  'scripts/req-check.js',
+  'scripts/req-cli.mjs',
+  'scripts/req-reflect.mjs',
+  'scripts/req-validation.mjs',
+  'scripts/scope-guard.mjs',
+  'scripts/session-start.js',
+  'scripts/template-guard.mjs',
+  'scripts/write-target-policy.mjs',
+  'scripts/worktree-utils.mjs',
+];
+
+const REQUIRED_PUBLISHED_ASSETS = [
+  ...REQUIRED_DEFAULT_TARGET_ASSETS,
+  'README.md',
+  '.claude/commands/harness-setup.md',
+  'scripts/harness-install.mjs',
+];
+
+const REQUIRED_TARGET_SCRIPTS = [
+  'req',
+  'req:create',
+  'req:start',
+  'req:block',
+  'req:complete',
+  'req:status',
+  'req:audit',
+  'req:experience',
+  'req:reflect',
+  'req:align',
+  'governance:health',
+  'docs:verify',
+  'docs:impact',
+  'docs:impact:json',
+  'check:governance',
+  'harness:doctor',
+];
 
 function createTempDir(prefix) {
   return mkdtempSync(path.join(os.tmpdir(), `${prefix}-`));
@@ -215,6 +306,57 @@ function captureExecFailure(fn) {
 
 function readJsonFile(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf8'));
+}
+
+const npmExecutable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+
+function initGitProject(root, packageJson = { name: 'fixture-project', private: true, scripts: {} }) {
+  mkdirSync(root, { recursive: true });
+  writeFile(root, 'package.json', `${JSON.stringify(packageJson, null, 2)}\n`);
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+}
+
+function listFilesRecursive(root, current = root) {
+  const files = [];
+  for (const entry of readdirSync(current, { withFileTypes: true })) {
+    const fullPath = path.join(current, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listFilesRecursive(root, fullPath));
+    } else if (entry.isFile()) {
+      files.push(path.relative(root, fullPath).replace(/\\/g, '/'));
+    }
+  }
+  return files;
+}
+
+function countHookCommands(settings, fragment) {
+  return Object.values(settings.hooks || {})
+    .flatMap((entries) => Array.isArray(entries) ? entries : [])
+    .flatMap((entry) => Array.isArray(entry?.hooks) ? entry.hooks : [])
+    .filter((hook) => typeof hook?.command === 'string' && hook.command.includes(fragment))
+    .length;
+}
+
+function countExactHookCommands(settings, scriptName, requiredMatcher = null) {
+  const expectedCommands = new Set([
+    `node "scripts/${scriptName}"`,
+    `node scripts/${scriptName}`,
+    `node "$(git rev-parse --show-toplevel)/scripts/${scriptName}"`,
+  ]);
+  return Object.values(settings.hooks || {})
+    .flatMap((entries) => Array.isArray(entries) ? entries : [])
+    .filter((entry) => {
+      if (!requiredMatcher) return true;
+      const matchers = String(entry?.matcher || '').split('|').map((value) => value.trim());
+      return matchers.includes('*') || matchers.includes(requiredMatcher);
+    })
+    .flatMap((entry) => Array.isArray(entry?.hooks) ? entry.hooks : [])
+    .filter((hook) => (
+      hook?.type === 'command' &&
+      typeof hook.command === 'string' &&
+      expectedCommands.has(hook.command.replace(/\\/g, '/').trim())
+    ))
+    .length;
 }
 
 async function testDocsVerifyPasses() {
@@ -449,6 +591,7 @@ async function testHarnessInstallArtifacts() {
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/session-start.js'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/req-check.js'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/scope-guard.mjs'));
+    assert.ok(harnessInstall.modules.hook.files.includes('scripts/write-target-policy.mjs'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/event-store.mjs'));
 
     writeFile(
@@ -547,6 +690,692 @@ async function testHarnessInstallArtifacts() {
   }
 }
 
+async function testInstallerDeclaredSourcesExistAndArgsAreStrict() {
+  const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+  const packageJson = readJsonFile(path.join(repoRoot, 'package.json'));
+
+  assert.equal(packageJson.name, 'harness-lab');
+  assert.equal(packageJson.type, 'module');
+  assert.equal(packageJson.engines?.node, '>=20');
+  assert.equal(packageJson.bin?.['harness-install'], 'scripts/harness-install.mjs');
+  assert.ok(Array.isArray(packageJson.files));
+  for (const relPath of REQUIRED_PUBLISHED_ASSETS) {
+    assert.ok(packageJson.files.includes(relPath), `published contract must include: ${relPath}`);
+  }
+  for (const scriptName of REQUIRED_TARGET_SCRIPTS) {
+    assert.equal(
+      typeof harnessInstall.modules.cli.packageScripts[scriptName],
+      'string',
+      `target npm script contract must include: ${scriptName}`
+    );
+  }
+
+  for (const [moduleName, moduleDefinition] of Object.entries(harnessInstall.modules)) {
+    for (const relPath of moduleDefinition.files) {
+      const sourcePath = path.join(repoRoot, relPath);
+      assert.ok(existsSync(sourcePath), `${moduleName} source should exist: ${relPath}`);
+      assert.ok(!readFileSync(sourcePath).includes('> 此文件由 harness-install 创建'), `source must not be a generated placeholder: ${relPath}`);
+    }
+  }
+
+  assert.throws(
+    () => harnessInstall.parseInstallerArgs(['--unknown']),
+    /Unknown installer option/
+  );
+  assert.throws(
+    () => harnessInstall.parseInstallerArgs(['--source']),
+    /requires a value/
+  );
+  assert.throws(
+    () => harnessInstall.parseInstallerArgs(['--source', '-h']),
+    /requires a value/
+  );
+  assert.throws(
+    () => harnessInstall.parseInstallerArgs(['--defaults', '--core-only']),
+    /either --defaults or --core-only/
+  );
+  assert.throws(
+    () => harnessInstall.parseInstallerArgs(['--package-dir', 'app', '--package-json', 'app/package.json']),
+    /either --package-dir or --package-json/
+  );
+  assert.throws(
+    () => harnessInstall.parseInstallerArgs(['--core-only', '--package-dir', 'app']),
+    /require a profile that installs the CLI/
+  );
+
+  for (const relPath of [
+    'README.md',
+    '.claude/commands/harness-setup.md',
+    '.agents/skills/source-command-harness-setup/SKILL.md',
+  ]) {
+    const content = readFileSync(path.join(repoRoot, relPath), 'utf8');
+    assert.match(
+      content,
+      /npx --yes --package=harness-lab harness-install --defaults/,
+      `${relPath} must publish the verified package/bin mapping`
+    );
+    assert.doesNotMatch(content, /npx harness-install --defaults/);
+  }
+}
+
+async function testPublishedTarballAndPackedBinFreshInstall() {
+  const tempDir = createTempDir('harness-packed-bin');
+  try {
+    const packDir = path.join(tempDir, 'pack');
+    const runnerDir = path.join(tempDir, 'runner');
+    const targetDir = path.join(tempDir, 'target');
+    const npmCache = path.join(tempDir, 'npm-cache');
+    mkdirSync(packDir, { recursive: true });
+    initGitProject(runnerDir, { name: 'packed-runner', private: true });
+    initGitProject(targetDir, {
+      name: 'packed-target',
+      private: true,
+      scripts: { test: 'node -e "process.exit(0)"' },
+    });
+
+    const npmEnv = {
+      ...process.env,
+      npm_config_cache: npmCache,
+      npm_config_audit: 'false',
+      npm_config_fund: 'false',
+      npm_config_update_notifier: 'false',
+    };
+    const packOutput = execFileSync(
+      npmExecutable,
+      ['pack', '--json', '--ignore-scripts', '--pack-destination', packDir],
+      { cwd: repoRoot, env: npmEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    const packInfo = JSON.parse(packOutput)[0];
+    const tarballPath = path.join(packDir, packInfo.filename);
+    const packedPaths = new Set(packInfo.files.map((entry) => entry.path));
+
+    assert.equal(packInfo.name, 'harness-lab');
+    assert.ok(packedPaths.has('scripts/harness-install.mjs'));
+    assert.ok(packedPaths.has('.agents/skills/source-command-harness-setup/SKILL.md'));
+    assert.ok(!packedPaths.has('requirements/INDEX.md'), 'dogfood INDEX history must not be published');
+    for (const relPath of REQUIRED_PUBLISHED_ASSETS) {
+      assert.ok(packedPaths.has(relPath), `published tarball contract must include: ${relPath}`);
+    }
+    for (const packedPath of packedPaths) {
+      assert.ok(!packedPath.startsWith('.claude/events/'));
+      assert.ok(!packedPath.startsWith('.claude/session-log/'));
+      assert.ok(!packedPath.startsWith('.claude/worktrees/'));
+      assert.ok(!packedPath.startsWith('tests/'));
+      assert.ok(!packedPath.startsWith('reviews/'));
+      assert.ok(!/^requirements\/completed\/REQ-/.test(packedPath));
+      assert.ok(!/^requirements\/reports\/REQ-/.test(packedPath));
+    }
+
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+    for (const moduleDefinition of Object.values(harnessInstall.modules)) {
+      for (const relPath of moduleDefinition.files) {
+        assert.ok(packedPaths.has(relPath), `installer source must be present in tarball: ${relPath}`);
+      }
+    }
+
+    const npxCache = path.join(tempDir, 'npx-cache');
+    const npxOutput = execFileSync(
+      npmExecutable,
+      ['exec', '--offline', '--yes', `--package=${tarballPath}`, '--', 'harness-install', '--defaults', '--dry-run'],
+      {
+        cwd: targetDir,
+        env: {
+          ...npmEnv,
+          npm_config_cache: npxCache,
+          npm_config_registry: 'http://127.0.0.1:9',
+        },
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }
+    );
+    assert.match(npxOutput, /Dry run/);
+    assert.match(npxOutput, /安装计划/);
+
+    execFileSync(
+      npmExecutable,
+      ['install', '--ignore-scripts', '--no-save', '--offline', tarballPath],
+      { cwd: runnerDir, env: npmEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    const installedPackage = path.join(runnerDir, 'node_modules', 'harness-lab');
+    const installedFiles = listFilesRecursive(installedPackage);
+    for (const relPath of installedFiles) {
+      const content = readFileSync(path.join(installedPackage, relPath), 'utf8');
+      assert.ok(!content.includes(repoRoot), `published text must not contain repository absolute path: ${relPath}`);
+      assert.ok(!content.includes('/Users/qrq/'), `published text must not contain local user path: ${relPath}`);
+    }
+
+    const binPath = process.platform === 'win32'
+      ? path.join(runnerDir, 'node_modules', '.bin', 'harness-install.cmd')
+      : path.join(runnerDir, 'node_modules', '.bin', 'harness-install');
+    assert.ok(existsSync(binPath), 'npm bin should be materialized from the packed package');
+    const installOutput = execFileSync(
+      binPath,
+      ['--defaults', '--with-hook'],
+      { cwd: targetDir, env: npmEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    assert.match(installOutput, /Harness Lab 安装完成/);
+    assert.doesNotMatch(installOutput, /安装未完成/);
+
+    const report = readFileSync(path.join(targetDir, 'requirements', 'reports', 'harness-setup-report.md'), 'utf8');
+    assert.match(report, /\*\*状态\*\*：success/);
+    assert.doesNotMatch(report, /> 此文件由 harness-install 创建/);
+
+    const targetPackage = readJsonFile(path.join(targetDir, 'package.json'));
+    for (const scriptName of REQUIRED_TARGET_SCRIPTS) {
+      assert.equal(typeof targetPackage.scripts[scriptName], 'string', `target script should exist: ${scriptName}`);
+    }
+    for (const relPath of REQUIRED_DEFAULT_TARGET_ASSETS) {
+      assert.ok(existsSync(path.join(targetDir, relPath)), `default install contract must include: ${relPath}`);
+    }
+    for (const moduleDefinition of Object.values(harnessInstall.modules)) {
+      for (const relPath of moduleDefinition.files) {
+        assert.ok(existsSync(path.join(targetDir, relPath)), `installed target asset should exist: ${relPath}`);
+      }
+    }
+    assert.ok(existsSync(path.join(targetDir, 'requirements', 'INDEX.md')));
+
+    const runPackedNpmScript = (scriptName, args = []) => execFileSync(
+      npmExecutable,
+      ['--silent', 'run', scriptName, '--', ...args],
+      { cwd: targetDir, env: npmEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    const statusOutput = runPackedNpmScript('req:status', ['--json']);
+    assert.equal(JSON.parse(statusOutput).active_req, null);
+    const doctorOutput = runPackedNpmScript('harness:doctor', ['--json']);
+    assert.ok(Array.isArray(JSON.parse(doctorOutput)));
+
+    runPackedNpmScript('req:create', ['--title', 'Packed lifecycle', '--slug', 'packed-lifecycle', '--id', 'REQ-2099-001']);
+    const reqPath = path.join(targetDir, 'requirements', 'in-progress', 'REQ-2099-001-packed-lifecycle.md');
+    writeFileSync(
+      reqPath,
+      readFileSync(reqPath, 'utf8')
+        .replace('说明为什么要做这件事。', '验证从真实 npm tarball 安装后的 REQ 生命周期。')
+        .replace('- 目标 1', '- 验证 packed create/start/block/complete')
+        .replace('- 目标 2', '- 验证 reflect/align/experience 入口')
+        .replace('- [ ] 标准 1', '- [x] packed lifecycle commands executed')
+        .replace('- [ ] 标准 2', '- [x] packed lifecycle completed')
+        .replaceAll('- [ ] 目标实现', '- [x] 目标实现')
+        .replaceAll('- [ ] 旧功能保护', '- [x] 旧功能保护')
+        .replaceAll('- [ ] 逻辑正确性', '- [x] 逻辑正确性')
+        .replaceAll('- [ ] 完整性', '- [x] 完整性')
+        .replaceAll('- [ ] 可维护性', '- [x] 可维护性')
+        .replaceAll('- [ ] 目标对齐', '- [x] 目标对齐')
+        .replaceAll('- [ ] 设计对齐', '- [x] 设计对齐')
+        .replaceAll('- [ ] 验收标准对齐', '- [x] 验收标准对齐'),
+      'utf8'
+    );
+    writeFile(
+      targetDir,
+      'docs/plans/REQ-2099-001-design.md',
+      `# REQ-2099-001 Design
+
+## Background
+
+验证真实 tarball 安装结果。
+
+## Goal
+
+- 完成 packed lifecycle
+
+## Scope
+
+### In scope
+
+- REQ lifecycle commands
+
+### Out of scope
+
+- 业务代码
+
+## Product Review
+
+### User Value
+
+- 证明发布包可执行
+
+### Recommendation
+
+- Proceed
+
+## Engineering Review
+
+### Architecture Impact
+
+- 仅临时 fixture
+
+### Verification
+
+- 自动验证：本测试
+- 人工验证：无
+- 回滚：删除临时目录
+`
+    );
+    runPackedNpmScript('req:start', ['--id', 'REQ-2099-001', '--phase', 'implementation']);
+    assert.match(
+      runPackedNpmScript('req:reflect', ['--id', 'REQ-2099-001']),
+      /元反思/
+    );
+    assert.match(
+      runPackedNpmScript('req:align', ['--id', 'REQ-2099-001']),
+      /对齐检查/
+    );
+    runPackedNpmScript('req:block', [
+      '--id', 'REQ-2099-001', '--reason', 'packed test pause',
+      '--condition', 'resume packed test', '--next', 'complete lifecycle', '--phase', 'implementation',
+    ]);
+    runPackedNpmScript('req:start', ['--id', 'REQ-2099-001', '--phase', 'implementation']);
+    runPackedNpmScript('req:experience', ['--id', 'REQ-2099-001']);
+    writeFile(
+      targetDir,
+      'requirements/reports/REQ-2099-001-code-review.md',
+      '# Code Review\n\n## 状态\n\n- ✅ 通过\n'
+    );
+    writeFile(
+      targetDir,
+      'requirements/reports/REQ-2099-001-qa.md',
+      '# QA\n\n## 状态\n\n- ✅ 通过\n\n## 验证证据\n\n| 类型 | 项目 | 结果 | 摘要 |\n|------|------|------|------|\n| 命令 | packed lifecycle | PASS | local tarball |\n| 人工/浏览器 | 无 | N/A | fixture |\n'
+    );
+    runPackedNpmScript('req:complete', ['--id', 'REQ-2099-001', '--phase', 'qa', '--no-docs-gate']);
+    assert.ok(existsSync(path.join(targetDir, 'requirements', 'completed', 'REQ-2099-001-packed-lifecycle.md')));
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testInstallerReinstallPreservesProgressAndSettings() {
+  const tempDir = createTempDir('harness-reinstall-preserve');
+  try {
+    initGitProject(tempDir);
+    const progress = `Current active REQ: REQ-2026-777\nCurrent phase: implementation\nLast updated: 2026-07-11\n\nSummary:\n- sentinel\n`;
+    const index = `# Requirements Index
+
+## 当前活跃 REQ
+
+- \`REQ-2026-777\`：用户真实活跃需求（in-progress / implementation）
+
+## 当前搁置 REQ
+
+- 无
+
+## 最近完成 REQ
+
+- \`REQ-2026-776\`：用户历史需求
+`;
+    const activeReq = `# REQ-2026-777: 用户真实活跃需求
+
+## 状态
+- 当前状态：in-progress
+- 当前阶段：implementation
+
+## 背景
+验证安装器不会覆盖真实用户状态。
+
+## 目标
+- 保留 REQ、INDEX 与 progress
+
+## 验收标准
+- [x] 三份状态逐字节保留
+`;
+    const customSettings = {
+      customTopLevel: { sentinel: true },
+      hooks: {
+        SessionStart: [{ matcher: 'custom', hooks: [{ type: 'command', command: 'node custom-start.mjs', timeout: 17 }] }],
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'node custom-pre.mjs', timeout: 19 }] }],
+      },
+      permissions: { allow: ['Bash(custom:*)'] },
+    };
+    writeFile(tempDir, '.claude/progress.txt', progress);
+    writeFile(tempDir, '.claude/settings.local.json', `${JSON.stringify(customSettings, null, 2)}\n`);
+    writeFile(tempDir, 'requirements/INDEX.md', index);
+    writeFile(tempDir, 'requirements/in-progress/REQ-2026-777-user-active.md', activeReq);
+
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+    const first = await harnessInstall.main(['--defaults', '--with-hook'], { targetDir: tempDir, stdinIsTTY: false });
+    assert.equal(first.exitCode, 0);
+    const settingsAfterFirst = readFileSync(path.join(tempDir, '.claude', 'settings.local.json'), 'utf8');
+    const second = await harnessInstall.main(['--defaults', '--with-hook'], { targetDir: tempDir, stdinIsTTY: false });
+    assert.equal(second.exitCode, 0);
+    const settingsAfterSecond = readFileSync(path.join(tempDir, '.claude', 'settings.local.json'), 'utf8');
+
+    assert.equal(readFileSync(path.join(tempDir, '.claude', 'progress.txt'), 'utf8'), progress);
+    assert.equal(readFileSync(path.join(tempDir, 'requirements', 'INDEX.md'), 'utf8'), index);
+    assert.equal(
+      readFileSync(path.join(tempDir, 'requirements', 'in-progress', 'REQ-2026-777-user-active.md'), 'utf8'),
+      activeReq
+    );
+    assert.equal(settingsAfterSecond, settingsAfterFirst, 'second install should be settings-idempotent');
+    const settings = JSON.parse(settingsAfterSecond);
+    assert.deepEqual(settings.customTopLevel, { sentinel: true });
+    assert.ok(settings.permissions.allow.includes('Bash(custom:*)'));
+    assert.equal(countHookCommands(settings, 'custom-start.mjs'), 1);
+    assert.equal(countHookCommands(settings, 'custom-pre.mjs'), 1);
+    assert.equal(countHookCommands(settings, 'session-start.js'), 1);
+    assert.equal(countHookCommands(settings, 'req-check.js'), 1);
+    assert.equal(countHookCommands(settings, 'scope-guard.mjs'), 1);
+    const gitignore = readFileSync(path.join(tempDir, '.gitignore'), 'utf8');
+    assert.equal((gitignore.match(/Harness Lab 运行时状态/g) || []).length, 1);
+    const status = JSON.parse(execFileSync(
+      npmExecutable,
+      ['--silent', 'run', 'req:status', '--', '--json'],
+      { cwd: tempDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    ));
+    assert.equal(status.active_req?.req_id, 'REQ-2026-777');
+    assert.equal(status.active_req?.phase, 'implementation');
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testInstallerCoreOnlyProfileBoundary() {
+  const coreDir = createTempDir('harness-core-only');
+  const hookDir = createTempDir('harness-core-hook');
+  const malformedPackageDir = createTempDir('harness-core-malformed-package');
+  try {
+    initGitProject(coreDir, {
+      name: 'core-only-fixture',
+      private: true,
+      scripts: { test: 'node --test' },
+    });
+    const originalPackage = readFileSync(path.join(coreDir, 'package.json'), 'utf8');
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+    const coreResult = await harnessInstall.main(['--core-only'], { targetDir: coreDir, stdinIsTTY: false });
+    assert.equal(coreResult.exitCode, 0);
+    assert.equal(coreResult.packageUpdate.bindingSkipped, true);
+    assert.equal(readFileSync(path.join(coreDir, 'package.json'), 'utf8'), originalPackage);
+    assert.ok(!existsSync(path.join(coreDir, 'scripts', 'req-cli.mjs')));
+
+    initGitProject(hookDir, { name: 'core-hook-fixture', private: true, scripts: {} });
+    const hookResult = await harnessInstall.main(
+      ['--core-only', '--with-hook'],
+      { targetDir: hookDir, stdinIsTTY: false }
+    );
+    assert.equal(hookResult.exitCode, 0);
+    assert.ok(existsSync(path.join(hookDir, 'scripts', 'req-cli.mjs')));
+    const hookPackage = readJsonFile(path.join(hookDir, 'package.json'));
+    for (const scriptName of REQUIRED_TARGET_SCRIPTS) {
+      assert.equal(typeof hookPackage.scripts[scriptName], 'string');
+    }
+    const settings = readJsonFile(path.join(hookDir, '.claude', 'settings.local.json'));
+    assert.equal(countExactHookCommands(settings, 'session-start.js'), 1);
+    assert.equal(countExactHookCommands(settings, 'req-check.js', 'Bash'), 1);
+    assert.equal(countExactHookCommands(settings, 'scope-guard.mjs', 'Bash'), 1);
+
+    initGitProject(malformedPackageDir);
+    const malformedPackage = '{ this-is-not-json';
+    writeFile(malformedPackageDir, 'package.json', malformedPackage);
+    const malformedResult = await harnessInstall.main(
+      ['--core-only'],
+      { targetDir: malformedPackageDir, stdinIsTTY: false }
+    );
+    assert.equal(malformedResult.exitCode, 0);
+    assert.equal(readFileSync(path.join(malformedPackageDir, 'package.json'), 'utf8'), malformedPackage);
+  } finally {
+    rmSync(coreDir, { recursive: true, force: true });
+    rmSync(hookDir, { recursive: true, force: true });
+    rmSync(malformedPackageDir, { recursive: true, force: true });
+  }
+}
+
+async function testCleanTemplateHistoryPreservesUserState() {
+  const tempDir = createTempDir('harness-clean-history');
+  try {
+    initGitProject(tempDir);
+    const index = `# Requirements Index
+
+## 当前活跃 REQ
+
+- \`REQ-2026-777\`：用户需求
+
+## 当前搁置 REQ
+
+- \`REQ-2026-778\`：用户搁置需求
+
+## 最近完成 REQ
+
+- \`REQ-2026-776\`：用户已完成需求
+`;
+    const progress = 'Current active REQ: REQ-2026-777\nCurrent phase: implementation\nLast updated: 2026-07-11\n';
+    const userReq = '# REQ-2026-777: 用户需求\n\n## 状态\n- 当前状态：in-progress\n- 当前阶段：implementation\n';
+    writeFile(tempDir, 'requirements/INDEX.md', index);
+    writeFile(tempDir, '.claude/progress.txt', progress);
+    writeFile(tempDir, 'requirements/in-progress/REQ-2026-777-user.md', userReq);
+    writeFile(
+      tempDir,
+      'requirements/in-progress/REQ-2026-001-template-history.md',
+      '# Template history\n\n<!-- Harness Lab template history -->\n'
+    );
+
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+    for (let run = 0; run < 2; run += 1) {
+      const result = await harnessInstall.main(
+        ['--core-only', '--clean-template-history'],
+        { targetDir: tempDir, stdinIsTTY: false }
+      );
+      assert.equal(result.exitCode, 0);
+      assert.equal(readFileSync(path.join(tempDir, 'requirements', 'INDEX.md'), 'utf8'), index);
+      assert.equal(readFileSync(path.join(tempDir, '.claude', 'progress.txt'), 'utf8'), progress);
+      assert.equal(
+        readFileSync(path.join(tempDir, 'requirements', 'in-progress', 'REQ-2026-777-user.md'), 'utf8'),
+        userReq
+      );
+    }
+    assert.ok(!existsSync(path.join(tempDir, 'requirements', 'in-progress', 'REQ-2026-001-template-history.md')));
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testPackageTargetRejectsSymlinkEscapes() {
+  if (process.platform === 'win32') return;
+  const root = createTempDir('harness-symlink-escape');
+  const outsideDir = path.join(root, 'outside');
+  const directoryTarget = path.join(root, 'directory-target');
+  const fileTarget = path.join(root, 'file-target');
+  try {
+    initGitProject(outsideDir, { name: 'outside-package', private: true, scripts: {} });
+    const outsidePackagePath = path.join(outsideDir, 'package.json');
+    const outsidePackage = readFileSync(outsidePackagePath, 'utf8');
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+
+    initGitProject(directoryTarget);
+    symlinkSync(outsideDir, path.join(directoryTarget, 'app'), 'dir');
+    await assert.rejects(
+      () => harnessInstall.main(
+        ['--defaults', '--package-dir', 'app'],
+        { targetDir: directoryTarget, stdinIsTTY: false }
+      ),
+      /resolves outside the target project through a symbolic link/
+    );
+    assert.equal(readFileSync(outsidePackagePath, 'utf8'), outsidePackage);
+    assert.ok(!existsSync(path.join(directoryTarget, 'AGENTS.md')));
+    assert.ok(!existsSync(path.join(directoryTarget, '.claude', 'progress.txt')));
+
+    initGitProject(fileTarget);
+    symlinkSync(outsidePackagePath, path.join(fileTarget, 'linked-package.json'), 'file');
+    await assert.rejects(
+      () => harnessInstall.main(
+        ['--defaults', '--package-json', 'linked-package.json'],
+        { targetDir: fileTarget, stdinIsTTY: false }
+      ),
+      /resolves outside the target project through a symbolic link/
+    );
+    assert.equal(readFileSync(outsidePackagePath, 'utf8'), outsidePackage);
+    assert.ok(!existsSync(path.join(fileTarget, 'AGENTS.md')));
+    assert.ok(!existsSync(path.join(fileTarget, '.claude', 'progress.txt')));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+async function testHookMergeRejectsSpoofsAndRequiresFullMatcher() {
+  const tempDir = createTempDir('harness-hook-spoofs');
+  try {
+    initGitProject(tempDir);
+    const canonicalReq = 'node "scripts/req-check.js"';
+    const canonicalScope = 'node "scripts/scope-guard.mjs"';
+    const customSettings = {
+      hooks: {
+        SessionStart: [
+          { matcher: '*', hooks: [{ type: 'command', command: 'node scripts/custom-session-start.js' }] },
+          { matcher: '*', hooks: [{ type: 'prompt', command: 'node scripts/session-start.js', prompt: 'noop' }] },
+        ],
+        PreToolUse: [
+          { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo scripts/req-check.js' }] },
+          { matcher: 'Write', hooks: [
+            { type: 'command', command: canonicalReq },
+            { type: 'command', command: canonicalScope },
+          ] },
+          { matcher: 'Write|Edit|NotebookEdit|Bash', hooks: [
+            { type: 'command', command: 'node scripts/not-req-check.js' },
+          ] },
+        ],
+      },
+      permissions: { allow: [] },
+    };
+    writeFile(tempDir, '.claude/settings.local.json', `${JSON.stringify(customSettings, null, 2)}\n`);
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+
+    for (let run = 0; run < 2; run += 1) {
+      const result = await harnessInstall.main(
+        ['--core-only', '--with-hook'],
+        { targetDir: tempDir, stdinIsTTY: false }
+      );
+      assert.equal(result.exitCode, 0);
+    }
+
+    const settings = readJsonFile(path.join(tempDir, '.claude', 'settings.local.json'));
+    assert.equal(countExactHookCommands(settings, 'session-start.js'), 1);
+    assert.equal(countExactHookCommands(settings, 'req-check.js', 'Bash'), 1);
+    assert.equal(countExactHookCommands(settings, 'scope-guard.mjs', 'Bash'), 1);
+    const canonicalEntry = settings.hooks.PreToolUse.find((entry) => (
+      String(entry.matcher).split('|').length === 4 &&
+      countExactHookCommands({ hooks: { PreToolUse: [entry] } }, 'req-check.js') === 1 &&
+      countExactHookCommands({ hooks: { PreToolUse: [entry] } }, 'scope-guard.mjs') === 1
+    ));
+    assert.ok(canonicalEntry, 'installer must add one full write-tool canonical hook entry');
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testInvalidSettingsShapesFailPreflight() {
+  const invalidSettings = [
+    [],
+    { hooks: [] },
+    { hooks: { SessionStart: {} } },
+    { hooks: { PreToolUse: [null] } },
+    { hooks: { PreToolUse: [{ matcher: 'Bash', hooks: 'invalid' }] } },
+    { hooks: { SessionStart: [{ matcher: 42, hooks: [] }] } },
+    { hooks: { SessionStart: [{ matcher: '*', hooks: [{ type: 'command' }] }] } },
+    { permissions: [] },
+    { permissions: { allow: 'Bash(node:*)' } },
+    { permissions: { allow: [{}] } },
+  ];
+  const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+
+  for (const [index, settings] of invalidSettings.entries()) {
+    const tempDir = createTempDir(`harness-invalid-settings-shape-${index}`);
+    try {
+      initGitProject(tempDir);
+      const packageBefore = readFileSync(path.join(tempDir, 'package.json'), 'utf8');
+      const settingsRaw = `${JSON.stringify(settings, null, 2)}\n`;
+      writeFile(tempDir, '.claude/settings.local.json', settingsRaw);
+      await assert.rejects(
+        () => harnessInstall.main(
+          ['--defaults', '--with-hook'],
+          { targetDir: tempDir, stdinIsTTY: false }
+        ),
+        /Existing .*settings\.local\.json/
+      );
+      assert.equal(readFileSync(path.join(tempDir, '.claude', 'settings.local.json'), 'utf8'), settingsRaw);
+      assert.equal(readFileSync(path.join(tempDir, 'package.json'), 'utf8'), packageBefore);
+      assert.ok(!existsSync(path.join(tempDir, 'AGENTS.md')));
+      assert.ok(!existsSync(path.join(tempDir, '.claude', 'progress.txt')));
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  }
+}
+
+async function testInvalidPackageScriptsFailPreflight() {
+  const invalidScripts = [
+    'npm test',
+    [],
+    null,
+    { req: { sentinel: true } },
+    { custom: 42 },
+  ];
+  const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+
+  for (const [index, scripts] of invalidScripts.entries()) {
+    const tempDir = createTempDir(`harness-invalid-package-scripts-${index}`);
+    try {
+      initGitProject(tempDir, { name: `invalid-scripts-${index}`, private: true, scripts });
+      const packageBefore = readFileSync(path.join(tempDir, 'package.json'), 'utf8');
+      await assert.rejects(
+        () => harnessInstall.main(['--defaults'], { targetDir: tempDir, stdinIsTTY: false }),
+        /Existing package\.json has a (non-object scripts field|non-string scripts\.)/
+      );
+      assert.equal(readFileSync(path.join(tempDir, 'package.json'), 'utf8'), packageBefore);
+      assert.ok(!existsSync(path.join(tempDir, 'AGENTS.md')));
+      assert.ok(!existsSync(path.join(tempDir, '.claude', 'progress.txt')));
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  }
+}
+
+async function testInstallerPreflightAndFailureTerminalStates() {
+  const invalidDir = createTempDir('harness-invalid-settings');
+  const copyFailDir = createTempDir('harness-copy-failure');
+  const verifyFailDir = createTempDir('harness-verify-failure');
+  const badSource = createTempDir('harness-bad-source');
+  try {
+    initGitProject(invalidDir);
+    const invalidSettings = '{ invalid-json';
+    writeFile(invalidDir, '.claude/settings.local.json', invalidSettings);
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+    await assert.rejects(
+      () => harnessInstall.main(['--defaults', '--with-hook'], { targetDir: invalidDir, stdinIsTTY: false }),
+      /Cannot parse existing \.claude\/settings\.local\.json/
+    );
+    assert.equal(readFileSync(path.join(invalidDir, '.claude', 'settings.local.json'), 'utf8'), invalidSettings);
+    assert.ok(!existsSync(path.join(invalidDir, 'AGENTS.md')), 'preflight failure must happen before copying');
+    assert.ok(!existsSync(path.join(invalidDir, '.claude', 'progress.txt')));
+
+    initGitProject(copyFailDir);
+    const copyFailure = captureExecFailure(() => execFileSync(
+      process.execPath,
+      [path.join(repoRoot, 'scripts', 'harness-install.mjs'), '--core-only', '--source', badSource],
+      { cwd: copyFailDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    ));
+    assert.equal(copyFailure.status, 1);
+    assert.doesNotMatch(copyFailure.stdout, /Harness Lab 安装完成/);
+    const copyReport = readFileSync(path.join(copyFailDir, 'requirements', 'reports', 'harness-setup-report.md'), 'utf8');
+    assert.match(copyReport, /\*\*状态\*\*：partial/);
+    assert.match(copyReport, /Source asset is missing/);
+    assert.ok(!existsSync(path.join(copyFailDir, 'AGENTS.md')));
+
+    initGitProject(verifyFailDir);
+    mkdirSync(path.join(verifyFailDir, 'AGENTS.md'), { recursive: true });
+    const verificationFailure = captureExecFailure(() => execFileSync(
+      process.execPath,
+      [path.join(repoRoot, 'scripts', 'harness-install.mjs'), '--core-only'],
+      { cwd: verifyFailDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    ));
+    assert.equal(verificationFailure.status, 1);
+    assert.doesNotMatch(verificationFailure.stdout, /Harness Lab 安装完成/);
+    const verifyReport = readFileSync(path.join(verifyFailDir, 'requirements', 'reports', 'harness-setup-report.md'), 'utf8');
+    assert.match(verifyReport, /\*\*状态\*\*：partial/);
+    assert.match(verifyReport, /Missing or invalid installed file: AGENTS\.md/);
+  } finally {
+    rmSync(invalidDir, { recursive: true, force: true });
+    rmSync(copyFailDir, { recursive: true, force: true });
+    rmSync(verifyFailDir, { recursive: true, force: true });
+    rmSync(badSource, { recursive: true, force: true });
+  }
+}
+
 function testReqCheckAcceptsSluggedActiveReq() {
   const tempDir = createTempDir('req-check-slugged-active');
   const reqFilePath = 'requirements/in-progress/REQ-2026-777-slugged-active.md';
@@ -589,10 +1418,10 @@ function runScopeGuard(root, relPath, toolName = 'Write') {
 }
 
 // OPT-1A: run req-check with a synthetic PreToolUse stdin event.
-function runReqCheck(root, toolName, toolInput) {
+function runReqCheck(root, toolName, toolInput, eventCwd = root) {
   return execFileSync(process.execPath, [path.join(repoRoot, 'scripts/req-check.js')], {
     cwd: root,
-    input: JSON.stringify({ cwd: root, tool_name: toolName, tool_input: toolInput }),
+    input: JSON.stringify({ cwd: eventCwd, tool_name: toolName, tool_input: toolInput }),
     encoding: 'utf8',
   });
 }
@@ -604,6 +1433,305 @@ function runScopeGuardRaw(root, event) {
     input: JSON.stringify({ cwd: root, ...event }),
     encoding: 'utf8',
   });
+}
+
+function testWriteTargetPolicyClassifiesAllSupportedTargets() {
+  const raws = (command) => classifyBashWrites(command).targets.map((target) => target.raw);
+
+  assert.deepEqual(raws('echo x > a.txt > b.txt'), ['a.txt', 'b.txt']);
+  assert.deepEqual(raws('printf x | tee -a a.txt b.txt'), ['a.txt', 'b.txt']);
+  assert.deepEqual(raws('rm -f a.txt b.txt'), ['a.txt', 'b.txt']);
+  assert.deepEqual(raws('touch a.txt b.txt'), ['a.txt', 'b.txt']);
+  assert.deepEqual(raws('touch -d yesterday dated.txt'), ['dated.txt']);
+  assert.deepEqual(raws('mkdir -p one two'), ['one', 'two']);
+  assert.deepEqual(raws('mkdir -m 755 one'), ['one']);
+  assert.deepEqual(raws('cp source.txt destination.txt'), ['destination.txt']);
+  assert.deepEqual(raws('cp a.txt b.txt output'), ['output/a.txt', 'output/b.txt']);
+  assert.deepEqual(raws('mv old.txt new.txt'), ['old.txt', 'new.txt']);
+  assert.deepEqual(raws('ln -s source.txt link.txt'), ['link.txt']);
+  assert.deepEqual(
+    raws("sed -i.bak 's/a/b/' first.txt second.txt"),
+    ['first.txt', 'first.txt.bak', 'second.txt', 'second.txt.bak']
+  );
+  assert.deepEqual(raws("perl -pi -e 's/a/b/' first.txt second.txt"), ['first.txt', 'second.txt']);
+  assert.deepEqual(raws("gawk -i inplace '{ print }' first.txt second.txt"), ['first.txt', 'second.txt']);
+  assert.deepEqual(raws("sed -i -f changes.sed first.txt second.txt"), ['first.txt', 'second.txt']);
+  assert.deepEqual(
+    raws('cp input.txt allowed/copied.txt && echo ok > blocked/one.txt > blocked/two.txt'),
+    ['allowed/copied.txt', 'blocked/one.txt', 'blocked/two.txt']
+  );
+  assert.deepEqual(raws('echo ok\nrm newline-a.txt newline-b.txt'), ['newline-a.txt', 'newline-b.txt']);
+  assert.deepEqual(raws('echo ok & rm background-a.txt background-b.txt'), ['background-a.txt', 'background-b.txt']);
+
+  const dynamic = classifyBashWrites('echo x > $TARGET');
+  assert.equal(dynamic.writes, true);
+  assert.equal(dynamic.unresolved, true);
+  assert.deepEqual(dynamic.targets.map((target) => target.raw), ['$TARGET']);
+  assert.equal(classifyBashWrites('echo x > *.log').unresolved, true);
+
+  const noInplaceTarget = classifyBashWrites("sed -i 's/a/b/'");
+  assert.equal(noInplaceTarget.writes, true);
+  assert.equal(noInplaceTarget.unresolved, true);
+
+  assert.equal(classifyBashWrites('echo x > /dev/null 2>&1').writes, false);
+  assert.equal(classifyBashWrites(`node -e "console.log('> not-a-shell-redirect')"`).writes, false);
+  assert.ok(!tokenizeShell(`node -e "console.log('> quoted')"`).some((token) => token.value === '>'));
+}
+
+function testCanonicalWriteTargetsHandleTraversalPrefixesAndSymlinks() {
+  const root = createTempDir('write-target-canonical');
+  const sibling = `${root}-copy`;
+  try {
+    mkdirSync(path.join(root, 'allowed'), { recursive: true });
+    mkdirSync(path.join(root, 'blocked'), { recursive: true });
+    mkdirSync(path.join(sibling, 'requirements'), { recursive: true });
+
+    const normal = canonicalizeWriteTarget(root, 'allowed/./file.txt');
+    assert.equal(normal.insideRepo, true);
+    assert.equal(normal.relativePath, 'allowed/file.txt');
+
+    const traversal = canonicalizeWriteTarget(root, 'allowed/../blocked/file.txt');
+    assert.equal(traversal.insideRepo, true);
+    assert.equal(traversal.relativePath, 'blocked/file.txt');
+
+    const windowsSeparator = canonicalizeWriteTarget(root, 'allowed\\nested\\file.txt');
+    assert.equal(windowsSeparator.insideRepo, true);
+    assert.equal(windowsSeparator.relativePath, 'allowed/nested/file.txt');
+
+    const prefixCollision = canonicalizeWriteTarget(root, path.join(sibling, 'requirements', 'outside.md'));
+    assert.equal(prefixCollision.insideRepo, false);
+    assert.equal(prefixCollision.relativePath, null);
+
+    if (process.platform !== 'win32') {
+      symlinkSync(sibling, path.join(root, 'allowed', 'linked-outside'), 'dir');
+      const symlinkEscape = canonicalizeWriteTarget(root, 'allowed/linked-outside/new.md');
+      assert.equal(symlinkEscape.insideRepo, false);
+      assert.match(symlinkEscape.absolutePath, /write-target-canonical-.*-copy/);
+    }
+
+    const analyzed = analyzeHookWrite({
+      tool_name: 'Bash',
+      tool_input: { command: 'echo x > allowed/a.txt > blocked/b.txt' },
+    }, root);
+    assert.equal(analyzed.targets.length, 2);
+    assert.deepEqual(analyzed.targets.map((target) => target.relativePath), ['allowed/a.txt', 'blocked/b.txt']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(sibling, { recursive: true, force: true });
+  }
+}
+
+function testReqCheckCanonicalGovernanceWhitelistRequiresEveryTarget() {
+  const root = createTempDir('req-check-canonical-whitelist');
+  const sibling = `${root}-copy`;
+  try {
+    initGitProject(root);
+    setupReqFixture(root);
+    mkdirSync(path.join(sibling, 'requirements'), { recursive: true });
+
+    runReqCheck(root, 'Write', { file_path: 'requirements\\in-progress\\REQ-x.md' });
+    runReqCheck(root, 'Bash', {
+      command: 'echo x > requirements/in-progress/REQ-x.md > docs/plans/x.md',
+    });
+
+    for (const event of [
+      { tool_name: 'Write', tool_input: { file_path: path.join(root, 'requirements', '..', 'src', 'app.js') } },
+      { tool_name: 'Write', tool_input: { file_path: path.join(sibling, 'requirements', 'outside.md') } },
+      { tool_name: 'Bash', tool_input: { command: 'echo x > requirements/ok.md > src/app.js' } },
+      { tool_name: 'Bash', tool_input: { command: 'echo x > $TARGET' } },
+      { tool_name: 'Write', tool_input: { file_path: { invalid: true } } },
+    ]) {
+      const failure = captureExecFailure(() => runReqCheck(root, event.tool_name, event.tool_input));
+      assert.equal(failure.status, 2);
+    }
+
+    const nestedCwd = path.join(root, 'packages', 'app');
+    mkdirSync(nestedCwd, { recursive: true });
+    const nestedFailure = captureExecFailure(() => runReqCheck(
+      root,
+      'Write',
+      { file_path: path.join(root, 'src', 'nested-cwd.js') },
+      nestedCwd
+    ));
+    assert.equal(nestedFailure.status, 2, 'nested event cwd must still resolve the repository root');
+    const invalidCwdFailure = captureExecFailure(() => runReqCheck(
+      root,
+      'Write',
+      { file_path: path.join(root, 'src', 'invalid-cwd.js') },
+      path.join(root, 'does-not-exist')
+    ));
+    assert.equal(invalidCwdFailure.status, 2, 'invalid event cwd must fall back to the hook process repository');
+
+    if (process.platform !== 'win32') {
+      symlinkSync(sibling, path.join(root, 'requirements', 'linked-outside'), 'dir');
+      const failure = captureExecFailure(() => runReqCheck(root, 'Write', {
+        file_path: path.join(root, 'requirements', 'linked-outside', 'new.md'),
+      }));
+      assert.equal(failure.status, 2);
+    }
+
+    runReqCheck(root, 'Bash', { command: `node -e "console.log('> src/not-a-write.js')"` });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(sibling, { recursive: true, force: true });
+  }
+}
+
+function writeScopedReqFixture(root, reqId = 'REQ-2026-951') {
+  writeFile(
+    root,
+    '.claude/progress.txt',
+    `Current active REQ: ${reqId}\nCurrent phase: implementation\nLast updated: 2026-07-11\n`
+  );
+  writeFile(
+    root,
+    `requirements/in-progress/${reqId}-multi-target.md`,
+    `# ${reqId}: Multi-target scope fixture
+
+## 状态
+- 当前状态：in-progress
+- 当前阶段：implementation
+
+## 背景
+验证多目标和 canonical path 范围门禁。
+
+## 目标
+- 所有写目标都经过范围判定
+
+## 范围
+- 涉及文件：
+  - \`scripts/allowed/**\`
+
+## 验收标准
+- [x] 任一越界目标都会阻断
+`
+  );
+}
+
+function testScopeGuardChecksEveryCanonicalTargetAndExemption() {
+  const root = createTempDir('scope-guard-multi-target');
+  const outside = `${root}-outside`;
+  try {
+    initGitProject(root);
+    writeScopedReqFixture(root);
+    mkdirSync(path.join(root, 'scripts', 'allowed'), { recursive: true });
+    mkdirSync(path.join(root, 'scripts', 'blocked'), { recursive: true });
+    mkdirSync(outside, { recursive: true });
+
+    assert.equal(runScopeGuardRaw(root, {
+      tool_name: 'Bash',
+      tool_input: { command: 'echo x > scripts\\allowed\\a.txt' },
+    }), '');
+    assert.equal(runScopeGuardRaw(root, {
+      tool_name: 'Bash',
+      tool_input: { command: 'cp input.txt scripts/allowed/copied.txt' },
+    }), '');
+    assert.equal(runScopeGuardRaw(root, {
+      tool_name: 'Bash',
+      tool_input: { command: 'ln -s input.txt scripts/allowed/link.txt' },
+    }), '');
+    assert.equal(runScopeGuardRaw(root, {
+      tool_name: 'Bash',
+      tool_input: { command: `node -e "console.log('> scripts/blocked/not-a-write')"` },
+    }), '');
+
+    const blockedCommands = [
+      'echo x > scripts/allowed/a.txt > scripts/blocked/b.txt',
+      'mv scripts/allowed/a.txt scripts/blocked/b.txt',
+      'ln -s input.txt scripts/blocked/link.txt',
+      "sed -i 's/a/b/' scripts/allowed/a.txt scripts/blocked/b.txt",
+      'echo x > scripts/allowed/../blocked/traversal.txt',
+      'echo x > $TARGET',
+      'echo x > *.log',
+    ];
+    for (const command of blockedCommands) {
+      const output = runScopeGuardRaw(root, { tool_name: 'Bash', tool_input: { command } });
+      const decision = JSON.parse(output);
+      assert.equal(decision.decision, 'block', command);
+      assert.match(decision.reason, /失败目标/);
+    }
+
+    const directTraversal = JSON.parse(runScopeGuardRaw(root, {
+      tool_name: 'Write',
+      tool_input: { file_path: path.join(root, 'scripts', 'allowed', '..', 'blocked', 'direct.txt') },
+    }));
+    assert.equal(directTraversal.decision, 'block');
+    const invalidDirect = JSON.parse(runScopeGuardRaw(root, {
+      tool_name: 'Write',
+      tool_input: { file_path: { invalid: true } },
+    }));
+    assert.equal(invalidDirect.decision, 'block');
+
+    const nestedCwd = path.join(root, 'packages', 'app');
+    mkdirSync(nestedCwd, { recursive: true });
+    const nestedDecision = JSON.parse(runScopeGuardRaw(root, {
+      cwd: nestedCwd,
+      tool_name: 'Write',
+      tool_input: { file_path: path.join(root, 'scripts', 'blocked', 'nested-cwd.txt') },
+    }));
+    assert.equal(nestedDecision.decision, 'block');
+    const invalidCwdDecision = JSON.parse(runScopeGuardRaw(root, {
+      cwd: path.join(root, 'does-not-exist'),
+      tool_name: 'Write',
+      tool_input: { file_path: path.join(root, 'scripts', 'blocked', 'invalid-cwd.txt') },
+    }));
+    assert.equal(invalidCwdDecision.decision, 'block');
+
+    if (process.platform !== 'win32') {
+      symlinkSync(outside, path.join(root, 'scripts', 'allowed', 'linked-outside'), 'dir');
+      const symlinkDecision = JSON.parse(runScopeGuardRaw(root, {
+        tool_name: 'Write',
+        tool_input: { file_path: path.join(root, 'scripts', 'allowed', 'linked-outside', 'new.txt') },
+      }));
+      assert.equal(symlinkDecision.decision, 'block');
+      assert.match(symlinkDecision.reason, /outside the repository/);
+    }
+
+    writeFile(root, '.claude/.req-exempt', 'REQ-2026-951 test exemption\n');
+    assert.equal(runScopeGuardRaw(root, {
+      tool_name: 'Bash',
+      tool_input: { command: 'echo x > scripts/blocked/exempt.txt' },
+    }), '');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+}
+
+function testScopeGuardHonorsWorktreeExemption() {
+  const root = createTempDir('scope-guard-worktree-exempt');
+  const worktree = `${root}-wt`;
+  try {
+    initGitProject(root);
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+    execFileSync('git', ['config', 'user.name', 'Harness Test'], { cwd: root });
+    writeFile(root, 'tracked.txt', 'baseline\n');
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '-m', 'baseline'], { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'req-951-worktree', worktree], { cwd: root });
+
+    writeScopedReqFixture(worktree);
+    const beforeExempt = runScopeGuardRaw(worktree, {
+      tool_name: 'Bash',
+      tool_input: { command: 'echo x > scripts/blocked/no-exempt.txt' },
+    });
+    assert.equal(JSON.parse(beforeExempt).decision, 'block');
+
+    const exemptPath = getExemptPath(worktree);
+    mkdirSync(path.dirname(exemptPath), { recursive: true });
+    writeFileSync(exemptPath, 'worktree exemption\n', 'utf8');
+    assert.equal(runScopeGuardRaw(worktree, {
+      tool_name: 'Bash',
+      tool_input: { command: 'echo x > scripts/blocked/exempt.txt' },
+    }), '');
+  } finally {
+    try {
+      execFileSync('git', ['worktree', 'remove', '--force', worktree], { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+    } catch {
+      rmSync(worktree, { recursive: true, force: true });
+    }
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 function testScopeGuardBlocksReadOnlyReqWrites() {
@@ -956,13 +2084,13 @@ function testHarnessSetupCommandSkillAndBinStayAligned() {
     '默认跳过已有文件',
     '.claude/progress.txt',
     '.claude/settings.local.json',
-    'worktree-utils.mjs',
+    'REQ lifecycle/status/experience',
     'source-command-worktree-req',
     '一个 worktree 一个 active REQ',
     'scripts/session-start.js',
     'scripts/req-check.js',
     'node /path/to/harness-lab/scripts/harness-install.mjs --defaults',
-    'npx harness-install --defaults',
+    'npx --yes --package=harness-lab harness-install --defaults',
     '--package-dir app',
     '默认安装是治理引导，不是完整镜像',
     'req:create` 只会生成骨架',
@@ -981,6 +2109,7 @@ function testHarnessSetupCommandSkillAndBinStayAligned() {
     '覆盖已有文件',
     '取消安装',
     '`AGENTS.md` - 会话入口协议',
+    'npx harness-install --defaults',
   ];
 
   for (const phrase of forbiddenPhrases) {
@@ -1999,7 +3128,22 @@ const tests = [
   ['req:status --all reads worktree aggregation', testReqStatusAllReadsWorktreeAggregation],
   ['req validation detects template placeholders and draft status', testReqValidationDetectsTemplateAndDraftIssues],
   ['harness-install copies governance files and writes hook config', testHarnessInstallArtifacts],
+  ['installer declared sources exist and CLI args are strict', testInstallerDeclaredSourcesExistAndArgsAreStrict],
+  ['published tarball is clean and its real bin completes a fresh install', testPublishedTarballAndPackedBinFreshInstall],
+  ['reinstall preserves progress and settings without duplicate hooks', testInstallerReinstallPreservesProgressAndSettings],
+  ['core-only profile preserves package and hook profile closes CLI dependencies', testInstallerCoreOnlyProfileBoundary],
+  ['clean-template-history preserves user state', testCleanTemplateHistoryPreservesUserState],
+  ['package target rejects directory and file symlink escapes', testPackageTargetRejectsSymlinkEscapes],
+  ['hook merge rejects spoofed commands and requires the full write matcher', testHookMergeRejectsSpoofsAndRequiresFullMatcher],
+  ['invalid settings shapes fail before installer writes', testInvalidSettingsShapesFailPreflight],
+  ['invalid package scripts fail before installer writes', testInvalidPackageScriptsFailPreflight],
+  ['installer preflight and failure terminal states are truthful', testInstallerPreflightAndFailureTerminalStates],
   ['req-check accepts slugged active REQ files', testReqCheckAcceptsSluggedActiveReq],
+  ['write-target policy classifies all supported targets', testWriteTargetPolicyClassifiesAllSupportedTargets],
+  ['canonical write targets handle traversal prefixes and symlinks', testCanonicalWriteTargetsHandleTraversalPrefixesAndSymlinks],
+  ['req-check governance whitelist requires every canonical target', testReqCheckCanonicalGovernanceWhitelistRequiresEveryTarget],
+  ['scope-guard checks every canonical target and global exemption', testScopeGuardChecksEveryCanonicalTargetAndExemption],
+  ['scope-guard honors worktree-local exemption', testScopeGuardHonorsWorktreeExemption],
   ['scope-guard blocks write attempts under read-only REQs', testScopeGuardBlocksReadOnlyReqWrites],
   ['scope-guard allows legacy REQs without scope declarations', testScopeGuardAllowsLegacyReqWithoutScope],
   ['req-check blocks Bash writes without a REQ (OPT-1A)', testReqCheckBlocksBashWriteWithoutReq],

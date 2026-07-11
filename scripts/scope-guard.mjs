@@ -16,13 +16,24 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+import { getExemptPath } from './worktree-utils.mjs';
+import { analyzeHookWrite } from './write-target-policy.mjs';
 
-function getGitRoot() {
+function getGitRoot(startDir = process.cwd()) {
+  let candidate = process.cwd();
   try {
-    return execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
+    if (typeof startDir === 'string' && fs.statSync(startDir).isDirectory()) candidate = path.resolve(startDir);
   } catch {
-    return process.cwd();
+    // Invalid/unreadable event cwd falls back to the hook process cwd.
+  }
+  try {
+    return execFileSync('git', ['-C', candidate, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return candidate;
   }
 }
 
@@ -33,6 +44,12 @@ function getHarnessMode(rootDir) {
   } catch {
     return 'collaborative';
   }
+}
+
+function isExempt(rootDir) {
+  const worktreeExempt = getExemptPath(rootDir);
+  const globalExempt = path.join(rootDir, '.claude', '.req-exempt');
+  return fs.existsSync(worktreeExempt) || fs.existsSync(globalExempt);
 }
 
 function getActiveReqId(rootDir) {
@@ -323,63 +340,6 @@ function logViolation(rootDir, reqId, filePath, patterns) {
   }
 }
 
-/**
- * Classify a Bash command: does it write to the filesystem?
- * Inlined copy kept in sync with scripts/req-check.js.
- * If they drift, extract to scripts/bash-write-detect.mjs (REQ-2026-086).
- */
-function classifyBashCommand(command) {
-  if (!command || typeof command !== 'string') {
-    return { writes: false, reason: null, targetPath: null };
-  }
-
-  const cleaned = command
-    .replace(/(?:^|[\s;|&(])2>&1\b/g, ' ')
-    .replace(/(?:2>&?|&>)\s*\/dev\/null\b/g, ' ')
-    .replace(/>{1,2}\s*\/dev\/null\b/g, ' ')
-    .replace(/(?:^|[\s;|&(])2>/g, ' ');
-
-  let m = cleaned.match(/(?:^|[\s;|&(])>{1,2}\s*(?!&[12])([^\s;&|)]+)/);
-  if (m) return { writes: true, reason: 'redirect', targetPath: m[1] };
-
-  m = command.match(/\|\s*(?:tee|sponge)\b(?:\s+-a)?\s+([^\s;&|]+)/);
-  if (m) return { writes: true, reason: 'pipe-write', targetPath: m[1] };
-
-  if (/\b(?:sed|perl)\s+(?:[^;]*?\s)?-i(?:nplace)?\b/.test(command) ||
-      /\bgawk\s+-i\s+inplace\b/.test(command) ||
-      /\bawk\s+-i\s+inplace\b/.test(command)) {
-    return { writes: true, reason: 'inplace-edit', targetPath: null };
-  }
-
-  m = command.match(/(?:^|[\s;|&(])(rm|mv|cp|touch|mkdir|ln)\b((?:\s+-[a-zA-Z-]+)*)(?:\s+([^\s;&|)]))/);
-  if (m) {
-    const opPart = command.slice(m.index);
-    const tokens = opPart.split(/\s+/).filter(Boolean);
-    let target = null;
-    for (let i = 1; i < tokens.length; i++) {
-      if (!tokens[i].startsWith('-')) { target = tokens[i]; break; }
-    }
-    return { writes: true, reason: 'file-op', targetPath: target };
-  }
-
-  if (/\bcat\s+<<.*?>/.test(command) || /\bcat\s*>{1,2}\s+/.test(command)) {
-    m = command.match(/\bcat\s*>{1,2}\s+([^\s;&|]+)/);
-    return { writes: true, reason: 'heredoc', targetPath: m ? m[1] : null };
-  }
-
-  return { writes: false, reason: null, targetPath: null };
-}
-
-/**
- * Return the repo write target of a Bash command, or null if not a write
- * or target unextractable. Used to judge scope for Bash writes.
- */
-function bashWriteTarget(command) {
-  const v = classifyBashCommand(command);
-  if (!v.writes) return null;
-  return v.targetPath; // null for inplace-edit → caller skips scope judgment
-}
-
 async function main() {
   let event;
   try {
@@ -393,25 +353,14 @@ async function main() {
     return;
   }
 
-  const rootDir = event.cwd ? event.cwd.replace(/\/+$/, '') : getGitRoot();
+  const eventCwd = typeof event.cwd === 'string'
+    ? path.resolve(event.cwd)
+    : process.cwd();
+  const rootDir = getGitRoot(eventCwd);
+  if (isExempt(rootDir)) return;
 
-  const toolName = event.tool_name || '';
-
-  // Resolve the write target as a repo-relative path.
-  let relPath = null;
-  if (toolName === 'Write' || toolName === 'Edit' || toolName === 'NotebookEdit') {
-    const filePath = event.tool_input?.file_path;
-    if (!filePath) return; // No file path, can't check
-    relPath = path.relative(rootDir, filePath);
-    if (!relPath || relPath.startsWith('..')) return; // Outside repo, don't interfere
-  } else if (toolName === 'Bash') {
-    const target = bashWriteTarget(event.tool_input?.command || '');
-    if (!target) return; // Pure read, or unextractable write target → can't judge scope, allow (req-check still enforces REQ)
-    relPath = path.isAbsolute(target) ? path.relative(rootDir, target) : target.replace(/^\.\//, '');
-    if (!relPath || relPath.startsWith('..')) return; // Outside repo, don't interfere
-  } else {
-    return; // Other tools not governed by scope
-  }
+  const analysis = analyzeHookWrite(event, rootDir);
+  if (!analysis.writes) return;
 
   // 1. Check if there's an active REQ
   const reqId = getActiveReqId(rootDir);
@@ -434,32 +383,54 @@ async function main() {
   const { patterns, readOnly } = buildEffectivePatterns(reqContent, extractedPatterns);
   if (patterns.length === 0 && !readOnly) return; // No scope declaration = backward compatible, allow
 
-  // 5. Check if target is in range
-  const range = evaluateRange(relPath, patterns, { failClosed: readOnly });
-  if (range.allowed) return; // In range, allow
+  // 5. Check every canonical target. One valid target cannot hide a later
+  // out-of-scope target. Unresolved writes fail closed only once scope exists.
+  const failures = [];
+  for (const target of analysis.targets) {
+    if (!target.resolved) {
+      failures.push({ path: target.raw || '<unresolved>', reason: target.reason || 'unresolved write target' });
+      continue;
+    }
+    if (!target.insideRepo || !target.relativePath) {
+      failures.push({ path: target.raw, reason: 'target resolves outside the repository' });
+      continue;
+    }
+    const range = evaluateRange(target.relativePath, patterns, { failClosed: readOnly });
+    if (!range.allowed) failures.push({ path: target.relativePath, reason: range.reason });
+  }
+  if (analysis.unresolved && failures.length === 0) {
+    failures.push({ path: '<unresolved>', reason: 'write command has unresolved targets' });
+  }
+  if (failures.length === 0) return;
 
   // 6. Out of range — block + log
   const mode = getHarnessMode(rootDir);
-  logViolation(rootDir, reqId, relPath, patterns);
+  for (const failure of failures) {
+    const safePath = String(failure.path).replace(/[\r\n\t]+/g, ' ');
+    logViolation(rootDir, reqId, `${safePath} (${failure.reason})`, patterns);
+  }
 
   const patternList = patterns
     .filter(p => p.type === 'allow')
     .map(p => `  - ${p.pattern}`)
     .join('\n') || '  - (none)';
+  const failureList = failures
+    .map((failure) => `  - ${String(failure.path).replace(/[\r\n\t]+/g, ' ')}: ${failure.reason}`)
+    .join('\n');
   const prefix = readOnly
-    ? `[ScopeGuard] 文件 "${relPath}" 被只读 REQ ${reqId} 阻断：${range.reason}。`
-    : `[ScopeGuard] 文件 "${relPath}" 不在 REQ ${reqId} 的声明范围内：${range.reason}。`;
+    ? `[ScopeGuard] 写入被只读 REQ ${reqId} 阻断。`
+    : `[ScopeGuard] 写入包含 REQ ${reqId} 声明范围外或无法解析的目标。`;
 
   if (mode === 'supervised') {
     console.log(JSON.stringify({
       decision: 'block',
-      reason: `${prefix}\n\n允许的范围：\n${patternList}\n\n如需修改此文件，请先更新 REQ 的范围声明。`
+      reason: `${prefix}\n\n失败目标：\n${failureList}\n\n允许的范围：\n${patternList}\n\n如需修改这些目标，请先更新 REQ 的范围声明。`
     }));
   } else {
     // collaborative 模式：温和提醒
     console.log(JSON.stringify({
       decision: 'block',
-      reason: `${prefix}\n\n允许的范围：\n${patternList}\n\n如果确实需要修改此文件，请先更新 REQ 的范围声明，或再次尝试。`
+      reason: `${prefix}\n\n失败目标：\n${failureList}\n\n允许的范围：\n${patternList}\n\n如果确实需要修改这些目标，请先更新 REQ 的范围声明，或使用有审计记录的临时豁免。`
     }));
   }
 }
