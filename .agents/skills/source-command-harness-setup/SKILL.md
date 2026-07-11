@@ -50,10 +50,10 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 如果 harness-lab 以 npm 包形式安装，`package.json` 暴露 `harness-install` bin 后，也可以使用：
 
 ```bash
-npx harness-install --defaults
-npx harness-install --defaults --dry-run
-npx harness-install --defaults --package-dir app
-npx harness-install --defaults --with-hook
+npx --yes --package=harness-lab harness-install --defaults
+npx --yes --package=harness-lab harness-install --defaults --dry-run
+npx --yes --package=harness-lab harness-install --defaults --package-dir app
+npx --yes --package=harness-lab harness-install --defaults --with-hook
 ```
 
 ## 模块
@@ -71,7 +71,7 @@ npx harness-install --defaults --with-hook
 | `docs/` | 设计稿和规范目录 | yes |
 | `context/` | 业务/技术/经验索引 | yes |
 | `skills/` 与 `.agents/skills/source-command-*` | 阶段导航技能、Claude Code source-command skills（含 `worktree-req`） | yes |
-| CLI 脚本 | `req-cli.mjs`, `req-audit.mjs`, `governance-health.mjs`, `req-validation.mjs`, `error-classifier.mjs`, `event-store.mjs`, `worktree-utils.mjs`, `docs-verify.mjs`, `check-governance.mjs`, `docs-sync-rules.json`, `template-guard.mjs` | yes |
+| CLI 脚本 | REQ lifecycle/status/experience、reflect/align、audit/health、docs gate、doctor、invariant 与其运行依赖 | yes |
 | 治理 hooks | `.claude/settings.example.json`, `scripts/session-start.js`, `scripts/req-check.js`, `scripts/scope-guard.mjs`, 本地 hook 配置 | no，需 `--with-hook` |
 
 ## 安装器真实行为
@@ -88,7 +88,8 @@ npx harness-install --defaults --with-hook
 3. **初始化配置**
    - 创建或补齐 `requirements/` 目录结构
    - 默认保留目标项目已有 REQ、报告和经验历史；仅在 `--clean-template-history` 下清理带模板标记的历史文件
-   - 初始化 `.claude/progress.txt`
+   - 仅在不存在时初始化 `.claude/progress.txt`；重装逐字节保留现有进度
+   - 合并合法的 `.claude/settings.local.json`，非法 JSON 原样保留并终止安装
    - 生成 `requirements/reports/harness-setup-report.md`
 
 4. **配置 hooks（如果选择）**
@@ -140,5 +141,5 @@ npm run req:start -- --id REQ-YYYY-NNN --phase implementation
 - Claude Code 下遵循“一个 worktree 一个 active REQ”；需要并行新开 REQ 时使用 `source-command-worktree-req`
 - 紧急小改动可用 `.claude/.req-exempt` 临时豁免，完成后应删除
 - 自动绑定只会复用标准脚本名，不猜测 `test:unit`、`check`、`build:prod` 等非标准脚本语义
-- `npx harness-install` 依赖包分发时暴露 `bin`，本地开发时优先使用 `node scripts/harness-install.mjs`
+- npm 包名是 `harness-lab`、bin 名是 `harness-install`；必须用显式 `--package=harness-lab` 映射，本地开发可直接运行 `node scripts/harness-install.mjs`
 - 默认安装是治理引导，不是完整镜像；`watchdog`、`risk-tracker`、测试、CI 和 `.claude/commands/` 不在默认安装清单中

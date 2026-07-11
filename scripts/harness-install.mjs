@@ -45,9 +45,8 @@ export const modules = {
     files: [
       'AGENTS.md',
       'CLAUDE.md',
-      'requirements/INDEX.md',
       'requirements/REQ_TEMPLATE.md',
-      'requirements/in-progress/.gitkeep',
+      'requirements/in-progress/README.md',
       'requirements/completed/README.md',
       'requirements/reports/README.md',
     ],
@@ -67,9 +66,17 @@ export const modules = {
     default: true,
     files: [
       'context/README.md',
-      'context/business/.gitkeep',
-      'context/tech/.gitkeep',
-      'context/experience/.gitkeep',
+      'context/business/README.md',
+      'context/tech/README.md',
+      'context/tech/architecture.md',
+      'context/tech/tech-stack.md',
+      'context/tech/testing-strategy.md',
+      'context/tech/env-contract.md',
+      'context/tech/deployment-runbook.md',
+      'context/experience/README.md',
+      'context/experience/TEMPLATE.md',
+      'context/invariants/TEMPLATE.md',
+      'context/references/README.md',
     ],
   },
   skills: {
@@ -109,18 +116,27 @@ export const modules = {
       'scripts/docs-sync-rules.json',
       'scripts/template-guard.mjs',
       'scripts/harness-doctor.mjs',
+      'scripts/req-reflect.mjs',
+      'scripts/req-align.mjs',
+      'scripts/invariant-extractor.mjs',
+      'scripts/invariant-gate.mjs',
     ],
     packageScripts: {
+      req: 'node scripts/req-cli.mjs',
       'req:create': 'node scripts/req-cli.mjs create',
       'req:start': 'node scripts/req-cli.mjs start',
       'req:block': 'node scripts/req-cli.mjs block',
-      'req:complete': 'node scripts/req-cli.mjs complete',
+      'req:complete': 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.req-complete-status && node scripts/req-cli.mjs complete --status-file .claude/.req-complete-status',
+      'req:status': 'node scripts/req-cli.mjs status',
       'req:audit': 'node scripts/req-audit.mjs --all',
+      'req:experience': 'node scripts/req-cli.mjs experience',
+      'req:reflect': 'node scripts/req-reflect.mjs',
+      'req:align': 'node scripts/req-align.mjs',
       'governance:health': 'node scripts/governance-health.mjs',
-      'docs:verify': 'node scripts/docs-verify.mjs',
-      'docs:impact': 'node scripts/docs-verify.mjs --impact-only',
-      'docs:impact:json': 'node scripts/docs-verify.mjs --impact-only --format json',
-      'check:governance': 'node scripts/check-governance.mjs',
+      'docs:verify': 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-verify-status && node scripts/docs-verify.mjs --status-file .claude/.docs-verify-status',
+      'docs:impact': 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-status --impact-only',
+      'docs:impact:json': 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-json-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-json-status --impact-only --format json',
+      'check:governance': 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.check-governance-status && node scripts/check-governance.mjs --status-file .claude/.check-governance-status',
       'harness:doctor': 'node scripts/harness-doctor.mjs',
     },
   },
@@ -133,6 +149,7 @@ export const modules = {
       'scripts/session-start.js',
       'scripts/req-check.js',
       'scripts/scope-guard.mjs',
+      'scripts/write-target-policy.mjs',
       'scripts/event-store.mjs',
     ],
     hook: true,
@@ -153,6 +170,17 @@ function isWithinDir(parentDir, childPath) {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
+function assertRealPathWithin(targetDir, packageDirPath, packageJsonPath) {
+  const realTarget = fs.realpathSync(targetDir);
+  const candidates = [packageDirPath, packageJsonPath].filter((candidate) => fs.existsSync(candidate));
+  for (const candidate of candidates) {
+    const realCandidate = fs.realpathSync(candidate);
+    if (!isWithinDir(realTarget, realCandidate)) {
+      throw new Error('The selected package.json resolves outside the target project through a symbolic link');
+    }
+  }
+}
+
 function resolveFromTarget(targetDir, inputPath) {
   return path.isAbsolute(inputPath)
     ? path.resolve(inputPath)
@@ -169,19 +197,10 @@ function governanceCommand(targetDir, packageDir, command) {
 }
 
 function buildTargetProjectScripts(targetDir, packageDir) {
-  return {
-    req: governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs'),
-    'req:create': governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs create'),
-    'req:start': governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs start'),
-    'req:block': governanceCommand(targetDir, packageDir, 'node scripts/req-cli.mjs block'),
-    'req:complete': governanceCommand(targetDir, packageDir, 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.req-complete-status && node scripts/req-cli.mjs complete --status-file .claude/.req-complete-status'),
-    'req:audit': governanceCommand(targetDir, packageDir, 'node scripts/req-audit.mjs --all'),
-    'governance:health': governanceCommand(targetDir, packageDir, 'node scripts/governance-health.mjs'),
-    'docs:verify': governanceCommand(targetDir, packageDir, 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-verify-status && node scripts/docs-verify.mjs --status-file .claude/.docs-verify-status'),
-    'docs:impact': governanceCommand(targetDir, packageDir, 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-status --impact-only'),
-    'docs:impact:json': governanceCommand(targetDir, packageDir, 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-json-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-json-status --impact-only --format json'),
-    'check:governance': governanceCommand(targetDir, packageDir, 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.check-governance-status && node scripts/check-governance.mjs --status-file .claude/.check-governance-status'),
-  };
+  return Object.fromEntries(
+    Object.entries(modules.cli.packageScripts)
+      .map(([name, command]) => [name, governanceCommand(targetDir, packageDir, command)])
+  );
 }
 
 function guardScript(name, targetDir, packageDir) {
@@ -282,6 +301,7 @@ export function resolvePackageJsonTarget(targetDir, options = {}) {
   }
 
   const packageDirPath = path.dirname(packageJsonPath);
+  assertRealPathWithin(targetDir, packageDirPath, packageJsonPath);
   const relPath = toPosixPath(path.relative(targetDir, packageJsonPath)) || 'package.json';
   const relDir = toPosixPath(path.relative(targetDir, packageDirPath)) || '.';
 
@@ -339,9 +359,8 @@ export function updateTargetPackageJson(targetDir, options = {}) {
     };
   }
 
-  if (!packageJson.scripts || typeof packageJson.scripts !== 'object' || Array.isArray(packageJson.scripts)) {
-    packageJson.scripts = {};
-  }
+  validatePackageScripts(packageJson, packageTarget.relPath);
+  if (packageJson.scripts === undefined) packageJson.scripts = {};
 
   const scripts = packageJson.scripts;
   const addedScripts = [];
@@ -527,7 +546,7 @@ export function sanitizeFrameworkData(targetDir, options = {}) {
 
   // 4. 重置 INDEX.md - 清空"最近完成"列表
   const indexPath = path.join(targetDir, 'requirements', 'INDEX.md');
-  if (fs.existsSync(indexPath) && (copiedFiles.has('requirements/INDEX.md') || cleanTemplateHistory)) {
+  if (fs.existsSync(indexPath) && copiedFiles.has('requirements/INDEX.md')) {
     let content = fs.readFileSync(indexPath, 'utf-8');
 
     // 重置当前活跃 REQ 为无
@@ -574,22 +593,24 @@ export function copyFiles(sourceDir, targetDir, selectedModules, skipExisting = 
         continue;
       }
 
-      // 创建目录
-      const targetDirPath = path.dirname(targetPath);
-      if (!fs.existsSync(targetDirPath)) {
-        fs.mkdirSync(targetDirPath, { recursive: true });
-      }
-
-      // 复制文件
       try {
-        if (fs.existsSync(sourcePath)) {
-          fs.copyFileSync(sourcePath, targetPath);
-          copied.push(file);
-        } else {
-          // 创建占位文件
-          fs.writeFileSync(targetPath, `# ${path.basename(file)}\n\n> 此文件由 harness-install 创建\n`);
-          copied.push(file + ' (created)');
+        if (!fs.existsSync(sourcePath)) {
+          failed.push({ file, error: `Source asset is missing: ${sourcePath}` });
+          continue;
         }
+
+        if (!fs.statSync(sourcePath).isFile()) {
+          failed.push({ file, error: `Source asset is not a regular file: ${sourcePath}` });
+          continue;
+        }
+
+        const targetDirPath = path.dirname(targetPath);
+        if (!fs.existsSync(targetDirPath)) {
+          fs.mkdirSync(targetDirPath, { recursive: true });
+        }
+
+        fs.copyFileSync(sourcePath, targetPath);
+        copied.push(file);
       } catch (err) {
         failed.push({ file, error: err.message });
       }
@@ -603,6 +624,10 @@ export function copyFiles(sourceDir, targetDir, selectedModules, skipExisting = 
 export function createProgressTxt(targetDir) {
   const progressPath = path.join(targetDir, '.claude', 'progress.txt');
   const progressDir = path.dirname(progressPath);
+
+  if (fs.existsSync(progressPath)) {
+    return progressPath;
+  }
 
   if (!fs.existsSync(progressDir)) {
     fs.mkdirSync(progressDir, { recursive: true });
@@ -628,21 +653,125 @@ Blockers:
   return progressPath;
 }
 
+export function createRequirementsIndex(targetDir) {
+  const indexPath = path.join(targetDir, 'requirements', 'INDEX.md');
+  if (fs.existsSync(indexPath)) {
+    return indexPath;
+  }
+
+  fs.mkdirSync(path.dirname(indexPath), { recursive: true });
+  fs.writeFileSync(indexPath, `# REQ 索引
+
+本目录存放所有 REQ（需求规格说明书）。
+
+## 命名规则
+
+\`\`\`text
+requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
+\`\`\`
+
+## 当前活跃 REQ
+
+- 无
+
+## 当前搁置 REQ
+
+- 无
+
+## 最近完成 REQ
+
+> 新项目暂无已完成 REQ。随着项目推进，已完成的 REQ 将显示在这里。
+`, 'utf8');
+  return indexPath;
+}
+
 // 检测当前平台
 function getPlatform() {
   return process.platform;
 }
 
 // 判断是否为 Harness Lab 配置的 hook
-function isHarnessHook(hook) {
-  if (!hook || !hook.hooks || !Array.isArray(hook.hooks)) return false;
-  return hook.hooks.some(h =>
-      h.command && (
-        h.command.includes('session-start') ||
-        h.command.includes('req-check') ||
-        h.command.includes('scope-guard')
-      )
+function matcherCoversTools(matcher, toolNames) {
+  const values = String(matcher || '').split('|').map((item) => item.trim());
+  return values.includes('*') || toolNames.every((toolName) => values.includes(toolName));
+}
+
+function commandRunsHarnessScript(hook, scriptName) {
+  if (hook?.type !== 'command' || typeof hook.command !== 'string') return false;
+  const normalized = hook.command.replace(/\\/g, '/').trim();
+  return new Set([
+    `node "scripts/${scriptName}"`,
+    `node scripts/${scriptName}`,
+    `node "$(git rev-parse --show-toplevel)/scripts/${scriptName}"`,
+  ]).has(normalized);
+}
+
+function hasHookCommand(entries, scriptName, requiredTools = []) {
+  if (!Array.isArray(entries)) return false;
+  return entries.some((entry) =>
+    matcherCoversTools(entry?.matcher, requiredTools) &&
+    Array.isArray(entry?.hooks) && entry.hooks.some((hook) =>
+      commandRunsHarnessScript(hook, scriptName)
+    )
   );
+}
+
+function isPlainRecord(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validatePackageScripts(packageJson, label) {
+  if (packageJson.scripts === undefined) return;
+  if (!isPlainRecord(packageJson.scripts)) {
+    throw new Error(`Existing ${label} has a non-object scripts field. The file was preserved.`);
+  }
+  for (const [scriptName, command] of Object.entries(packageJson.scripts)) {
+    if (typeof command !== 'string') {
+      throw new Error(`Existing ${label} has a non-string scripts.${scriptName}. The file was preserved.`);
+    }
+  }
+}
+
+function validateSettingsShape(settings, settingsPath) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+    throw new Error(`Existing ${settingsPath} must contain a JSON object. The file was preserved.`);
+  }
+  if (settings.hooks !== undefined && (!settings.hooks || typeof settings.hooks !== 'object' || Array.isArray(settings.hooks))) {
+    throw new Error(`Existing ${settingsPath} has an invalid hooks object. The file was preserved.`);
+  }
+  for (const hookType of ['SessionStart', 'PreToolUse']) {
+    if (settings.hooks?.[hookType] !== undefined && !Array.isArray(settings.hooks[hookType])) {
+      throw new Error(`Existing ${settingsPath} has a non-array hooks.${hookType}. The file was preserved.`);
+    }
+    for (const [entryIndex, entry] of (settings.hooks?.[hookType] || []).entries()) {
+      if (!isPlainRecord(entry)) {
+        throw new Error(`Existing ${settingsPath} has an invalid hooks.${hookType}[${entryIndex}]. The file was preserved.`);
+      }
+      if (entry.matcher !== undefined && typeof entry.matcher !== 'string') {
+        throw new Error(`Existing ${settingsPath} has a non-string hooks.${hookType}[${entryIndex}].matcher. The file was preserved.`);
+      }
+      if (!Array.isArray(entry.hooks)) {
+        throw new Error(`Existing ${settingsPath} has a non-array hooks.${hookType}[${entryIndex}].hooks. The file was preserved.`);
+      }
+      for (const [hookIndex, hook] of entry.hooks.entries()) {
+        if (!isPlainRecord(hook) || typeof hook.type !== 'string' || hook.type.trim() === '') {
+          throw new Error(`Existing ${settingsPath} has an invalid hooks.${hookType}[${entryIndex}].hooks[${hookIndex}]. The file was preserved.`);
+        }
+        if (hook.type === 'command' && (typeof hook.command !== 'string' || hook.command.trim() === '')) {
+          throw new Error(`Existing ${settingsPath} has an invalid command hook at hooks.${hookType}[${entryIndex}].hooks[${hookIndex}]. The file was preserved.`);
+        }
+      }
+    }
+  }
+  if (settings.permissions !== undefined && (!settings.permissions || typeof settings.permissions !== 'object' || Array.isArray(settings.permissions))) {
+    throw new Error(`Existing ${settingsPath} has an invalid permissions object. The file was preserved.`);
+  }
+  if (settings.permissions?.allow !== undefined && !Array.isArray(settings.permissions.allow)) {
+    throw new Error(`Existing ${settingsPath} has a non-array permissions.allow. The file was preserved.`);
+  }
+  if (settings.permissions?.allow?.some((permission) => typeof permission !== 'string')) {
+    throw new Error(`Existing ${settingsPath} has a non-string permissions.allow entry. The file was preserved.`);
+  }
 }
 
 // 检测是否为 Windows 平台
@@ -749,38 +878,51 @@ export function configureHook(targetDir) {
   ];
 
   let settings = {};
+  let original = '';
   if (fs.existsSync(settingsPath)) {
-    const existing = fs.readFileSync(settingsPath, 'utf-8');
+    original = fs.readFileSync(settingsPath, 'utf-8');
     try {
-      settings = JSON.parse(existing);
-    } catch (e) {
-      // 忽略解析错误
+      settings = JSON.parse(original);
+    } catch (error) {
+      throw new Error(`Cannot parse existing ${settingsPath}: ${error.message}. The file was preserved.`);
     }
+
+    validateSettingsShape(settings, settingsPath);
   }
 
-  if (!settings.hooks || typeof settings.hooks !== 'object' || Array.isArray(settings.hooks)) {
+  if (settings.hooks === undefined) {
     settings.hooks = {};
   }
 
-  // 深度合并 hooks：保留用户已有的同类型 hook，追加到数组中
-  // SessionStart hooks 合并
-  const existingSessionStart = Array.isArray(settings.hooks.SessionStart) ? settings.hooks.SessionStart : [];
-  settings.hooks.SessionStart = [...existingSessionStart.filter(h => !isHarnessHook(h)), ...sessionStartHooks];
+  const existingSessionStart = settings.hooks.SessionStart || [];
+  if (!hasHookCommand(existingSessionStart, 'session-start.js', ['*'])) {
+    settings.hooks.SessionStart = [...existingSessionStart, ...sessionStartHooks];
+  }
 
-  // PreToolUse hooks 合并
-  const existingPreToolUse = Array.isArray(settings.hooks.PreToolUse) ? settings.hooks.PreToolUse : [];
-  settings.hooks.PreToolUse = [...existingPreToolUse.filter(h => !isHarnessHook(h)), ...preToolUseHooks];
-  if (!settings.permissions || typeof settings.permissions !== 'object' || Array.isArray(settings.permissions)) {
+  const existingPreToolUse = settings.hooks.PreToolUse || [];
+  const missingPreToolHooks = preToolUseHooks[0].hooks.filter((hook) => {
+    const fragment = hook.command.includes('req-check.js') ? 'req-check.js' : 'scope-guard.mjs';
+    return !hasHookCommand(existingPreToolUse, fragment, ['Write', 'Edit', 'NotebookEdit', 'Bash']);
+  });
+  if (missingPreToolHooks.length > 0) {
+    settings.hooks.PreToolUse = [
+      ...existingPreToolUse,
+      { ...preToolUseHooks[0], hooks: missingPreToolHooks },
+    ];
+  }
+
+  if (settings.permissions === undefined) {
     settings.permissions = {};
   }
-  if (!Array.isArray(settings.permissions.allow)) {
+  if (settings.permissions.allow === undefined) {
     settings.permissions.allow = [];
   }
   settings.permissions.allow = [...new Set([...settings.permissions.allow, ...requiredPermissions])];
 
-  delete settings.PreToolUse;
-  delete settings.SessionStart;
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  const next = `${JSON.stringify(settings, null, 2)}\n`;
+  if (next !== original) {
+    fs.writeFileSync(settingsPath, next);
+  }
 
   return settingsPath;
 }
@@ -793,43 +935,43 @@ export function verifyInstallation(targetDir, selectedModules, hookEnabled, pack
     warnings: [],
   };
 
-  // 1. 验证核心文件存在
-  const coreFiles = [
-    'AGENTS.md',
-    'CLAUDE.md',
-    'requirements/INDEX.md',
-    'requirements/REQ_TEMPLATE.md',
-    '.claude/progress.txt',
-  ];
+  // 1. 验证所选模块声明的全部文件，以及安装器生成的 progress
+  const declaredFiles = new Set(
+    selectedModules.flatMap((moduleName) => modules[moduleName]?.files || [])
+  );
+  declaredFiles.add('requirements/INDEX.md');
+  declaredFiles.add('.claude/progress.txt');
 
-  for (const file of coreFiles) {
+  for (const file of declaredFiles) {
     const filePath = path.join(targetDir, file);
-    if (fs.existsSync(filePath)) {
-      results.passed.push(`Core file exists: ${file}`);
+    if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+      results.passed.push(`Installed file exists: ${file}`);
     } else {
-      results.failed.push(`Missing core file: ${file}`);
+      results.failed.push(`Missing or invalid installed file: ${file}`);
     }
   }
 
   // 2. 验证 package.json 脚本
-  const packageJsonPath = packageUpdate?.exists && packageUpdate.path
-    ? packageUpdate.path
-    : path.join(targetDir, 'package.json');
-  if (fs.existsSync(packageJsonPath)) {
-    try {
-      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-      const scripts = packageJson.scripts || {};
-
-      const requiredScripts = ['req:create', 'req:start', 'req:complete', 'req:audit', 'governance:health'];
-      for (const script of requiredScripts) {
-        if (scripts[script]) {
-          results.passed.push(`Script configured: ${script}`);
-        } else {
-          results.warnings.push(`Script not configured: ${script}`);
+  if (selectedModules.includes('cli')) {
+    const packageJsonPath = packageUpdate?.exists && packageUpdate.path
+      ? packageUpdate.path
+      : path.join(targetDir, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      try {
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        const scripts = packageJson.scripts || {};
+        for (const script of Object.keys(modules.cli.packageScripts)) {
+          if (typeof scripts[script] === 'string' && scripts[script].trim() !== '') {
+            results.passed.push(`Script configured: ${script}`);
+          } else {
+            results.failed.push(`Script not configured: ${script}`);
+          }
         }
+      } catch (e) {
+        results.failed.push(`Could not verify package.json scripts: ${e.message}`);
       }
-    } catch (e) {
-      results.warnings.push(`Could not verify package.json scripts: ${e.message}`);
+    } else {
+      results.warnings.push('Target package.json not found; npm scripts were not bound and direct Node entrypoints must be used.');
     }
   }
 
@@ -839,15 +981,18 @@ export function verifyInstallation(targetDir, selectedModules, hookEnabled, pack
     if (fs.existsSync(settingsPath)) {
       try {
         const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-        if (settings.hooks?.SessionStart) {
+        if (hasHookCommand(settings.hooks?.SessionStart, 'session-start.js', ['*'])) {
           results.passed.push('Hook: SessionStart configured');
         } else {
-          results.failed.push('Hook: SessionStart not configured');
+          results.failed.push('Hook: SessionStart missing scripts/session-start.js');
         }
-        if (settings.hooks?.PreToolUse) {
+        if (
+          hasHookCommand(settings.hooks?.PreToolUse, 'req-check.js', ['Write', 'Edit', 'NotebookEdit', 'Bash']) &&
+          hasHookCommand(settings.hooks?.PreToolUse, 'scope-guard.mjs', ['Write', 'Edit', 'NotebookEdit', 'Bash'])
+        ) {
           results.passed.push('Hook: PreToolUse configured');
         } else {
-          results.failed.push('Hook: PreToolUse not configured');
+          results.failed.push('Hook: PreToolUse missing Bash-covered req-check.js or scope-guard.mjs');
         }
       } catch (e) {
         results.failed.push(`Could not verify hook configuration: ${e.message}`);
@@ -879,10 +1024,10 @@ export function verifyInstallation(targetDir, selectedModules, hookEnabled, pack
       if (content.includes('Current active REQ:') && content.includes('Current phase:')) {
         results.passed.push('Progress file is valid');
       } else {
-        results.warnings.push('Progress file may be incomplete');
+        results.failed.push('Progress file is incomplete');
       }
     } catch (e) {
-      results.warnings.push(`Could not read progress file: ${e.message}`);
+      results.failed.push(`Could not read progress file: ${e.message}`);
     }
   }
 
@@ -890,7 +1035,7 @@ export function verifyInstallation(targetDir, selectedModules, hookEnabled, pack
 }
 
 function packageRunPrefix(packageUpdate) {
-  if (!packageUpdate?.exists || packageUpdate.parseError) {
+  if (!packageUpdate?.exists || packageUpdate.parseError || packageUpdate.bindingSkipped) {
     return null;
   }
 
@@ -902,6 +1047,9 @@ function packageRunPrefix(packageUpdate) {
 }
 
 function reqCreateCommand(packageUpdate) {
+  if (packageUpdate?.bindingSkipped) {
+    return 'CLI 未安装；使用 --defaults 重新接入后再创建 REQ';
+  }
   const runPrefix = packageRunPrefix(packageUpdate);
   if (runPrefix) {
     return `${runPrefix} req:create -- --title "Your first requirement"`;
@@ -911,6 +1059,9 @@ function reqCreateCommand(packageUpdate) {
 }
 
 function reqStartCommand(packageUpdate) {
+  if (packageUpdate?.bindingSkipped) {
+    return 'CLI 未安装；使用 --defaults 重新接入后再启动 REQ';
+  }
   const runPrefix = packageRunPrefix(packageUpdate);
   if (runPrefix) {
     return `${runPrefix} req:start -- --id REQ-YYYY-NNN --phase implementation`;
@@ -920,6 +1071,9 @@ function reqStartCommand(packageUpdate) {
 }
 
 function packageReviewStep(packageUpdate) {
+  if (packageUpdate?.bindingSkipped) {
+    return '本次 profile 未安装 CLI，因此没有修改 package scripts。';
+  }
   if (!packageUpdate?.exists || packageUpdate.parseError) {
     return '未绑定 package scripts；如需 npm scripts，请使用 `--package-dir` / `--package-json` 重新运行安装器。';
   }
@@ -937,6 +1091,10 @@ function formatPackageCandidates(packageUpdate) {
 }
 
 function formatPackageBindingStatus(packageUpdate) {
+  if (packageUpdate?.bindingSkipped) {
+    return `**目标 package**：\`${packageUpdate.relPath}\`\n\nℹ️ 未绑定 package scripts：本次 profile 未选择 CLI 模块。`;
+  }
+
   if (!packageUpdate || !packageUpdate.exists) {
     const requestedPath = packageUpdate?.requestedPath || 'package.json';
     return `**目标 package**：\`${requestedPath}\`\n\n⚠️ 未绑定 package scripts：未检测到目标 \`package.json\`。\n${formatPackageCandidates(packageUpdate)}`;
@@ -972,7 +1130,9 @@ function formatCapabilityGaps(selectedModules, packageUpdate) {
     gaps.push('- 治理 hooks 未安装：默认安装不启用硬阻断；需要时使用 `--with-hook`。');
   }
 
-  if (!packageUpdate?.exists || packageUpdate.parseError) {
+  if (packageUpdate?.bindingSkipped) {
+    gaps.push('- CLI 模块未安装：本次 profile 不绑定 package scripts，也不提供直接 Node CLI 入口。');
+  } else if (!packageUpdate?.exists || packageUpdate.parseError) {
     gaps.push('- package scripts 未绑定：当前只能直接运行 `node scripts/req-cli.mjs ...`，或指定 `--package-dir` / `--package-json` 后重新安装。');
   }
 
@@ -983,7 +1143,7 @@ function formatCapabilityGaps(selectedModules, packageUpdate) {
 }
 
 // 生成接入报告
-export function generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate = null, verifyResults = null) {
+export function generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate = null, verifyResults = null, installationStatus = null) {
   const reportDir = path.join(targetDir, 'requirements', 'reports');
   if (!fs.existsSync(reportDir)) {
     fs.mkdirSync(reportDir, { recursive: true });
@@ -991,6 +1151,8 @@ export function generateReport(targetDir, selectedModules, results, hookEnabled,
 
   const date = new Date().toISOString().split('T')[0];
   const reportPath = path.join(reportDir, 'harness-setup-report.md');
+  const failureCount = results.failed.length + (verifyResults?.failed.length || 0);
+  const status = installationStatus || (failureCount > 0 ? 'partial' : 'success');
 
   const moduleList = Object.entries(modules)
     .filter(([key]) => selectedModules.includes(key))
@@ -1006,6 +1168,8 @@ export function generateReport(targetDir, selectedModules, results, hookEnabled,
 
 **日期**：${date}
 **安装方式**：CLI 脚本
+**状态**：${status}
+**失败项**：${failureCount}
 
 ## 已安装模块
 
@@ -1099,41 +1263,146 @@ export async function question(rl, prompt) {
   });
 }
 
-function getArgValue(args, name) {
-  const index = args.indexOf(name);
-  if (index === -1) {
-    return null;
-  }
-
-  const value = args[index + 1];
-  if (!value || value.startsWith('--')) {
-    throw new Error(`${name} requires a value`);
-  }
-
-  return value;
-}
-
-// 主函数
-export async function main() {
-  const args = process.argv.slice(2);
+export function parseInstallerArgs(args = []) {
   const options = {
-    defaults: args.includes('--defaults'),
-    coreOnly: args.includes('--core-only'),
-    withHook: args.includes('--with-hook'),
+    defaults: false,
+    coreOnly: false,
+    withHook: false,
     source: null,
     packageDir: null,
     packageJson: null,
-    dryRun: args.includes('--dry-run'),
-    cleanTemplateHistory: args.includes('--clean-template-history'),
+    dryRun: false,
+    cleanTemplateHistory: false,
+    help: false,
   };
+  const booleanFlags = new Map([
+    ['--defaults', 'defaults'],
+    ['--core-only', 'coreOnly'],
+    ['--with-hook', 'withHook'],
+    ['--dry-run', 'dryRun'],
+    ['--clean-template-history', 'cleanTemplateHistory'],
+    ['--help', 'help'],
+    ['-h', 'help'],
+  ]);
+  const valueFlags = new Map([
+    ['--source', 'source'],
+    ['--package-dir', 'packageDir'],
+    ['--package-json', 'packageJson'],
+  ]);
+  const seen = new Set();
 
-  // 解析 --source 参数
-  options.source = getArgValue(args, '--source');
-  options.packageDir = getArgValue(args, '--package-dir');
-  options.packageJson = getArgValue(args, '--package-json');
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    const canonical = arg === '-h' ? '--help' : arg;
+    if (seen.has(canonical)) {
+      throw new Error(`Duplicate installer option: ${arg}`);
+    }
 
-  const targetDir = process.cwd();
-  const sourceDir = options.source || path.resolve(__dirname, '..');
+    if (booleanFlags.has(arg)) {
+      seen.add(canonical);
+      options[booleanFlags.get(arg)] = true;
+      continue;
+    }
+
+    if (valueFlags.has(arg)) {
+      const value = args[index + 1];
+      if (!value || value.startsWith('-')) {
+        throw new Error(`${arg} requires a value`);
+      }
+      seen.add(canonical);
+      options[valueFlags.get(arg)] = value;
+      index += 1;
+      continue;
+    }
+
+    throw new Error(`Unknown installer option: ${arg}`);
+  }
+
+  if (options.defaults && options.coreOnly) {
+    throw new Error('Use either --defaults or --core-only, not both');
+  }
+  if (options.packageDir && options.packageJson) {
+    throw new Error('Use either --package-dir or --package-json, not both');
+  }
+  if (options.coreOnly && !options.withHook && (options.packageDir || options.packageJson)) {
+    throw new Error('--package-dir and --package-json require a profile that installs the CLI');
+  }
+
+  return options;
+}
+
+function printInstallerHelp() {
+  console.log(`Harness Lab installer
+
+Usage:
+  harness-install --defaults [--with-hook] [--dry-run]
+  harness-install --core-only [--with-hook] [--dry-run]
+  harness-install                         # interactive TTY mode
+
+Options:
+  --defaults                 install the default module profile
+  --core-only                install only core files
+  --with-hook                add SessionStart and PreToolUse hooks
+  --source <dir>             use an explicit Harness Lab source directory
+  --package-dir <dir>        bind scripts to <dir>/package.json
+  --package-json <file>      bind scripts to an explicit package.json
+  --clean-template-history   remove only marker-matched template history
+  --dry-run                  print the plan without writing files
+  --help, -h                 show this help`);
+}
+
+function parseJsonObjectFile(filePath, label) {
+  const raw = fs.readFileSync(filePath, 'utf8');
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`Cannot parse existing ${label} at ${filePath}: ${error.message}. The file was preserved.`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Existing ${label} at ${filePath} must contain a JSON object. The file was preserved.`);
+  }
+  return parsed;
+}
+
+export function preflightInstallInputs(targetDir, options, hookEnabled, bindPackageScripts = true) {
+  if (hookEnabled) {
+    const settingsPath = path.join(targetDir, '.claude', 'settings.local.json');
+    if (fs.existsSync(settingsPath)) {
+      const settings = parseJsonObjectFile(settingsPath, '.claude/settings.local.json');
+      validateSettingsShape(settings, settingsPath);
+    }
+  }
+
+  if (bindPackageScripts) {
+    const packageTarget = resolvePackageJsonTarget(targetDir, {
+      packageDir: options.packageDir,
+      packageJson: options.packageJson,
+    });
+    if (fs.existsSync(packageTarget.path)) {
+      const packageJson = parseJsonObjectFile(packageTarget.path, packageTarget.relPath);
+      validatePackageScripts(packageJson, packageTarget.relPath);
+    }
+  }
+}
+
+// 主函数
+export async function main(argv = process.argv.slice(2), runtime = {}) {
+  const options = parseInstallerArgs(argv);
+  if (options.help) {
+    printInstallerHelp();
+    return { status: 'success', exitCode: 0, reportPath: null };
+  }
+
+  const targetDir = runtime.targetDir || process.cwd();
+  const sourceDir = options.source
+    ? path.resolve(targetDir, options.source)
+    : (runtime.sourceDir || path.resolve(__dirname, '..'));
+  const interactive = runtime.stdinIsTTY ?? Boolean(process.stdin.isTTY);
+
+  if (!options.defaults && !options.coreOnly && !interactive) {
+    throw new Error('Interactive installation requires a TTY. Use --defaults or --core-only.');
+  }
 
   log('\n═══════════════════════════════════════════════════════════', 'cyan');
   log('  Harness Lab 安装向导', 'cyan');
@@ -1143,7 +1412,7 @@ export async function main() {
   if (!isGitRepo(targetDir)) {
     log('❌ 错误：当前目录不是 Git 仓库', 'red');
     log('   请先运行 git init 初始化仓库\n', 'yellow');
-    process.exit(1);
+    return { status: 'failed', exitCode: 1, reportPath: null };
   }
 
   log(`📁 目标目录: ${targetDir}`, 'blue');
@@ -1161,10 +1430,6 @@ export async function main() {
   } else if (options.defaults) {
     log('📦 使用默认选项\n', 'yellow');
     selectedModules = ['core', 'docs', 'context', 'skills', 'cli'];
-    if (options.withHook) {
-      selectedModules.push('hook');
-      hookEnabled = true;
-    }
   } else {
     // 交互模式
     const rl = readline.createInterface({
@@ -1196,8 +1461,10 @@ export async function main() {
     }
 
     // 询问 hook
-    const hookAnswer = await question(rl, '\n  安装治理 hooks（settings.example + SessionStart/PreToolUse）? [y/N] ');
-    hookEnabled = hookAnswer.toLowerCase() === 'y';
+    const hookAnswer = options.withHook
+      ? 'y'
+      : await question(rl, '\n  安装治理 hooks（settings.example + SessionStart/PreToolUse）? [y/N] ');
+    hookEnabled = options.withHook || hookAnswer.toLowerCase() === 'y';
     if (hookEnabled) {
       selectedModules.push('hook');
       if (!selectedModules.includes('cli')) {
@@ -1209,6 +1476,16 @@ export async function main() {
 
     rl.close();
   }
+
+  if (options.withHook && !selectedModules.includes('hook')) {
+    selectedModules.push('hook');
+    hookEnabled = true;
+  }
+  if (hookEnabled && !selectedModules.includes('cli')) {
+    selectedModules.push('cli');
+  }
+
+  preflightInstallInputs(targetDir, options, hookEnabled, selectedModules.includes('cli'));
 
   // 检测现有文件
   log('\n🔍 检测现有文件...', 'blue');
@@ -1234,13 +1511,23 @@ export async function main() {
     log(`   将跳过: ${plannedSkip.length} 个已有文件`);
     if (plannedSkip.length > 0) plannedSkip.slice(0, 10).forEach((file) => log(`   = ${file}`));
     log(`   模板历史清理: ${options.cleanTemplateHistory ? '显式启用（仅 marker 匹配）' : '禁用'}`);
-    log('   package scripts: 将按 git-status-backed 命令绑定（dry-run 未写入）');
-    return;
+    log(selectedModules.includes('cli')
+      ? '   package scripts: 将按 git-status-backed 命令绑定（dry-run 未写入）'
+      : '   package scripts: 当前 profile 未选择 CLI，不会修改');
+    return {
+      status: 'success',
+      exitCode: 0,
+      reportPath: null,
+      selectedModules,
+      plannedCopy,
+      plannedSkip,
+    };
   }
 
   // 复制文件
   log('📦 复制文件...', 'blue');
-  const results = copyFiles(sourceDir, targetDir, selectedModules, true, existingFiles);
+  const runCopyFiles = runtime.copyFiles || copyFiles;
+  const results = runCopyFiles(sourceDir, targetDir, selectedModules, true, existingFiles);
 
   log(`   ✅ 已复制: ${results.copied.length} 个文件`, 'green');
   if (results.skipped.length > 0) {
@@ -1250,12 +1537,28 @@ export async function main() {
     log(`   ❌ 失败: ${results.failed.length} 个文件`, 'red');
   }
 
+  const indexPath = path.join(targetDir, 'requirements', 'INDEX.md');
+  const indexExisted = fs.existsSync(indexPath);
+  try {
+    createRequirementsIndex(targetDir);
+    if (!indexExisted) {
+      results.copied.push('requirements/INDEX.md');
+    }
+  } catch (error) {
+    results.failed.push({ file: 'requirements/INDEX.md', error: error.message });
+  }
+
   // 清理框架自身数据
   log('\n🧹 清理框架数据...', 'blue');
-  const sanitizeResults = sanitizeFrameworkData(targetDir, {
-    cleanTemplateHistory: options.cleanTemplateHistory,
-    copiedFiles: results.copied,
-  });
+  let sanitizeResults = { removed: [], reset: [], preserved: [] };
+  try {
+    sanitizeResults = sanitizeFrameworkData(targetDir, {
+      cleanTemplateHistory: options.cleanTemplateHistory,
+      copiedFiles: results.copied,
+    });
+  } catch (error) {
+    results.failed.push({ file: 'requirements/**', error: `Sanitize failed: ${error.message}` });
+  }
   if (sanitizeResults.removed.length > 0) {
     log(`   ✅ 已移除: ${sanitizeResults.removed.length} 个框架文件`, 'green');
   }
@@ -1268,28 +1571,82 @@ export async function main() {
 
   // 创建 progress.txt
   log('\n📝 创建 progress.txt...', 'blue');
-  createProgressTxt(targetDir);
-  log('   ✅ 已创建', 'green');
+  const progressPath = path.join(targetDir, '.claude', 'progress.txt');
+  const progressExisted = fs.existsSync(progressPath);
+  try {
+    createProgressTxt(targetDir);
+    log(progressExisted ? '   ⏭️  已保留现有 progress.txt' : '   ✅ 已创建', progressExisted ? 'yellow' : 'green');
+  } catch (error) {
+    results.failed.push({ file: '.claude/progress.txt', error: error.message });
+    log(`   ❌ ${error.message}`, 'red');
+  }
 
   // 配置 hook
   if (hookEnabled || selectedModules.includes('hook')) {
     log('\n⚙️  配置 PreToolUse hook...', 'blue');
-    configureHook(targetDir);
-    hookEnabled = true;
-    log('   ✅ 已配置', 'green');
+    try {
+      configureHook(targetDir);
+      hookEnabled = true;
+      log('   ✅ 已配置', 'green');
+    } catch (error) {
+      results.failed.push({ file: '.claude/settings.local.json', error: error.message });
+      log(`   ❌ ${error.message}`, 'red');
+    }
   }
 
   // REQ-088 #3: 追加 harness 运行时状态忽略到目标 .gitignore（防止状态文件污染 git status）
-  appendGitignore(targetDir);
+  try {
+    appendGitignore(targetDir);
+  } catch (error) {
+    results.failed.push({ file: '.gitignore', error: error.message });
+  }
 
-  const packageUpdate = updateTargetPackageJson(targetDir, {
-    packageDir: options.packageDir,
-    packageJson: options.packageJson,
-  });
+  let packageUpdate;
+  if (!selectedModules.includes('cli')) {
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    packageUpdate = {
+      updated: false,
+      exists: fs.existsSync(packageJsonPath),
+      path: fs.existsSync(packageJsonPath) ? packageJsonPath : null,
+      relPath: 'package.json',
+      requestedPath: 'package.json',
+      packageDirRel: '.',
+      bindingSkipped: true,
+      bindingStatus: [],
+      candidates: [],
+    };
+  } else {
+    try {
+      packageUpdate = updateTargetPackageJson(targetDir, {
+        packageDir: options.packageDir,
+        packageJson: options.packageJson,
+      });
+      if (packageUpdate.parseError) {
+        results.failed.push({ file: packageUpdate.relPath || packageUpdate.requestedPath, error: packageUpdate.parseError });
+      }
+    } catch (error) {
+      results.failed.push({ file: 'package.json', error: error.message });
+      packageUpdate = {
+        updated: false,
+        exists: false,
+        path: null,
+        requestedPath: options.packageJson || (options.packageDir ? `${options.packageDir}/package.json` : 'package.json'),
+        parseError: error.message,
+        bindingStatus: [],
+        candidates: [],
+      };
+    }
+  }
 
   // 安装后验证
   log('\n🔍 安装后验证...', 'blue');
-  const verifyResults = verifyInstallation(targetDir, selectedModules, hookEnabled, packageUpdate);
+  const runVerifyInstallation = runtime.verifyInstallation || verifyInstallation;
+  let verifyResults;
+  try {
+    verifyResults = runVerifyInstallation(targetDir, selectedModules, hookEnabled, packageUpdate);
+  } catch (error) {
+    verifyResults = { passed: [], warnings: [], failed: [`Installation verification crashed: ${error.message}`] };
+  }
   log(`   ✅ 通过: ${verifyResults.passed.length} 项`, 'green');
   if (verifyResults.warnings.length > 0) {
     log(`   ⚠️  警告: ${verifyResults.warnings.length} 项`, 'yellow');
@@ -1300,16 +1657,27 @@ export async function main() {
 
   // 生成报告
   log('\n📄 生成接入报告...', 'blue');
-  const reportPath = generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate, verifyResults);
+  const failureCount = results.failed.length + verifyResults.failed.length;
+  const status = failureCount > 0 ? 'partial' : 'success';
+  const reportPath = generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate, verifyResults, status);
   log(`   ✅ ${path.relative(targetDir, reportPath)}`, 'green');
 
-  // 完成
+  if (status !== 'success') {
+    log('\n═══════════════════════════════════════════════════════════', 'red');
+    log(`  ❌ Harness Lab 安装未完成：${failureCount} 个失败项`, 'red');
+    log('═══════════════════════════════════════════════════════════\n', 'red');
+    log(`📄 诊断报告: ${path.relative(targetDir, reportPath)}\n`, 'yellow');
+    return { status, exitCode: 1, reportPath, results, verifyResults, packageUpdate };
+  }
+
   log('\n═══════════════════════════════════════════════════════════', 'green');
   log('  ✅ Harness Lab 安装完成！', 'green');
   log('═══════════════════════════════════════════════════════════\n', 'green');
 
   log('📚 后续步骤：\n');
-  if (!packageUpdate.exists || packageUpdate.parseError) {
+  if (packageUpdate.bindingSkipped) {
+    log('   1. 当前 profile 未安装 CLI；使用 --defaults 重新接入后再运行 REQ 命令');
+  } else if (!packageUpdate.exists || packageUpdate.parseError) {
     log('   1. 未绑定 package scripts；可直接使用 node scripts/req-cli.mjs，或用 --package-dir/--package-json 重新绑定');
   } else {
     log(`   1. 检查 ${packageUpdate.relPath} 中自动绑定的命令，必要时替换 placeholder guard`);
@@ -1317,13 +1685,25 @@ export async function main() {
   log(`   2. 创建第一个 REQ: ${reqCreateCommand(packageUpdate)}`);
   log(`   3. 补齐 REQ 内容后再执行: ${reqStartCommand(packageUpdate)}`);
   log('   4. 查看接入报告: requirements/reports/harness-setup-report.md\n');
+  return { status, exitCode: 0, reportPath, results, verifyResults, packageUpdate };
 }
 
-const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === __filename;
+const isMainModule = (() => {
+  if (!process.argv[1]) return false;
+  try {
+    return fs.realpathSync(process.argv[1]) === fs.realpathSync(__filename);
+  } catch {
+    return path.resolve(process.argv[1]) === __filename;
+  }
+})();
 
 if (isMainModule) {
-  main().catch((err) => {
-    log(`\n❌ 安装失败: ${err.message}`, 'red');
-    process.exit(1);
-  });
+  main()
+    .then((result) => {
+      process.exitCode = result.exitCode;
+    })
+    .catch((err) => {
+      log(`\n❌ 安装失败: ${err.message}`, 'red');
+      process.exitCode = 1;
+    });
 }
