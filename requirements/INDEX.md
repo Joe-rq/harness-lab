@@ -15,14 +15,21 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 当前活跃 REQ
 
-- `REQ-2026-091-p0-executable-user-docs.md`（真实整改：P0 用户可执行文档与首个 REQ 向导）
+- 无
 
 ## 当前搁置 REQ
 
+- `REQ-2026-097-p1-three-external-project-pilots.md`（真实整改：P1 三类外部项目 Pilot）
+- `REQ-2026-096-p1-cross-platform-ci-claude-matcher-smoke.md`（真实整改：P1 跨平台 CI 与 Claude Matcher Smoke）
 - `REQ-2026-901-suspended-example.md`（示例 REQ - 演示搁置状态）
 
 ## 最近完成 REQ
 
+- `REQ-2026-095-p1-state-semantics-real-worktree.md`（真实整改：P1 状态语义与真实 worktree）
+- `REQ-2026-094-p1-safe-upgrade-v1.md`（真实整改：P1 安全升级 v1）
+- `REQ-2026-093-p1-hook-policy-profile-doctor.md`（真实整改：P1 Hook 风险策略矩阵与 profile-aware doctor）
+- `REQ-2026-092-p1-capability-manifest.md`（真实整改：P1 最小 capability manifest 单一事实源）
+- `REQ-2026-091-p0-executable-user-docs.md`（真实整改：P0 用户可执行文档与首个 REQ 向导）
 - `REQ-2026-090-p0-canonical-path-multi-target-guard.md`（真实整改：P0 canonical path 与多写目标门禁）
 - `REQ-2026-089-review-plan-p0-distribution-installation.md`（真实整改：P0 公开分发与安装闭环）
 - `REQ-2026-088-second-project-defects.md`（真实整改：第二项目实验 3 缺陷修复（标题宽松 + install .gitignore + doctor 传播））

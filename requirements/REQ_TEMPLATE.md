@@ -1,7 +1,7 @@
 # REQ-YYYY-NNN: 标题
 
 ## 状态
-- 当前状态：draft / in-progress / blocked / completed
+- 当前状态：draft / in-progress / blocked / suspended / completed
 - 当前阶段：design / implementation / review / qa / ship
 
 ## 背景
@@ -70,7 +70,7 @@
 - Ship：`requirements/reports/REQ-YYYY-NNN-ship.md`（需要发布时填写；否则在 REQ 中说明不适用）
 
 ## 验证计划
-- 计划执行的命令：
+- 计划执行的命令：（只填写目标项目中已存在且实际执行过的命令；不要把示例或 placeholder 当成验证）
 - 需要的环境：
 - 需要的人工验证：
 

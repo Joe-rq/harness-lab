@@ -295,6 +295,11 @@ async function testAuditBaselineDetectsOverBudgetWarnings() {
 
     const health = buildHealthReport(root);
     assert.equal(health.req_audit.baseline.within_baseline, false);
+    assert.equal(health.req_audit.regressions.errors, 0);
+    assert.equal(health.req_audit.regressions.warnings_over_baseline, 1);
+    assert.equal(health.req_audit.regressions.total, 1);
+    assert.equal(health.req_audit.debt.known_warnings, 1);
+    assert.equal(health.ok, false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

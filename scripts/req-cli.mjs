@@ -23,6 +23,7 @@ import {
   ensureWorktreeDir,
   getDefaultProgressContent,
   getProgressPath,
+  getWorktreeIdentity,
   getWorktreeId,
 } from './worktree-utils.mjs';
 import { auditReqClosure, auditReqPostComplete } from './req-audit.mjs';
@@ -180,6 +181,7 @@ function appendExemptAuditLog(action, reqId, reason) {
 
 function recordEvent(type, { reqId, phase, payload = {} } = {}) {
   try {
+    const identity = getWorktreeIdentity(root);
     appendEvent({
       type,
       source: 'cli',
@@ -188,7 +190,7 @@ function recordEvent(type, { reqId, phase, payload = {} } = {}) {
       payload,
     }, {
       rootDir: root,
-      worktree: root,
+      worktree: identity.id,
     });
   } catch (error) {
     console.warn(`[event-store] ${type} event skipped: ${error.message}`);
@@ -270,6 +272,20 @@ function slugify(title) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+function resolveReqSlug(title, explicitSlug) {
+  if (explicitSlug !== undefined && explicitSlug !== null) {
+    if (typeof explicitSlug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(explicitSlug)) {
+      fail('--slug must use lowercase ASCII kebab-case (letters, numbers, and single hyphens)');
+    }
+    return explicitSlug;
+  }
+
+  // Keep the title in the REQ body/index. The REQ ID already provides filename
+  // uniqueness, so a deterministic ASCII fallback is safer than transliteration
+  // guesses or rejecting titles written entirely in CJK and other scripts.
+  return slugify(title) || 'requirement';
 }
 
 function padSequence(sequence) {
@@ -653,8 +669,8 @@ function buildBugfixReqContent(reqId, title, slug) {
     ...reports,
     '',
     '## 验证计划',
-    '- 计划执行的命令：`npm test`',
-    '- 需要的环境：本仓库',
+    '- 计划执行的命令：[填写目标项目中已存在且可执行的真实测试/复现命令]',
+    '- 需要的环境：[填写目标项目的运行时、服务和测试数据]',
     '- 需要的人工验证：手动复现确认 Bug 已修复',
     '',
     '### 反馈与质量检查',
@@ -751,8 +767,8 @@ function buildFeatureReqContent(reqId, title, slug) {
     ...reports,
     '',
     '## 验证计划',
-    '- 计划执行的命令：`npm test && npm run docs:verify`',
-    '- 需要的环境：本仓库',
+    '- 计划执行的命令：[填写目标项目中已存在且可执行的真实测试/构建/文档命令]',
+    '- 需要的环境：[填写目标项目的运行时、服务和测试数据]',
     '- 需要的人工验证：手动验证功能行为符合预期',
     '',
     '### 反馈与质量检查',
@@ -848,8 +864,8 @@ function buildRefactorReqContent(reqId, title, slug) {
     ...reports,
     '',
     '## 验证计划',
-    '- 计划执行的命令：`npm test && npm run check:governance`',
-    '- 需要的环境：本仓库',
+    '- 计划执行的命令：[填写目标项目中已存在且可执行的行为保护/测试命令]',
+    '- 需要的环境：[填写目标项目的运行时、服务和测试数据]',
     '- 需要的人工验证：对比重构前后功能行为是否一致',
     '',
     '### 反馈与质量检查',
@@ -959,6 +975,8 @@ function buildReqStatusObject(req) {
     readiness = 'in_progress';
   } else if (req.status === 'blocked') {
     readiness = 'blocked';
+  } else if (req.status === 'suspended') {
+    readiness = 'suspended';
   } else if (req.status === 'draft') {
     const validation = validateReqDocument(req.content, { allowDraftStatus: true });
     readiness = validation.issues.length > 0 ? 'not_ready' : 'ready_to_start';
@@ -1057,7 +1075,8 @@ export function statusCommand(options) {
         }
         const activeReq = item.projection.activeReq || 'none';
         const phase = item.projection.phase || 'idle';
-        console.log(`  ${item.worktree}: ${activeReq} (${phase})`);
+        const suspended = item.projection.suspendedReqs?.map((req) => req.reqId).join(', ') || 'none';
+        console.log(`  ${item.worktree}: active=${activeReq} (${phase}), suspended=${suspended}`);
       }
 
       if (aggregation.conflicts.length > 0) {
@@ -1136,11 +1155,15 @@ export function statusCommand(options) {
           phase: projection.phase,
           last_updated: projection.lastUpdated,
         } : undefined,
+        suspended_reqs: projection?.suspendedReqs || [],
         warnings: warnings.length > 0 ? warnings : undefined,
       };
       console.log(JSON.stringify(result, null, 2));
     } else {
       console.log('No active REQ in this worktree.');
+      for (const item of projection?.suspendedReqs || []) {
+        console.log(`  Suspended: ${item.reqId} (${item.status} / ${item.phase}) - ${item.reason}`);
+      }
     }
     return;
   }
@@ -1167,6 +1190,7 @@ export function statusCommand(options) {
       phase: projection.phase,
       last_updated: projection.lastUpdated,
     } : undefined,
+    suspended_reqs: projection?.suspendedReqs || [],
     warnings: warnings.length > 0 ? warnings : undefined,
   };
 
@@ -1260,10 +1284,7 @@ export function createCommand(options) {
   if (getReqPathById(reqId)) {
     fail(`REQ ID already exists: ${reqId}`);
   }
-  const slug = options.slug || slugify(title);
-  if (!slug) {
-    fail('Could not derive an ASCII slug from --title. Pass --slug explicitly.');
-  }
+  const slug = resolveReqSlug(title, options.slug);
 
   const reqFileName = `${reqId}-${slug}.md`;
   const reqPath = `requirements/in-progress/${reqFileName}`;
@@ -1569,7 +1590,7 @@ export function experienceCommand(options) {
 
   // Determine the experience file name
   const date = today;
-  const titleSlug = slugify(req.title);
+  const titleSlug = slugify(req.title) || 'experience';
   const expFileName = `${reqId}-${titleSlug}.md`;
   const expPath = `context/experience/${expFileName}`;
 

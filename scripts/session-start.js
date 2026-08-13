@@ -10,7 +10,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import { getProgressPath } from './worktree-utils.mjs';
+import { getProgressPath, getWorktreeIdentity } from './worktree-utils.mjs';
 import { appendEvent, buildProgressProjection } from './event-store.mjs';
 
 const colors = {
@@ -109,6 +109,11 @@ function printProgress(progress) {
     log('\n⚠️ Blockers:', 'red');
     progress.blockers.forEach(item => log(`  - ${item}`, 'red'));
   }
+
+  if (progress.suspendedReqs?.length > 0) {
+    log('\n⏸️ 搁置中的 REQ：', 'yellow');
+    progress.suspendedReqs.forEach((item) => log(`  - ${item.reqId} (${item.status} / ${item.phase}): ${item.reason}`, 'yellow'));
+  }
 }
 
 function printReqIndex(rootDir) {
@@ -146,6 +151,7 @@ function printReqIndex(rootDir) {
 
 function recordSessionStarted(rootDir, progress, progressFound) {
   try {
+    const identity = getWorktreeIdentity(rootDir);
     appendEvent({
       type: 'session_started',
       source: 'hook',
@@ -158,7 +164,7 @@ function recordSessionStarted(rootDir, progress, progressFound) {
       },
     }, {
       rootDir,
-      worktree: rootDir,
+      worktree: identity.id,
     });
   } catch (error) {
     console.warn(`[event-store] session_started event skipped: ${error.message}`);

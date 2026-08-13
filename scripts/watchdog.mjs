@@ -17,6 +17,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getHookPolicy, readHarnessMode } from './hook-policy.mjs';
 
 const STAGNATION_THRESHOLD = 10; // 同一 REQ 编辑操作超过此次数无阶段推进则提醒
 const LOOP_THRESHOLD = 3; // 同一 REQ 状态切换超过此次数则提醒
@@ -84,15 +85,6 @@ function getReqPhase(rootDir, reqId) {
     }
   }
   return null;
-}
-
-function getHarnessMode(rootDir) {
-  const modeFile = path.join(rootDir, '.claude', 'harness-mode');
-  try {
-    return fs.readFileSync(modeFile, 'utf-8').trim() || 'collaborative';
-  } catch {
-    return 'collaborative';
-  }
 }
 
 function logAction(rootDir, action) {
@@ -214,9 +206,10 @@ async function runAsHook(rootDir) {
     warnings.push(`REQ ${reqId} 状态 ${loopPair} 反复切换。考虑：确认阻塞原因并记录到 REQ 的"阻塞/搁置说明"章节。`);
   }
 
-  const mode = getHarnessMode(rootDir);
+  const { mode } = readHarnessMode(rootDir);
+  const policy = getHookPolicy('watchdog.stagnant', mode);
 
-  if (mode === 'autonomous') {
+  if (policy.effect === 'recovery') {
     // 静默执行恢复策略 + 记录到日志
     const action = isStagnant
       ? `停滞恢复：REQ ${reqId} 在 "${req.phase}" 阶段已编辑 ${req.editCount} 次未推进，执行拆分或标记 blocked`

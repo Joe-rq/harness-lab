@@ -15,21 +15,13 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getHookPolicy, readHarnessMode } from './hook-policy.mjs';
 
 function getGitRoot() {
   try {
     return execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
   } catch {
     return process.cwd();
-  }
-}
-
-function getHarnessMode(rootDir) {
-  const modeFile = path.join(rootDir, '.claude', 'harness-mode');
-  try {
-    return fs.readFileSync(modeFile, 'utf-8').trim() || 'collaborative';
-  } catch {
-    return 'collaborative';
   }
 }
 
@@ -162,10 +154,11 @@ async function main() {
   if (uncovered.length === 0) return; // 全部覆盖，放行
 
   // 5. 根据模式输出
-  const mode = getHarnessMode(rootDir);
+  const { mode } = readHarnessMode(rootDir);
+  const policy = getHookPolicy('stop.uncovered', mode);
   const uncoveredList = uncovered.map((c, i) => `${i + 1}. ${c}`).join('\n');
 
-  if (mode === 'supervised' || mode === 'autonomous') {
+  if (policy.action === 'block') {
     // supervised 和 autonomous 模式：阻断（安全边界）
     console.log(JSON.stringify({
       decision: 'block',

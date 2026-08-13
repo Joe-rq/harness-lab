@@ -1,6 +1,75 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
+
+function git(root, args) {
+  return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+}
+
+function resolveGitPath(root, value) {
+  return path.resolve(root, value);
+}
+
+export function getWorktreeIdentity(root) {
+  const checkoutRoot = path.resolve(root);
+  try {
+    const topLevel = path.resolve(git(checkoutRoot, ['rev-parse', '--show-toplevel']));
+    const gitDir = resolveGitPath(topLevel, git(topLevel, ['rev-parse', '--git-dir']));
+    const commonDir = resolveGitPath(topLevel, git(topLevel, ['rev-parse', '--git-common-dir']));
+    const isMain = path.resolve(gitDir) === path.resolve(commonDir);
+    let branchRef = '';
+    try { branchRef = git(topLevel, ['symbolic-ref', '-q', 'HEAD']); } catch { branchRef = ''; }
+    const branch = branchRef ? branchRef.replace(/^refs\/heads\//, '') : null;
+    return {
+      id: isMain ? 'main' : safeBranchName(path.basename(gitDir)),
+      branch,
+      root: topLevel,
+      gitDir,
+      commonDir,
+      isMain,
+    };
+  } catch {
+    return {
+      id: 'main',
+      branch: null,
+      root: checkoutRoot,
+      gitDir: null,
+      commonDir: null,
+      isMain: true,
+    };
+  }
+}
+
+export function listGitWorktrees(root) {
+  const fallback = getWorktreeIdentity(root);
+  try {
+    const output = git(root, ['worktree', 'list', '--porcelain']);
+    const records = output.split(/\n\s*\n/).map((block) => {
+      const fields = {};
+      for (const line of block.split('\n')) {
+        const separator = line.indexOf(' ');
+        if (separator === -1) fields[line] = true;
+        else fields[line.slice(0, separator)] = line.slice(separator + 1);
+      }
+      return fields;
+    }).filter((fields) => fields.worktree);
+    return records.map((fields) => {
+      const identity = getWorktreeIdentity(fields.worktree);
+      return {
+        ...identity,
+        root: path.resolve(fields.worktree),
+        branch: fields.branch ? fields.branch.replace(/^refs\/heads\//, '') : identity.branch,
+        head: fields.HEAD || null,
+        detached: fields.detached === true,
+        prunable: fields.prunable === true,
+      };
+    }).sort((left, right) => Number(left.isMain) === Number(right.isMain)
+      ? left.root.localeCompare(right.root)
+      : (left.isMain ? -1 : 1));
+  } catch {
+    return [fallback];
+  }
+}
 
 /**
  * 检测当前是否在 git worktree 中
@@ -8,21 +77,8 @@ import { execSync } from 'node:child_process';
  * @returns {string|null} - worktree ID（通常是分支名）或 null（主仓库）
  */
 export function getWorktreeId(root) {
-  try {
-    const gitDir = execSync('git rev-parse --git-dir', {
-      cwd: root,
-      encoding: 'utf-8',
-    }).trim();
-    // gitDir 可能是绝对路径或相对路径
-    const basename = path.basename(gitDir);
-    // 主仓库: .git；worktree: .git/worktrees/{name}
-    if (basename === '.git') {
-      return null;
-    }
-    return basename;
-  } catch {
-    return null;
-  }
+  const identity = getWorktreeIdentity(root);
+  return identity.isMain ? null : identity.id;
 }
 
 /**
@@ -31,14 +87,7 @@ export function getWorktreeId(root) {
  * @returns {string|null}
  */
 export function getCurrentBranch(root) {
-  try {
-    return execSync('git branch --show-current', {
-      cwd: root,
-      encoding: 'utf-8',
-    }).trim() || null;
-  } catch {
-    return null;
-  }
+  return getWorktreeIdentity(root).branch;
 }
 
 /**

@@ -4,6 +4,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { auditRepository } from './req-audit.mjs';
+import { buildRepositoryState, classifyAuditSignals } from './state-semantics.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,20 +31,11 @@ function packageScriptStatus(root) {
 
 export function buildHealthReport(root = DEFAULT_ROOT) {
   const audit = auditRepository(root, { all: true });
-  const invariantsDir = path.join(root, 'context/invariants');
-  let invariants = { total: 0, active: 0, draft: 0, deprecated: 0 };
-  if (existsSync(invariantsDir)) {
-    for (const name of readdirSync(invariantsDir).filter((item) => item.endsWith('.md'))) {
-      const content = readFileSync(path.join(invariantsDir, name), 'utf8');
-      invariants.total += 1;
-      if (/status:\s*active/.test(content)) invariants.active += 1;
-      else if (/status:\s*deprecated/.test(content)) invariants.deprecated += 1;
-      else invariants.draft += 1;
-    }
-  }
+  const state = buildRepositoryState(root);
+  const auditSignals = classifyAuditSignals(audit);
 
   return {
-    ok: audit.ok,
+    ok: audit.ok && auditSignals.regressions.total === 0,
     req_audit: {
       errors: audit.summary.by_severity.error,
       warnings: audit.summary.by_severity.warning,
@@ -52,14 +44,22 @@ export function buildHealthReport(root = DEFAULT_ROOT) {
       top_codes: audit.summary.top_codes.slice(0, 8),
       by_code: audit.summary.by_code,
       baseline: audit.baseline,
+      regressions: auditSignals.regressions,
+      debt: auditSignals.debt,
+      improvements: auditSignals.improvements,
     },
     req_counts: {
-      in_progress: countFiles(root, 'requirements/in-progress', (name) => name.startsWith('REQ-') && name.endsWith('.md')),
-      completed: countFiles(root, 'requirements/completed', (name) => name.startsWith('REQ-') && name.endsWith('.md')),
+      in_progress: state.requirements.active + state.requirements.draft,
+      active: state.requirements.active,
+      draft: state.requirements.draft,
+      suspended: state.requirements.suspended,
+      invalid: state.requirements.invalid,
+      examples: state.requirements.examples,
+      completed: state.requirements.completed,
       reports: countFiles(root, 'requirements/reports', (name) => name.endsWith('.md') && name !== 'README.md'),
       experience: countFiles(root, 'context/experience', (name) => name.endsWith('.md') && name !== 'README.md'),
     },
-    invariants,
+    invariants: state.invariants,
     package_scripts: packageScriptStatus(root),
   };
 }
@@ -78,6 +78,8 @@ function parseArgs(argv) {
 function printText(report) {
   console.log(report.ok ? 'Governance health: OK' : 'Governance health: attention needed');
   console.log(`- REQ audit: ${report.req_audit.errors} errors, ${report.req_audit.warnings} warnings`);
+  console.log(`  - Regressions: ${report.req_audit.regressions.total} (${report.req_audit.regressions.errors} errors / ${report.req_audit.regressions.warnings_over_baseline} warnings over baseline)`);
+  console.log(`  - Known debt: ${report.req_audit.debt.known_warnings} warnings`);
   if (report.req_audit.warnings > 0) {
     console.log(`  - Warning age: ${report.req_audit.legacy_warnings} legacy, ${report.req_audit.current_warnings} current`);
     console.log(`  - Top finding codes: ${report.req_audit.top_codes.map((item) => `${item.code}=${item.count}`).join(', ')}`);
@@ -87,10 +89,10 @@ function printText(report) {
       console.log(`  - Baseline: ${status} (${baseline.current_warnings}/${baseline.warnings} warnings)`);
     }
   }
-  console.log(`- REQ counts: ${report.req_counts.in_progress} in progress, ${report.req_counts.completed} completed`);
+  console.log(`- REQ counts: ${report.req_counts.active} active, ${report.req_counts.draft} draft, ${report.req_counts.suspended} suspended, ${report.req_counts.completed} completed (${report.req_counts.examples} examples excluded)`);
   console.log(`- Reports: ${report.req_counts.reports}`);
   console.log(`- Experience docs: ${report.req_counts.experience}`);
-  console.log(`- Invariants: ${report.invariants.total} total (${report.invariants.active} active / ${report.invariants.draft} draft / ${report.invariants.deprecated} deprecated)`);
+  console.log(`- Invariants: ${report.invariants.unique} unique (${report.invariants.active} active / ${report.invariants.draft} draft / ${report.invariants.deprecated} deprecated; ${report.invariants.templates} templates + ${report.invariants.duplicate_files} duplicates excluded)`);
   if (!report.package_scripts.ok) {
     console.log(`- Package scripts missing: ${report.package_scripts.missing.join(', ')}`);
   } else {

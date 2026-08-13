@@ -4,7 +4,7 @@
 > 本文件只用于演示 blocked / suspended REQ 应如何记录，不对应任何真实项目、真实用户或真实仓库。
 
 ## 状态
-- 当前状态：blocked
+- 当前状态：suspended
 - 当前阶段：design
 
 ## 背景

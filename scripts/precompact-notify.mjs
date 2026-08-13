@@ -15,21 +15,13 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { getProgressPath, extractActiveReq } from './worktree-utils.mjs';
+import { getHookPolicy, readHarnessMode } from './hook-policy.mjs';
 
 function getGitRoot() {
   try {
     return execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
   } catch {
     return process.cwd();
-  }
-}
-
-function getHarnessMode(rootDir) {
-  const modeFile = path.join(rootDir, '.claude', 'harness-mode');
-  try {
-    return fs.readFileSync(modeFile, 'utf-8').trim() || 'collaborative';
-  } catch {
-    return 'collaborative';
   }
 }
 
@@ -97,8 +89,8 @@ function writeSnapshot(rootDir, activeReq, progress, reqStatus, riskLevel) {
   fs.writeFileSync(snapshotFile, lines.join('\n'));
 }
 
-function logCompactEvent(rootDir, mode, activeReq) {
-  if (mode !== 'autonomous') return;
+function logCompactEvent(rootDir, shouldAudit, mode, activeReq) {
+  if (!shouldAudit) return;
   const logFile = path.join(rootDir, '.claude', '.compact-events.log');
   const entry = `${new Date().toISOString()} | compact | mode=${mode} | req=${activeReq || 'none'}`;
   fs.appendFileSync(logFile, entry + '\n');
@@ -110,11 +102,12 @@ function main() {
   process.stdin.on('data', chunk => input += chunk);
   process.stdin.on('end', () => {
     const rootDir = getGitRoot();
-    const mode = getHarnessMode(rootDir);
+    const { mode } = readHarnessMode(rootDir);
+    const policy = getHookPolicy('precompact.snapshot', mode);
     const activeReq = readActiveReq(rootDir);
     const riskLevel = readRiskLevel(rootDir);
 
-    logCompactEvent(rootDir, mode, activeReq);
+    logCompactEvent(rootDir, policy.audit === true, mode, activeReq);
 
     if (!activeReq) {
       console.log(JSON.stringify({}));

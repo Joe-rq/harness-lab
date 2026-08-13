@@ -14,6 +14,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getHookPolicy, readHarnessMode } from './hook-policy.mjs';
 
 const REVIEW_KEYWORDS = [
   'review', 'audit', 'inspect', '审查', '复核', '代码审查',
@@ -27,15 +28,6 @@ function getGitRoot() {
     return execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
   } catch {
     return process.cwd();
-  }
-}
-
-function getHarnessMode(rootDir) {
-  const modeFile = path.join(rootDir, '.claude', 'harness-mode');
-  try {
-    return fs.readFileSync(modeFile, 'utf-8').trim() || 'collaborative';
-  } catch {
-    return 'collaborative';
   }
 }
 
@@ -77,10 +69,11 @@ async function main() {
 
   // Review agent using write-capable type → block
   const rootDir = event.cwd ? event.cwd.replace(/\/+$/, '') : getGitRoot();
-  const mode = getHarnessMode(rootDir);
+  const { mode } = readHarnessMode(rootDir);
+  const policy = getHookPolicy('review.write-agent', mode);
   const readonlyList = READONLY_TYPES.join(', ');
 
-  if (mode === 'supervised') {
+  if (policy.action === 'block' && mode === 'supervised') {
     console.log(JSON.stringify({
       decision: 'block',
       reason: `[ReviewGatekeeper] 审查 Agent 必须使用只读类型。\n\n当前类型: "${subagentType || '未指定'}"\n允许的只读类型: ${readonlyList}\n\n请将 subagent_type 改为 Explore 或 Plan。`

@@ -9,6 +9,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
+import { getWorktreeIdentity, listGitWorktrees } from './worktree-utils.mjs';
 
 export const EVENT_SCHEMA = {
   required: ['id', 'ts', 'type', 'version', 'source', 'sessionId', 'worktree', 'payload'],
@@ -70,7 +71,8 @@ function sanitizeNamespace(value) {
 export function getWorktreeNamespace(worktree, options = {}) {
   const rootDir = path.resolve(options.rootDir || process.cwd());
   const raw = String(worktree || options.worktree || rootDir).trim();
-  if (!raw || raw === rootDir || raw === '.' || raw === 'main') return 'main';
+  if (!raw || raw === '.' || raw === 'main') return 'main';
+  if (path.resolve(raw) === rootDir) return getWorktreeIdentity(rootDir).id;
 
   const normalized = raw.replace(/\\/g, '/');
   const rootNormalized = rootDir.replace(/\\/g, '/');
@@ -462,7 +464,11 @@ function formatReqLabel(event) {
 }
 
 export function buildProgressProjection(options = {}) {
-  const events = options.events || readEvents(options);
+  const currentSource = !options.events && !options.eventsDir && !options.files && options.rootDir
+    ? getCurrentWorktreeEventSource(options) : null;
+  const events = options.events || readEvents(currentSource
+    ? { ...options, eventsDir: currentSource.eventsDir, files: currentSource.files }
+    : options);
   if (events.length === 0) return null;
 
   const progress = {
@@ -472,6 +478,7 @@ export function buildProgressProjection(options = {}) {
     summary: [],
     nextSteps: [],
     blockers: [],
+    suspendedReqs: [],
     source: 'events',
     eventCount: events.length,
   };
@@ -492,11 +499,18 @@ export function buildProgressProjection(options = {}) {
       progress.blockers = [];
       progress.summary.push(`Active REQ: ${event.reqId || 'unknown'} (${phase})`);
       progress.nextSteps = event.reqId ? [`Continue active REQ: ${event.reqId}`] : [];
+      progress.suspendedReqs = progress.suspendedReqs.filter((item) => item.reqId !== event.reqId);
     } else if (event.type === 'req_blocked') {
       const reason = event.payload?.reason || 'Blocked without recorded reason';
-      progress.activeReq = event.reqId || progress.activeReq;
-      progress.phase = 'blocked';
-      progress.blockers = [reason];
+      if (!event.reqId || event.reqId === progress.activeReq) {
+        progress.activeReq = 'none';
+        progress.phase = 'idle';
+        progress.blockers = [];
+      }
+      if (event.reqId) {
+        progress.suspendedReqs = progress.suspendedReqs.filter((item) => item.reqId !== event.reqId);
+        progress.suspendedReqs.push({ reqId: event.reqId, status: 'blocked', phase: event.phase || 'blocked', reason });
+      }
       progress.summary.push(`REQ blocked: ${event.reqId || 'unknown'}`);
       progress.nextSteps = event.reqId ? [`Resolve blocker for ${event.reqId}`] : [];
     } else if (event.type === 'req_completed') {
@@ -507,6 +521,7 @@ export function buildProgressProjection(options = {}) {
         progress.blockers = [];
         progress.nextSteps = ['Select next REQ'];
       }
+      progress.suspendedReqs = progress.suspendedReqs.filter((item) => item.reqId !== event.reqId);
     }
   }
 
@@ -514,46 +529,78 @@ export function buildProgressProjection(options = {}) {
   return progress;
 }
 
-function listWorktreeEventSources(options = {}) {
-  const rootDir = options.rootDir || process.cwd();
-  const sources = [];
-  const mainEventsDir = path.join(rootDir, DEFAULT_EVENTS_DIR);
-  const mainNamespacedEventsDir = getWorktreeEventsDir({ rootDir, worktree: 'main' });
-  const mainFiles = [
-    ...listJsonlFiles(mainEventsDir),
-    ...listJsonlFiles(getArchiveDir(mainEventsDir)),
-    ...listJsonlFiles(mainNamespacedEventsDir),
-    ...listJsonlFiles(getArchiveDir(mainNamespacedEventsDir)),
+function sourceFiles(checkoutRoot, namespace, includeLegacyMain = false) {
+  const eventsDir = path.join(checkoutRoot, DEFAULT_WORKTREE_EVENTS_ROOT, namespace, 'events');
+  const files = [
+    ...listJsonlFiles(eventsDir),
+    ...listJsonlFiles(getArchiveDir(eventsDir)),
   ];
+  if (includeLegacyMain) {
+    const legacyDir = path.join(checkoutRoot, DEFAULT_EVENTS_DIR);
+    files.push(...listJsonlFiles(legacyDir), ...listJsonlFiles(getArchiveDir(legacyDir)));
+  }
+  if (namespace !== 'main') {
+    const oldBugDir = path.join(checkoutRoot, DEFAULT_WORKTREE_EVENTS_ROOT, 'main', 'events');
+    files.push(...listJsonlFiles(oldBugDir), ...listJsonlFiles(getArchiveDir(oldBugDir)));
+  }
+  return { eventsDir, files: [...new Set(files)] };
+}
 
-  if (mainFiles.length > 0) {
+export function getCurrentWorktreeEventSource(options = {}) {
+  const rootDir = path.resolve(options.rootDir || process.cwd());
+  const explicit = options.worktree && String(options.worktree) !== rootDir
+    ? getWorktreeNamespace(options.worktree, { rootDir }) : null;
+  const identity = getWorktreeIdentity(rootDir);
+  const namespace = explicit || identity.id;
+  const source = sourceFiles(rootDir, namespace, namespace === 'main');
+  return {
+    worktree: namespace,
+    branch: identity.branch,
+    root: rootDir,
+    ...source,
+  };
+}
+
+function listWorktreeEventSources(options = {}) {
+  const rootDir = path.resolve(options.rootDir || process.cwd());
+  const sources = [];
+  const seen = new Set();
+  const topology = listGitWorktrees(rootDir);
+
+  for (const identity of topology) {
+    const source = sourceFiles(identity.root, identity.id, identity.isMain);
+    if (source.files.length === 0 && !existsSync(source.eventsDir)) continue;
+    const key = `${identity.root}::${identity.id}`;
+    seen.add(key);
+    if (identity.id !== 'main') seen.add(`${identity.root}::main`);
     sources.push({
-      worktree: 'main',
-      eventsDir: mainNamespacedEventsDir,
-      files: mainFiles,
+      worktree: identity.id,
+      branch: identity.branch,
+      root: identity.root,
+      ...source,
     });
   }
 
-  const worktreesDir = path.join(rootDir, '.claude', 'worktrees');
-  if (!existsSync(worktreesDir)) return sources;
-
-  for (const entry of readdirSync(worktreesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    if (entry.name === 'main') continue;
-    const eventsDir = path.join(worktreesDir, entry.name, 'events');
-    const files = [
-      ...listJsonlFiles(eventsDir),
-      ...listJsonlFiles(getArchiveDir(eventsDir)),
-    ];
-    if (files.length === 0 && !existsSync(eventsDir)) continue;
-    sources.push({
-      worktree: entry.name,
-      eventsDir,
-      files,
-    });
+  // Compatibility for old simulated namespaces and orphaned local state.
+  for (const identity of topology) {
+    const worktreesDir = path.join(identity.root, DEFAULT_WORKTREE_EVENTS_ROOT);
+    if (!existsSync(worktreesDir)) continue;
+    for (const entry of readdirSync(worktreesDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const key = `${identity.root}::${entry.name}`;
+      if (seen.has(key)) continue;
+      const source = sourceFiles(identity.root, entry.name, false);
+      if (source.files.length === 0 && !existsSync(source.eventsDir)) continue;
+      seen.add(key);
+      sources.push({ worktree: entry.name, branch: null, root: identity.root, ...source });
+    }
   }
 
-  return sources;
+  return sources.sort((left, right) => {
+    if (left.worktree === 'main' && right.worktree !== 'main') return -1;
+    if (right.worktree === 'main' && left.worktree !== 'main') return 1;
+    return left.worktree.localeCompare(right.worktree) || left.root.localeCompare(right.root);
+  });
 }
 
 function findWorktreeConflicts(worktrees) {
@@ -604,6 +651,8 @@ export function buildWorktreeProgressProjections(options = {}) {
       if (!projection) continue;
       worktrees.push({
         worktree: source.worktree,
+        branch: source.branch || null,
+        root: source.root || null,
         eventsDir: source.eventsDir,
         projection,
         error: null,
@@ -611,6 +660,8 @@ export function buildWorktreeProgressProjections(options = {}) {
     } catch (error) {
       worktrees.push({
         worktree: source.worktree,
+        branch: source.branch || null,
+        root: source.root || null,
         eventsDir: source.eventsDir,
         projection: null,
         error: error.message,

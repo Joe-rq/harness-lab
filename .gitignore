@@ -41,6 +41,7 @@ context/session/*.md
 .claude/.risk-ratchet
 .claude/.watchdog-state
 .claude/.compact-snapshot.md
+.harness/pilot/
 
 # 临时文件和草稿
 chats/

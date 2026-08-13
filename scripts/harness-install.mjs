@@ -19,6 +19,43 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import readline from 'readline';
+import {
+  capabilityManifest,
+  getCapabilitiesForModules,
+  modules,
+  resolveInstallProfile,
+  resolveModuleClosure,
+} from './capability-manifest.mjs';
+import {
+  UPGRADE_REPORT_MD_PATH,
+  applyManagedUpgrade,
+  readOwnershipRecord,
+  refreshInstallationOwnership,
+  restoreManagedBackup,
+} from './managed-upgrade.mjs';
+
+export { modules } from './capability-manifest.mjs';
+
+export function buildInstallationProfile({ profileId, selectedModules, overlays = [] }) {
+  const modulesInProfile = resolveModuleClosure(selectedModules);
+  return {
+    schemaVersion: 1,
+    manifestSchemaVersion: capabilityManifest.schemaVersion,
+    productVersion: capabilityManifest.productVersion,
+    profile: profileId,
+    modules: modulesInProfile,
+    overlays: [...overlays],
+    capabilities: getCapabilitiesForModules(modulesInProfile),
+  };
+}
+
+export function writeInstallationProfile(targetDir, profileRecord) {
+  const profilePath = path.join(targetDir, '.harness', 'profile.json');
+  fs.mkdirSync(path.dirname(profilePath), { recursive: true });
+  const next = `${JSON.stringify(profileRecord, null, 2)}\n`;
+  fs.writeFileSync(profilePath, next, 'utf8');
+  return profilePath;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,125 +73,6 @@ const colors = {
 function log(message, color = 'reset') {
   console.log(`${colors[color]}${message}${colors.reset}`);
 }
-
-// 模块定义
-export const modules = {
-  core: {
-    name: '核心模块',
-    required: true,
-    files: [
-      'AGENTS.md',
-      'CLAUDE.md',
-      'requirements/REQ_TEMPLATE.md',
-      'requirements/in-progress/README.md',
-      'requirements/completed/README.md',
-      'requirements/reports/README.md',
-    ],
-  },
-  docs: {
-    name: 'docs/ 目录',
-    required: false,
-    default: true,
-    files: [
-      'docs/plans/README.md',
-      'docs/specs/README.md',
-    ],
-  },
-  context: {
-    name: 'context/ 目录',
-    required: false,
-    default: true,
-    files: [
-      'context/README.md',
-      'context/business/README.md',
-      'context/tech/README.md',
-      'context/tech/architecture.md',
-      'context/tech/tech-stack.md',
-      'context/tech/testing-strategy.md',
-      'context/tech/env-contract.md',
-      'context/tech/deployment-runbook.md',
-      'context/experience/README.md',
-      'context/experience/TEMPLATE.md',
-      'context/invariants/TEMPLATE.md',
-      'context/references/README.md',
-    ],
-  },
-  skills: {
-    name: 'skills/ 与 source-command skills',
-    required: false,
-    default: true,
-    files: [
-      'skills/README.md',
-      'skills/review/code-review.md',
-      'skills/qa/qa.md',
-      'skills/ship/ship.md',
-      'skills/plan/ceo-review.md',
-      'skills/plan/design-review.md',
-      'skills/plan/eng-review.md',
-      '.agents/skills/source-command-bugfix/SKILL.md',
-      '.agents/skills/source-command-feature/SKILL.md',
-      '.agents/skills/source-command-first-req/SKILL.md',
-      '.agents/skills/source-command-harness-setup/SKILL.md',
-      '.agents/skills/source-command-refactor/SKILL.md',
-      '.agents/skills/source-command-worktree-req/SKILL.md',
-    ],
-  },
-  cli: {
-    name: 'CLI 脚本',
-    required: false,
-    default: true,
-    files: [
-      'scripts/req-cli.mjs',
-      'scripts/req-audit.mjs',
-      'scripts/governance-health.mjs',
-      'scripts/req-validation.mjs',
-      'scripts/error-classifier.mjs',
-      'scripts/event-store.mjs',
-      'scripts/worktree-utils.mjs',
-      'scripts/docs-verify.mjs',
-      'scripts/check-governance.mjs',
-      'scripts/docs-sync-rules.json',
-      'scripts/template-guard.mjs',
-      'scripts/harness-doctor.mjs',
-      'scripts/req-reflect.mjs',
-      'scripts/req-align.mjs',
-      'scripts/invariant-extractor.mjs',
-      'scripts/invariant-gate.mjs',
-    ],
-    packageScripts: {
-      req: 'node scripts/req-cli.mjs',
-      'req:create': 'node scripts/req-cli.mjs create',
-      'req:start': 'node scripts/req-cli.mjs start',
-      'req:block': 'node scripts/req-cli.mjs block',
-      'req:complete': 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.req-complete-status && node scripts/req-cli.mjs complete --status-file .claude/.req-complete-status',
-      'req:status': 'node scripts/req-cli.mjs status',
-      'req:audit': 'node scripts/req-audit.mjs --all',
-      'req:experience': 'node scripts/req-cli.mjs experience',
-      'req:reflect': 'node scripts/req-reflect.mjs',
-      'req:align': 'node scripts/req-align.mjs',
-      'governance:health': 'node scripts/governance-health.mjs',
-      'docs:verify': 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-verify-status && node scripts/docs-verify.mjs --status-file .claude/.docs-verify-status',
-      'docs:impact': 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-status --impact-only',
-      'docs:impact:json': 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.docs-impact-json-status && node scripts/docs-verify.mjs --status-file .claude/.docs-impact-json-status --impact-only --format json',
-      'check:governance': 'git -c safe.directory=* status --porcelain=v1 -uall > .claude/.check-governance-status && node scripts/check-governance.mjs --status-file .claude/.check-governance-status',
-      'harness:doctor': 'node scripts/harness-doctor.mjs',
-    },
-  },
-  hook: {
-    name: '治理 hooks',
-    required: false,
-    default: false,
-    files: [
-      '.claude/settings.example.json',
-      'scripts/session-start.js',
-      'scripts/req-check.js',
-      'scripts/scope-guard.mjs',
-      'scripts/write-target-policy.mjs',
-      'scripts/event-store.mjs',
-    ],
-    hook: true,
-  },
-};
 
 function toPosixPath(value) {
   return value.split(path.sep).join('/');
@@ -787,7 +705,14 @@ export function appendGitignore(targetDir) {
   if (fs.existsSync(gitignorePath)) {
     existing = fs.readFileSync(gitignorePath, 'utf8');
   }
-  if (existing.includes(marker)) return; // 幂等：已含标记段则不重复追加
+  if (existing.includes(marker)) {
+    const missingRuntimePaths = ['.harness/backups/', '.harness/pilot/']
+      .filter((entry) => !new RegExp(`^${entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm').test(existing));
+    if (missingRuntimePaths.length > 0) {
+      fs.writeFileSync(gitignorePath, `${existing.replace(/\s*$/, '\n')}${missingRuntimePaths.join('\n')}\n`, 'utf8');
+    }
+    return;
+  }
   const block = [
     '',
     marker,
@@ -808,6 +733,8 @@ export function appendGitignore(targetDir) {
     '.claude/scope-violations.log',
     '.claude/events/',
     '.claude/worktrees/',
+    '.harness/backups/',
+    '.harness/pilot/',
     '',
   ].join('\n');
   fs.writeFileSync(gitignorePath, existing + block, 'utf8');
@@ -928,7 +855,7 @@ export function configureHook(targetDir) {
 }
 
 // 安装后验证
-export function verifyInstallation(targetDir, selectedModules, hookEnabled, packageUpdate = null) {
+export function verifyInstallation(targetDir, selectedModules, hookEnabled, packageUpdate = null, profileRecord = null) {
   const results = {
     passed: [],
     failed: [],
@@ -941,6 +868,8 @@ export function verifyInstallation(targetDir, selectedModules, hookEnabled, pack
   );
   declaredFiles.add('requirements/INDEX.md');
   declaredFiles.add('.claude/progress.txt');
+  declaredFiles.add('.harness/profile.json');
+  declaredFiles.add('.harness/ownership.json');
 
   for (const file of declaredFiles) {
     const filePath = path.join(targetDir, file);
@@ -949,6 +878,31 @@ export function verifyInstallation(targetDir, selectedModules, hookEnabled, pack
     } else {
       results.failed.push(`Missing or invalid installed file: ${file}`);
     }
+  }
+
+  try {
+    const installedProfile = JSON.parse(fs.readFileSync(path.join(targetDir, '.harness', 'profile.json'), 'utf8'));
+    if (
+      installedProfile.schemaVersion === 1 &&
+      JSON.stringify(installedProfile.modules) === JSON.stringify(profileRecord?.modules || selectedModules)
+    ) {
+      results.passed.push(`Installation profile recorded: ${installedProfile.profile}`);
+    } else {
+      results.failed.push('Installation profile record does not match selected modules');
+    }
+  } catch (error) {
+    results.failed.push(`Could not verify installation profile: ${error.message}`);
+  }
+
+  try {
+    const ownership = readOwnershipRecord(targetDir, { allowMissing: false });
+    if (ownership.profile === profileRecord?.profile) {
+      results.passed.push(`Managed ownership recorded: ${Object.keys(ownership.files).length} files`);
+    } else {
+      results.failed.push('Managed ownership profile does not match installation profile');
+    }
+  } catch (error) {
+    results.failed.push(`Could not verify managed ownership: ${error.message}`);
   }
 
   // 2. 验证 package.json 脚本
@@ -1143,7 +1097,7 @@ function formatCapabilityGaps(selectedModules, packageUpdate) {
 }
 
 // 生成接入报告
-export function generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate = null, verifyResults = null, installationStatus = null) {
+export function generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate = null, verifyResults = null, installationStatus = null, profileRecord = null) {
   const reportDir = path.join(targetDir, 'requirements', 'reports');
   if (!fs.existsSync(reportDir)) {
     fs.mkdirSync(reportDir, { recursive: true });
@@ -1170,6 +1124,7 @@ export function generateReport(targetDir, selectedModules, results, hookEnabled,
 **安装方式**：CLI 脚本
 **状态**：${status}
 **失败项**：${failureCount}
+**安装 profile**：${profileRecord?.profile || 'legacy/unknown'}${profileRecord?.overlays?.length ? ` + ${profileRecord.overlays.join(', ')}` : ''}
 
 ## 已安装模块
 
@@ -1272,6 +1227,8 @@ export function parseInstallerArgs(args = []) {
     packageDir: null,
     packageJson: null,
     dryRun: false,
+    upgrade: false,
+    restore: null,
     cleanTemplateHistory: false,
     help: false,
   };
@@ -1280,6 +1237,7 @@ export function parseInstallerArgs(args = []) {
     ['--core-only', 'coreOnly'],
     ['--with-hook', 'withHook'],
     ['--dry-run', 'dryRun'],
+    ['--upgrade', 'upgrade'],
     ['--clean-template-history', 'cleanTemplateHistory'],
     ['--help', 'help'],
     ['-h', 'help'],
@@ -1288,6 +1246,7 @@ export function parseInstallerArgs(args = []) {
     ['--source', 'source'],
     ['--package-dir', 'packageDir'],
     ['--package-json', 'packageJson'],
+    ['--restore', 'restore'],
   ]);
   const seen = new Set();
 
@@ -1327,6 +1286,18 @@ export function parseInstallerArgs(args = []) {
   if (options.coreOnly && !options.withHook && (options.packageDir || options.packageJson)) {
     throw new Error('--package-dir and --package-json require a profile that installs the CLI');
   }
+  if (options.upgrade && options.restore) {
+    throw new Error('Use either --upgrade or --restore, not both');
+  }
+  if ((options.upgrade || options.restore) && (
+    options.defaults || options.coreOnly || options.withHook || options.packageDir ||
+    options.packageJson || options.cleanTemplateHistory
+  )) {
+    throw new Error('--upgrade/--restore cannot be combined with install profile, package, hook, or history options');
+  }
+  if (options.restore && options.source) {
+    throw new Error('--restore does not accept --source');
+  }
 
   return options;
 }
@@ -1337,6 +1308,8 @@ function printInstallerHelp() {
 Usage:
   harness-install --defaults [--with-hook] [--dry-run]
   harness-install --core-only [--with-hook] [--dry-run]
+  harness-install --upgrade [--source <dir>] [--dry-run]
+  harness-install --restore <backup-id> [--dry-run]
   harness-install                         # interactive TTY mode
 
 Options:
@@ -1348,6 +1321,8 @@ Options:
   --package-json <file>      bind scripts to an explicit package.json
   --clean-template-history   remove only marker-matched template history
   --dry-run                  print the plan without writing files
+  --upgrade                  safely update only unmodified managed files
+  --restore <backup-id>      restore files from a managed-upgrade backup
   --help, -h                 show this help`);
 }
 
@@ -1400,6 +1375,33 @@ export async function main(argv = process.argv.slice(2), runtime = {}) {
     : (runtime.sourceDir || path.resolve(__dirname, '..'));
   const interactive = runtime.stdinIsTTY ?? Boolean(process.stdin.isTTY);
 
+  if (options.upgrade) {
+    if (!isGitRepo(targetDir)) return { status: 'failed', exitCode: 1, reportPath: null };
+    const result = applyManagedUpgrade({
+      sourceDir,
+      targetDir,
+      dryRun: options.dryRun,
+      now: runtime.now || new Date(),
+      backupId: runtime.backupId || null,
+      faultInjector: runtime.faultInjector || null,
+    });
+    log(options.dryRun ? '\n🧪 安全升级计划' : '\n⬆️ 安全升级结果', 'cyan');
+    log(`   目标版本: ${result.sourceVersion}`);
+    log(`   update=${result.summary.update} add=${result.summary.add} conflict=${result.summary.conflict} stale=${result.summary.stale}`);
+    for (const warning of result.warnings) log(`   ⚠️ ${warning}`, 'yellow');
+    if (result.backupId) log(`   backup: ${result.backupId}`);
+    return { ...result, reportPath: options.dryRun ? null : UPGRADE_REPORT_MD_PATH };
+  }
+
+  if (options.restore) {
+    if (!isGitRepo(targetDir)) return { status: 'failed', exitCode: 1, reportPath: null };
+    const result = restoreManagedBackup({ targetDir, backupId: options.restore, dryRun: options.dryRun });
+    log(options.dryRun ? '\n🧪 恢复计划已生成' : '\n↩️ 备份恢复完成', 'cyan');
+    log(`   backup: ${options.restore}`);
+    log(`   files: ${result.entries.length}`);
+    return { ...result, exitCode: 0, reportPath: null };
+  }
+
   if (!options.defaults && !options.coreOnly && !interactive) {
     throw new Error('Interactive installation requires a TTY. Use --defaults or --core-only.');
   }
@@ -1422,14 +1424,14 @@ export async function main(argv = process.argv.slice(2), runtime = {}) {
   }
 
   // 确定要安装的模块
-  let selectedModules = ['core'];
+  let selectedModules = resolveInstallProfile('core');
   let hookEnabled = false;
 
   if (options.coreOnly) {
     log('📦 仅安装核心模块\n', 'yellow');
   } else if (options.defaults) {
     log('📦 使用默认选项\n', 'yellow');
-    selectedModules = ['core', 'docs', 'context', 'skills', 'cli'];
+    selectedModules = resolveInstallProfile('default');
   } else {
     // 交互模式
     const rl = readline.createInterface({
@@ -1440,7 +1442,7 @@ export async function main(argv = process.argv.slice(2), runtime = {}) {
     log('请选择要安装的模块：\n', 'cyan');
 
     for (const [key, mod] of Object.entries(modules)) {
-      if (key === 'hook') {
+      if (key === 'hook' || mod.interactive === false) {
         continue;
       }
 
@@ -1484,6 +1486,12 @@ export async function main(argv = process.argv.slice(2), runtime = {}) {
   if (hookEnabled && !selectedModules.includes('cli')) {
     selectedModules.push('cli');
   }
+  selectedModules = resolveModuleClosure(selectedModules);
+  const profileRecord = buildInstallationProfile({
+    profileId: options.coreOnly ? 'core' : (options.defaults ? 'default' : 'custom'),
+    selectedModules,
+    overlays: hookEnabled ? ['basic-hooks'] : [],
+  });
 
   preflightInstallInputs(targetDir, options, hookEnabled, selectedModules.includes('cli'));
 
@@ -1521,6 +1529,7 @@ export async function main(argv = process.argv.slice(2), runtime = {}) {
       selectedModules,
       plannedCopy,
       plannedSkip,
+      profileRecord,
     };
   }
 
@@ -1638,12 +1647,26 @@ export async function main(argv = process.argv.slice(2), runtime = {}) {
     }
   }
 
+  try {
+    writeInstallationProfile(targetDir, profileRecord);
+    if (!results.copied.includes('.harness/profile.json')) results.copied.push('.harness/profile.json');
+  } catch (error) {
+    results.failed.push({ file: '.harness/profile.json', error: error.message });
+  }
+
+  try {
+    refreshInstallationOwnership({ sourceDir, targetDir, profileRecord });
+    if (!results.copied.includes('.harness/ownership.json')) results.copied.push('.harness/ownership.json');
+  } catch (error) {
+    results.failed.push({ file: '.harness/ownership.json', error: error.message });
+  }
+
   // 安装后验证
   log('\n🔍 安装后验证...', 'blue');
   const runVerifyInstallation = runtime.verifyInstallation || verifyInstallation;
   let verifyResults;
   try {
-    verifyResults = runVerifyInstallation(targetDir, selectedModules, hookEnabled, packageUpdate);
+    verifyResults = runVerifyInstallation(targetDir, selectedModules, hookEnabled, packageUpdate, profileRecord);
   } catch (error) {
     verifyResults = { passed: [], warnings: [], failed: [`Installation verification crashed: ${error.message}`] };
   }
@@ -1659,7 +1682,7 @@ export async function main(argv = process.argv.slice(2), runtime = {}) {
   log('\n📄 生成接入报告...', 'blue');
   const failureCount = results.failed.length + verifyResults.failed.length;
   const status = failureCount > 0 ? 'partial' : 'success';
-  const reportPath = generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate, verifyResults, status);
+  const reportPath = generateReport(targetDir, selectedModules, results, hookEnabled, packageUpdate, verifyResults, status, profileRecord);
   log(`   ✅ ${path.relative(targetDir, reportPath)}`, 'green');
 
   if (status !== 'success') {

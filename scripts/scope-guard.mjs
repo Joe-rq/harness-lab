@@ -19,6 +19,7 @@ import path from 'path';
 import { execFileSync } from 'child_process';
 import { getExemptPath } from './worktree-utils.mjs';
 import { analyzeHookWrite } from './write-target-policy.mjs';
+import { getHookPolicy, readHarnessMode } from './hook-policy.mjs';
 
 function getGitRoot(startDir = process.cwd()) {
   let candidate = process.cwd();
@@ -34,15 +35,6 @@ function getGitRoot(startDir = process.cwd()) {
     }).trim();
   } catch {
     return candidate;
-  }
-}
-
-function getHarnessMode(rootDir) {
-  const modeFile = path.join(rootDir, '.claude', 'harness-mode');
-  try {
-    return fs.readFileSync(modeFile, 'utf-8').trim() || 'collaborative';
-  } catch {
-    return 'collaborative';
   }
 }
 
@@ -404,7 +396,8 @@ async function main() {
   if (failures.length === 0) return;
 
   // 6. Out of range — block + log
-  const mode = getHarnessMode(rootDir);
+  const { mode } = readHarnessMode(rootDir);
+  const policy = getHookPolicy('scope.violation', mode);
   for (const failure of failures) {
     const safePath = String(failure.path).replace(/[\r\n\t]+/g, ' ');
     logViolation(rootDir, reqId, `${safePath} (${failure.reason})`, patterns);
@@ -421,16 +414,24 @@ async function main() {
     ? `[ScopeGuard] 写入被只读 REQ ${reqId} 阻断。`
     : `[ScopeGuard] 写入包含 REQ ${reqId} 声明范围外或无法解析的目标。`;
 
-  if (mode === 'supervised') {
+  if (policy.action === 'block' && mode === 'supervised') {
     console.log(JSON.stringify({
       decision: 'block',
       reason: `${prefix}\n\n失败目标：\n${failureList}\n\n允许的范围：\n${patternList}\n\n如需修改这些目标，请先更新 REQ 的范围声明。`
     }));
-  } else {
+  } else if (policy.action === 'block') {
     // collaborative 模式：温和提醒
     console.log(JSON.stringify({
       decision: 'block',
       reason: `${prefix}\n\n失败目标：\n${failureList}\n\n允许的范围：\n${patternList}\n\n如果确实需要修改这些目标，请先更新 REQ 的范围声明，或使用有审计记录的临时豁免。`
+    }));
+  } else {
+    console.log(JSON.stringify({
+      decision: 'allow',
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        additionalContext: `${prefix}\n失败目标：\n${failureList}`,
+      },
     }));
   }
 }

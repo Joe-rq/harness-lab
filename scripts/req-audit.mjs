@@ -3,6 +3,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getProgressPath } from './worktree-utils.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -161,7 +162,8 @@ function compareBaseline(summary, baseline) {
   if (!baseline || !baseline.found) return baseline || { found: false, path: DEFAULT_BASELINE_PATH };
   if (baseline.error) return baseline;
 
-  const currentByCode = summary.by_code || {};
+  const currentByCode = Object.fromEntries(Object.entries(summary.by_code_severity || {})
+    .map(([code, counts]) => [code, counts.warning || 0]));
   const baselineByCode = baseline.by_code || {};
   const codes = [...new Set([...Object.keys(currentByCode), ...Object.keys(baselineByCode)])].sort();
   const deltas = codes.map((code) => {
@@ -348,7 +350,7 @@ function parseIndexActive(root) {
 }
 
 function parseProgressActive(root) {
-  const progressPath = path.join(root, '.claude/progress.txt');
+  const progressPath = getProgressPath(root);
   if (!existsSync(progressPath)) return null;
   const content = readFileSync(progressPath, 'utf8').replace(/\r\n/g, '\n');
   const value = content.match(/^Current active REQ:\s*(.+)$/m)?.[1]?.trim() || null;
@@ -361,7 +363,7 @@ function auditIndexProgress(root, findings) {
   const progressActive = parseProgressActive(root);
 
   if (activeItems.length === 0 && progressActive) {
-    addFinding(findings, 'error', 'index-progress-mismatch', progressActive, '.claude/progress.txt', 'progress 有活跃 REQ，但 INDEX 显示无活跃 REQ');
+    addFinding(findings, 'error', 'index-progress-mismatch', progressActive, path.relative(root, getProgressPath(root)), 'progress 有活跃 REQ，但 INDEX 显示无活跃 REQ');
   }
 
   if (activeItems.length > 0 && !progressActive) {

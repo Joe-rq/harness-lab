@@ -332,9 +332,15 @@ function testBuildProgressProjectionHandlesBlockedAndCompleted() {
   ];
 
   const blockedProjection = buildProgressProjection({ events });
-  assert.equal(blockedProjection.activeReq, 'REQ-2026-072');
-  assert.equal(blockedProjection.phase, 'blocked');
-  assert.deepEqual(blockedProjection.blockers, ['waiting for review']);
+  assert.equal(blockedProjection.activeReq, 'none');
+  assert.equal(blockedProjection.phase, 'idle');
+  assert.deepEqual(blockedProjection.blockers, []);
+  assert.deepEqual(blockedProjection.suspendedReqs, [{
+    reqId: 'REQ-2026-072',
+    status: 'blocked',
+    phase: 'blocked',
+    reason: 'waiting for review',
+  }]);
 
   const completedProjection = buildProgressProjection({
     events: [
@@ -354,6 +360,7 @@ function testBuildProgressProjectionHandlesBlockedAndCompleted() {
   assert.equal(completedProjection.activeReq, 'none');
   assert.equal(completedProjection.phase, 'idle');
   assert.deepEqual(completedProjection.blockers, []);
+  assert.deepEqual(completedProjection.suspendedReqs, []);
 }
 
 function testBuildWorktreeProgressProjectionsAggregatesIndependentEvents() {

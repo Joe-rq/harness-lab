@@ -20,6 +20,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getHookPolicy, readHarnessMode } from './hook-policy.mjs';
 
 // Session-level ratchet state
 function RATCHET_FILE(rootDir) {
@@ -99,15 +100,6 @@ function writeRatchet(rootDir, level) {
   }
 }
 
-function getHarnessMode(rootDir) {
-  const modeFile = path.join(rootDir, '.claude', 'harness-mode');
-  try {
-    return fs.readFileSync(modeFile, 'utf-8').trim() || 'collaborative';
-  } catch {
-    return 'collaborative';
-  }
-}
-
 function logRiskAction(rootDir, level, label, relPath) {
   const logFile = path.join(rootDir, '.claude', '.risk-actions.log');
   const line = `${new Date().toISOString()} | R${level} ${label}: ${relPath} | allowed (autonomous mode)\n`;
@@ -158,9 +150,10 @@ async function main() {
   // R3+ handling with mode differentiation
   if (level >= 3) {
     const ratchetLevel = Math.max(level, currentMax);
-    const mode = getHarnessMode(rootDir);
+    const { mode } = readHarnessMode(rootDir);
+    const policy = getHookPolicy('risk.r3', mode);
 
-    if (mode === 'autonomous') {
+    if (policy.effect === 'log') {
       // 允许 + 记录到日志
       logRiskAction(rootDir, level, label, relPath);
       const info = `[RiskTracker] ℹ️ R${level} ${label}: ${relPath} (autonomous: 允许，已记录)`;

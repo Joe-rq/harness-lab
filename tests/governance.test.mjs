@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -23,8 +24,10 @@ import {
   getRecoverySteps,
   logError,
 } from '../scripts/error-classifier.mjs';
-import { appendEvent, readEvents } from '../scripts/event-store.mjs';
-import { getExemptPath } from '../scripts/worktree-utils.mjs';
+import { appendEvent, buildWorktreeProgressProjections, readEvents } from '../scripts/event-store.mjs';
+import { getExemptPath, getWorktreeIdentity, listGitWorktrees } from '../scripts/worktree-utils.mjs';
+import { buildHealthReport } from '../scripts/governance-health.mjs';
+import { buildRepositoryState } from '../scripts/state-semantics.mjs';
 import {
   analyzeHookWrite,
   canonicalizeWriteTarget,
@@ -37,91 +40,79 @@ import {
   getVerifierMode,
   assertVerifierMode,
 } from '../scripts/verifier-mode.mjs';
+import {
+  capabilityManifest,
+  getInstallFiles,
+  getPublishedFiles,
+  resolveInstallProfile,
+  targetPackageScripts,
+  validateCapabilityManifest,
+} from '../scripts/capability-manifest.mjs';
+import {
+  comparePublishedFiles,
+  syncCapabilityPackage,
+} from '../scripts/capability-sync.mjs';
+import {
+  HARNESS_MODES,
+  getHookPolicy,
+  hookPolicyMatrix,
+  normalizeHarnessMode,
+  validateHookPolicyMatrix,
+} from '../scripts/hook-policy.mjs';
+import { runDoctor } from '../scripts/harness-doctor.mjs';
+import { buildCiPlan, runCiVerification } from '../scripts/ci-verify.mjs';
+import {
+  CANONICAL_WRITE_MATCHER,
+  EXPECTED_MATCHES,
+  EXPECTED_MISSES,
+  findCanonicalPreToolEntry,
+  matcherMatchesTool,
+  prepareInteractiveFixture,
+  validateMatcherEvidence,
+} from '../scripts/claude-matcher-smoke.mjs';
+import {
+  main as pilotObservationMain,
+  parseObservation,
+  summarizeObservation,
+  validateEventShape as validatePilotEventShape,
+  validateObservation,
+} from '../scripts/pilot-observation.mjs';
+import {
+  OWNERSHIP_PATH,
+  UPGRADE_REPORT_JSON_PATH,
+  applyManagedUpgrade,
+  planManagedUpgrade,
+  readOwnershipRecord,
+  restoreManagedBackup,
+  sha256File,
+  validateOwnershipRecord,
+} from '../scripts/managed-upgrade.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 
-const REQUIRED_DEFAULT_TARGET_ASSETS = [
-  'AGENTS.md',
-  'CLAUDE.md',
-  '.claude/settings.example.json',
-  '.agents/skills/source-command-bugfix/SKILL.md',
-  '.agents/skills/source-command-feature/SKILL.md',
-  '.agents/skills/source-command-first-req/SKILL.md',
-  '.agents/skills/source-command-harness-setup/SKILL.md',
-  '.agents/skills/source-command-refactor/SKILL.md',
-  '.agents/skills/source-command-worktree-req/SKILL.md',
-  'requirements/REQ_TEMPLATE.md',
-  'requirements/in-progress/README.md',
-  'requirements/completed/README.md',
-  'requirements/reports/README.md',
-  'docs/plans/README.md',
-  'docs/specs/README.md',
-  'context/README.md',
-  'context/business/README.md',
-  'context/experience/README.md',
-  'context/experience/TEMPLATE.md',
-  'context/invariants/TEMPLATE.md',
-  'context/references/README.md',
-  'context/tech/README.md',
-  'context/tech/architecture.md',
-  'context/tech/deployment-runbook.md',
-  'context/tech/env-contract.md',
-  'context/tech/tech-stack.md',
-  'context/tech/testing-strategy.md',
-  'skills/README.md',
-  'skills/plan/ceo-review.md',
-  'skills/plan/design-review.md',
-  'skills/plan/eng-review.md',
-  'skills/review/code-review.md',
-  'skills/qa/qa.md',
-  'skills/ship/ship.md',
-  'scripts/check-governance.mjs',
-  'scripts/docs-sync-rules.json',
-  'scripts/docs-verify.mjs',
-  'scripts/error-classifier.mjs',
-  'scripts/event-store.mjs',
-  'scripts/governance-health.mjs',
-  'scripts/harness-doctor.mjs',
-  'scripts/invariant-extractor.mjs',
-  'scripts/invariant-gate.mjs',
-  'scripts/req-align.mjs',
-  'scripts/req-audit.mjs',
-  'scripts/req-check.js',
-  'scripts/req-cli.mjs',
-  'scripts/req-reflect.mjs',
-  'scripts/req-validation.mjs',
-  'scripts/scope-guard.mjs',
-  'scripts/session-start.js',
-  'scripts/template-guard.mjs',
-  'scripts/write-target-policy.mjs',
-  'scripts/worktree-utils.mjs',
-];
+const DEFAULT_WITH_HOOK_TARGET_ASSETS = getInstallFiles(
+  resolveInstallProfile('default', { overlays: ['basic-hooks'] })
+);
+const PUBLISHED_ASSETS = getPublishedFiles();
+const TARGET_SCRIPT_NAMES = Object.keys(targetPackageScripts);
 
-const REQUIRED_PUBLISHED_ASSETS = [
-  ...REQUIRED_DEFAULT_TARGET_ASSETS,
-  'README.md',
-  '.claude/commands/harness-setup.md',
-  'scripts/harness-install.mjs',
+// Independent product-level contract: these semantic capabilities and public
+// commands must not disappear merely because the manifest and consumers agree.
+const MINIMUM_SEMANTIC_CAPABILITY_IDS = [
+  'governance.core',
+  'req.lifecycle',
+  'governance.audit',
+  'hooks.basic',
+  'hooks.advanced',
 ];
-
-const REQUIRED_TARGET_SCRIPTS = [
-  'req',
+const MINIMUM_PUBLIC_COMMAND_IDS = [
   'req:create',
   'req:start',
-  'req:block',
-  'req:complete',
   'req:status',
-  'req:audit',
-  'req:experience',
-  'req:reflect',
-  'req:align',
-  'governance:health',
+  'req:complete',
   'docs:verify',
-  'docs:impact',
-  'docs:impact:json',
-  'check:governance',
   'harness:doctor',
 ];
 
@@ -364,6 +355,422 @@ async function testDocsVerifyPasses() {
   assert.deepEqual(docsVerify.errors, []);
 }
 
+function cloneCapabilityManifest() {
+  const clone = structuredClone(capabilityManifest);
+  // The schema requires this to be the same object, not merely equal data.
+  clone.modules.cli.packageScripts = clone.targetPackageScripts;
+  return clone;
+}
+
+function testCapabilityManifestIsCanonicalAndSyncable() {
+  assert.equal(validateCapabilityManifest(capabilityManifest), true);
+
+  const capabilityIds = new Set(capabilityManifest.capabilities.map((capability) => capability.id));
+  for (const capabilityId of MINIMUM_SEMANTIC_CAPABILITY_IDS) {
+    assert.ok(capabilityIds.has(capabilityId), `semantic capability must remain public: ${capabilityId}`);
+  }
+  for (const commandId of MINIMUM_PUBLIC_COMMAND_IDS) {
+    assert.equal(typeof targetPackageScripts[commandId], 'string', `public command must remain: ${commandId}`);
+  }
+
+  assert.deepEqual(resolveInstallProfile('core'), ['core']);
+  assert.deepEqual(resolveInstallProfile('default'), ['core', 'docs', 'context', 'skills', 'cli']);
+  assert.deepEqual(
+    resolveInstallProfile('default', { overlays: ['basic-hooks'] }),
+    ['core', 'docs', 'context', 'skills', 'cli', 'hook']
+  );
+  assert.deepEqual(
+    resolveInstallProfile('default', { overlays: ['advanced-hooks'] }),
+    ['core', 'docs', 'context', 'skills', 'cli', 'hook', 'advanced-hooks']
+  );
+  assert.ok(DEFAULT_WITH_HOOK_TARGET_ASSETS.includes('scripts/capability-manifest.mjs'));
+  assert.ok(DEFAULT_WITH_HOOK_TARGET_ASSETS.includes('scripts/hook-policy.mjs'));
+  assert.ok(!DEFAULT_WITH_HOOK_TARGET_ASSETS.includes('scripts/deploy-guard.mjs'));
+  assert.ok(PUBLISHED_ASSETS.includes('scripts/deploy-guard.mjs'));
+  assert.ok(PUBLISHED_ASSETS.includes('scripts/capability-sync.mjs'));
+
+  const duplicateFile = cloneCapabilityManifest();
+  duplicateFile.modules.core.files.push(duplicateFile.modules.core.files[0]);
+  assert.throws(() => validateCapabilityManifest(duplicateFile), /contains duplicate/);
+
+  const unsafePath = cloneCapabilityManifest();
+  unsafePath.modules.core.files[0] = '../escape.md';
+  assert.throws(() => validateCapabilityManifest(unsafePath), /safe repository-relative POSIX path/);
+
+  const unknownDependency = cloneCapabilityManifest();
+  unknownDependency.modules.docs.dependsOn.push('missing-module');
+  assert.throws(() => validateCapabilityManifest(unknownDependency), /depends on unknown module/);
+
+  const cycle = cloneCapabilityManifest();
+  cycle.modules.core.dependsOn.push('cli');
+  assert.throws(() => validateCapabilityManifest(cycle), /dependency cycle/);
+
+  const currentPackage = readJsonFile(path.join(repoRoot, 'package.json'));
+  assert.deepEqual(comparePublishedFiles(currentPackage.files), {
+    ok: true,
+    missing: [],
+    extra: [],
+    orderMismatch: false,
+    expected: PUBLISHED_ASSETS,
+  });
+  assert.equal(comparePublishedFiles([...PUBLISHED_ASSETS].reverse()).orderMismatch, true);
+
+  const tempDir = createTempDir('capability-sync');
+  try {
+    writeFile(tempDir, 'package.json', `${JSON.stringify({ name: 'fixture', sentinel: true, files: ['README.md'] }, null, 2)}\n`);
+    const checkResult = syncCapabilityPackage({ rootDir: tempDir });
+    assert.equal(checkResult.ok, false);
+    assert.ok(checkResult.missing.includes('scripts/capability-manifest.mjs'));
+    const writeResult = syncCapabilityPackage({ rootDir: tempDir, write: true });
+    assert.equal(writeResult.changed, true);
+    const syncedPackage = readJsonFile(path.join(tempDir, 'package.json'));
+    assert.equal(syncedPackage.sentinel, true);
+    assert.deepEqual(syncedPackage.files, PUBLISHED_ASSETS);
+    assert.equal(syncCapabilityPackage({ rootDir: tempDir }).ok, true);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+function testHookPolicyMatrixAndConsumers() {
+  const expectedActions = {
+    'req.invalid': ['block', 'block', 'block'],
+    'scope.violation': ['block', 'block', 'block'],
+    'deploy.dangerous': ['warn', 'block', 'block'],
+    'review.write-agent': ['block', 'block', 'block'],
+    'risk.r3': ['warn', 'warn', 'allow'],
+    'watchdog.stagnant': ['warn', 'warn', 'allow'],
+    'stop.uncovered': ['warn', 'block', 'block'],
+    'precompact.snapshot': ['allow', 'allow', 'allow'],
+  };
+
+  assert.equal(validateHookPolicyMatrix(hookPolicyMatrix), true);
+  assert.deepEqual(Object.keys(hookPolicyMatrix), Object.keys(expectedActions));
+  for (const [point, actions] of Object.entries(expectedActions)) {
+    for (const [index, mode] of HARNESS_MODES.entries()) {
+      assert.equal(getHookPolicy(point, mode).action, actions[index], `${point}/${mode}`);
+    }
+  }
+  assert.equal(getHookPolicy('scope.violation', 'autonomous').effect, 'log');
+  assert.equal(getHookPolicy('watchdog.stagnant', 'autonomous').effect, 'recovery');
+  for (const mode of HARNESS_MODES) {
+    assert.equal(getHookPolicy('precompact.snapshot', mode).effect, 'snapshot');
+  }
+  assert.equal(getHookPolicy('precompact.snapshot', 'collaborative').audit, false);
+  assert.equal(getHookPolicy('precompact.snapshot', 'autonomous').audit, true);
+  assert.deepEqual(normalizeHarnessMode(' supervised\n'), { mode: 'supervised', raw: 'supervised', valid: true });
+  assert.deepEqual(normalizeHarnessMode('unsafe'), { mode: 'collaborative', raw: 'unsafe', valid: false });
+  assert.deepEqual(normalizeHarnessMode(undefined), { mode: 'collaborative', raw: '', valid: true });
+  assert.throws(() => getHookPolicy('unknown.point', 'collaborative'), /Unknown hook policy point/);
+
+  const missingMode = structuredClone(hookPolicyMatrix);
+  delete missingMode['req.invalid'].autonomous;
+  assert.throws(() => validateHookPolicyMatrix(missingMode), /missing mode/);
+  const invalidAction = structuredClone(hookPolicyMatrix);
+  invalidAction['risk.r3'].supervised.action = 'prompt';
+  assert.throws(() => validateHookPolicyMatrix(invalidAction), /invalid action/);
+  const invalidEffect = structuredClone(hookPolicyMatrix);
+  invalidEffect['watchdog.stagnant'].autonomous.effect = 'rollback';
+  assert.throws(() => validateHookPolicyMatrix(invalidEffect), /invalid effect/);
+
+  const consumers = [
+    'scope-guard.mjs',
+    'deploy-guard.mjs',
+    'review-gatekeeper.mjs',
+    'risk-tracker.mjs',
+    'watchdog.mjs',
+    'stop-evaluator.mjs',
+    'precompact-notify.mjs',
+  ];
+  for (const script of consumers) {
+    const source = readFileSync(path.join(repoRoot, 'scripts', script), 'utf8');
+    assert.match(source, /from ['"]\.\/hook-policy\.mjs['"]/, `${script} must import the policy`);
+    assert.match(source, /getHookPolicy\(/, `${script} must query the policy`);
+    assert.doesNotMatch(source, /function\s+getHarnessMode\b/, `${script} must not retain a local mode parser`);
+  }
+}
+
+async function testInstallerProfilesAndProfileAwareDoctor() {
+  const tempDir = createTempDir('profile-aware-doctor');
+  const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+  const install = async (name, args) => {
+    const root = path.join(tempDir, name);
+    initGitProject(root);
+    const result = await harnessInstall.main(args, { targetDir: root, stdinIsTTY: false });
+    assert.equal(result.status, 'success', `${name} install should succeed`);
+    return root;
+  };
+
+  try {
+    const coreRoot = await install('core', ['--core-only']);
+    const coreBytes = readFileSync(path.join(coreRoot, '.harness', 'profile.json'), 'utf8');
+    const coreOwnershipBytes = readFileSync(path.join(coreRoot, OWNERSHIP_PATH), 'utf8');
+    const coreProfile = JSON.parse(coreBytes);
+    assert.equal(coreProfile.profile, 'core');
+    assert.deepEqual(coreProfile.modules, ['core']);
+    assert.deepEqual(coreProfile.overlays, []);
+    assert.equal(runDoctor({ rootDir: coreRoot }).summary.fail, 0);
+    await harnessInstall.main(['--core-only'], { targetDir: coreRoot, stdinIsTTY: false });
+    assert.equal(readFileSync(path.join(coreRoot, '.harness', 'profile.json'), 'utf8'), coreBytes);
+    assert.equal(readFileSync(path.join(coreRoot, OWNERSHIP_PATH), 'utf8'), coreOwnershipBytes);
+    const invalidCoreOwnership = JSON.parse(coreOwnershipBytes);
+    invalidCoreOwnership.files['AGENTS.md'].sha256 = 'invalid';
+    writeFile(coreRoot, OWNERSHIP_PATH, `${JSON.stringify(invalidCoreOwnership)}\n`);
+    assert.ok(runDoctor({ rootDir: coreRoot }).summary.fail > 0);
+    writeFile(coreRoot, OWNERSHIP_PATH, coreOwnershipBytes);
+
+    const defaultRoot = await install('default', ['--defaults']);
+    const defaultReport = runDoctor({ rootDir: defaultRoot });
+    assert.equal(defaultReport.profile.id, 'default');
+    assert.deepEqual(defaultReport.profile.overlays, []);
+    assert.equal(defaultReport.summary.fail, 0);
+    assert.equal(defaultReport.checks.find((check) => check.name === '基础 Hook').status, 'skip');
+
+    const basicRoot = await install('basic', ['--defaults', '--with-hook']);
+    const basicReport = runDoctor({ rootDir: basicRoot });
+    assert.deepEqual(basicReport.profile.overlays, ['basic-hooks']);
+    assert.equal(basicReport.summary.fail, 0);
+    assert.equal(basicReport.checks.find((check) => check.name === '基础 Hook').status, 'pass');
+    assert.equal(basicReport.checks.find((check) => check.name === '高级 Hook').status, 'skip');
+    for (const relPath of capabilityManifest.modules['advanced-hooks'].files) {
+      writeFile(basicRoot, relPath, readFileSync(path.join(repoRoot, relPath), 'utf8'));
+    }
+    const driftReport = runDoctor({ rootDir: basicRoot });
+    const driftCheck = driftReport.checks.find((check) => check.name === 'Profile 能力漂移');
+    assert.equal(driftCheck.status, 'warn');
+    assert.match(driftCheck.detail, /advanced-hooks/);
+    assert.equal(driftReport.exitCode, 0);
+
+    rmSync(path.join(defaultRoot, '.harness', 'profile.json'));
+    const legacyReport = runDoctor({ rootDir: defaultRoot });
+    assert.equal(legacyReport.profile.source, 'legacy-inference');
+    assert.equal(legacyReport.summary.fail, 0);
+    assert.equal(legacyReport.checks.find((check) => check.name === '安装 profile').status, 'warn');
+    rmSync(path.join(defaultRoot, OWNERSHIP_PATH));
+    const missingOwnershipReport = runDoctor({ rootDir: defaultRoot });
+    assert.equal(missingOwnershipReport.checks.find((check) => check.name === 'Managed ownership').status, 'warn');
+    assert.equal(missingOwnershipReport.exitCode, 0);
+
+    writeFile(defaultRoot, '.harness/profile.json', '{}\n');
+    const invalidReport = runDoctor({ rootDir: defaultRoot });
+    assert.ok(invalidReport.summary.fail > 0);
+    assert.equal(invalidReport.exitCode, 1);
+    const failure = captureExecFailure(() => execFileSync(
+      process.execPath,
+      [path.join(repoRoot, 'scripts', 'harness-doctor.mjs'), '--json'],
+      { cwd: defaultRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    ));
+    assert.equal(failure.status, 1);
+    assert.ok(JSON.parse(failure.stdout).summary.fail > 0);
+
+    const sourceReport = runDoctor({ rootDir: repoRoot });
+    assert.equal(sourceReport.profile.id, 'source');
+    assert.ok(sourceReport.profile.modules.includes('advanced-hooks'));
+    assert.ok(sourceReport.profile.overlays.includes('advanced-hooks'));
+    assert.equal(sourceReport.summary.fail, 0);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+function createUpgradeSource(root, moduleIds, version, mutations = {}) {
+  writeFile(root, 'package.json', `${JSON.stringify({ name: 'harness-lab', version }, null, 2)}\n`);
+  for (const moduleId of moduleIds) {
+    for (const relPath of capabilityManifest.modules[moduleId].files) {
+      const content = Object.hasOwn(mutations, relPath)
+        ? mutations[relPath]
+        : readFileSync(path.join(repoRoot, relPath), 'utf8');
+      writeFile(root, relPath, content);
+    }
+  }
+}
+
+async function testManagedUpgradeProtectsUserChangesAndRestores() {
+  const tempDir = createTempDir('managed-upgrade');
+  const targetDir = path.join(tempDir, 'target');
+  const sourceDir = path.join(tempDir, 'source');
+  const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+  try {
+    initGitProject(targetDir);
+    const install = await harnessInstall.main(['--core-only'], { targetDir, stdinIsTTY: false });
+    assert.equal(install.status, 'success');
+    const originalOwnershipBytes = readFileSync(path.join(targetDir, OWNERSHIP_PATH), 'utf8');
+    const originalAgents = readFileSync(path.join(targetDir, 'AGENTS.md'), 'utf8');
+    const originalClaude = readFileSync(path.join(targetDir, 'CLAUDE.md'), 'utf8');
+    const activeProgress = 'Current active REQ: REQ-2099-099\nCurrent phase: implementation\n';
+    writeFile(targetDir, '.claude/progress.txt', activeProgress);
+    writeFile(targetDir, '.claude/settings.local.json', '{"sentinel":"settings"}\n');
+    writeFile(targetDir, '.claude/events/session.jsonl', '{"type":"sentinel"}\n');
+    const originalPackage = readFileSync(path.join(targetDir, 'package.json'), 'utf8');
+    writeFile(targetDir, 'CLAUDE.md', `${originalClaude}\nUSER CUSTOMIZATION\n`);
+    const reinstall = await harnessInstall.main(['--core-only'], { targetDir, stdinIsTTY: false });
+    assert.equal(reinstall.status, 'success');
+    assert.equal(readFileSync(path.join(targetDir, OWNERSHIP_PATH), 'utf8'), originalOwnershipBytes);
+    assert.equal(readFileSync(path.join(targetDir, '.claude/progress.txt'), 'utf8'), activeProgress);
+
+    createUpgradeSource(sourceDir, ['core'], '1.2.0', {
+      'AGENTS.md': `${originalAgents}\nUPSTREAM 1.2\n`,
+      'CLAUDE.md': `${originalClaude}\nUPSTREAM 1.2\n`,
+    });
+
+    const drySnapshot = new Map([
+      [OWNERSHIP_PATH, readFileSync(path.join(targetDir, OWNERSHIP_PATH), 'utf8')],
+      ['AGENTS.md', readFileSync(path.join(targetDir, 'AGENTS.md'), 'utf8')],
+      ['CLAUDE.md', readFileSync(path.join(targetDir, 'CLAUDE.md'), 'utf8')],
+    ]);
+    const dry = applyManagedUpgrade({ sourceDir, targetDir, dryRun: true });
+    assert.equal(dry.status, 'planned');
+    assert.equal(dry.exitCode, 2);
+    assert.equal(dry.summary.update, 1);
+    assert.equal(dry.summary.conflict, 1);
+    assert.ok(!existsSync(path.join(targetDir, '.harness', 'backups')));
+    for (const [relPath, bytes] of drySnapshot) assert.equal(readFileSync(path.join(targetDir, relPath), 'utf8'), bytes);
+
+    const applied = applyManagedUpgrade({
+      sourceDir,
+      targetDir,
+      backupId: 'test-1.1.0-to-1.2.0',
+      now: new Date('2026-07-11T00:00:00.000Z'),
+    });
+    assert.equal(applied.status, 'partial');
+    assert.equal(applied.exitCode, 2);
+    assert.match(readFileSync(path.join(targetDir, 'AGENTS.md'), 'utf8'), /UPSTREAM 1\.2/);
+    assert.match(readFileSync(path.join(targetDir, 'CLAUDE.md'), 'utf8'), /USER CUSTOMIZATION/);
+    assert.doesNotMatch(readFileSync(path.join(targetDir, 'CLAUDE.md'), 'utf8'), /UPSTREAM 1\.2/);
+    assert.equal(readFileSync(path.join(targetDir, '.claude/progress.txt'), 'utf8'), activeProgress);
+    assert.equal(readFileSync(path.join(targetDir, '.claude/settings.local.json'), 'utf8'), '{"sentinel":"settings"}\n');
+    assert.equal(readFileSync(path.join(targetDir, '.claude/events/session.jsonl'), 'utf8'), '{"type":"sentinel"}\n');
+    assert.equal(readFileSync(path.join(targetDir, 'package.json'), 'utf8'), originalPackage);
+    const upgradedOwnership = readOwnershipRecord(targetDir, { allowMissing: false });
+    assert.equal(upgradedOwnership.lastAttemptedVersion, '1.2.0');
+    assert.equal(upgradedOwnership.lastCompleteVersion, '1.1.0');
+    assert.equal(upgradedOwnership.files['AGENTS.md'].sourceVersion, '1.2.0');
+    assert.equal(upgradedOwnership.files['CLAUDE.md'].sourceVersion, '1.1.0');
+    assert.equal(JSON.parse(readFileSync(path.join(targetDir, UPGRADE_REPORT_JSON_PATH), 'utf8')).status, 'partial');
+
+    const restoreDry = restoreManagedBackup({ targetDir, backupId: applied.backupId, dryRun: true });
+    assert.equal(restoreDry.status, 'planned');
+    restoreManagedBackup({ targetDir, backupId: applied.backupId });
+    assert.equal(readFileSync(path.join(targetDir, 'AGENTS.md'), 'utf8'), originalAgents);
+    assert.match(readFileSync(path.join(targetDir, 'CLAUDE.md'), 'utf8'), /USER CUSTOMIZATION/);
+    assert.equal(readFileSync(path.join(targetDir, OWNERSHIP_PATH), 'utf8'), originalOwnershipBytes);
+    assert.ok(!existsSync(path.join(targetDir, UPGRADE_REPORT_JSON_PATH)));
+    writeFile(targetDir, `.harness/backups/${applied.backupId}/files/AGENTS.md`, 'tampered backup\n');
+    assert.throws(
+      () => restoreManagedBackup({ targetDir, backupId: applied.backupId }),
+      /hash mismatch/
+    );
+    assert.throws(() => restoreManagedBackup({ targetDir, backupId: '../escape' }), /Invalid backup id/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function testManagedUpgradeLegacyRollbackAndPathSafety() {
+  const tempDir = createTempDir('managed-upgrade-safety');
+  const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+  try {
+    const legacyDir = path.join(tempDir, 'legacy');
+    const sourceDir = path.join(tempDir, 'source');
+    initGitProject(legacyDir);
+    await harnessInstall.main(['--core-only'], { targetDir: legacyDir, stdinIsTTY: false });
+    rmSync(path.join(legacyDir, '.harness', 'ownership.json'));
+    rmSync(path.join(legacyDir, '.harness', 'profile.json'));
+    const userAgents = `${readFileSync(path.join(legacyDir, 'AGENTS.md'), 'utf8')}\nLEGACY USER CHANGE\n`;
+    writeFile(legacyDir, 'AGENTS.md', userAgents);
+    createUpgradeSource(sourceDir, ['core'], '2.0.0', {
+      'AGENTS.md': `${readFileSync(path.join(repoRoot, 'AGENTS.md'), 'utf8')}\nUPSTREAM 2.0\n`,
+    });
+    const legacyPlan = planManagedUpgrade({ sourceDir, targetDir: legacyDir });
+    assert.equal(legacyPlan.ownershipSource, 'legacy-unowned');
+    assert.equal(legacyPlan.items.find((item) => item.path === 'AGENTS.md').classification, 'conflict');
+    assert.ok(legacyPlan.summary.adopt > 0);
+    const legacyApply = applyManagedUpgrade({ sourceDir, targetDir: legacyDir, backupId: 'legacy-to-2.0.0' });
+    assert.equal(legacyApply.status, 'partial');
+    assert.equal(readFileSync(path.join(legacyDir, 'AGENTS.md'), 'utf8'), userAgents);
+    assert.ok(existsSync(path.join(legacyDir, '.harness', 'profile.json')));
+
+    const classificationDir = path.join(tempDir, 'classification');
+    initGitProject(classificationDir);
+    await harnessInstall.main(['--core-only'], { targetDir: classificationDir, stdinIsTTY: false });
+    const classificationOwnership = readOwnershipRecord(classificationDir, { allowMissing: false });
+    const addPath = 'requirements/reports/README.md';
+    const adoptPath = 'requirements/in-progress/README.md';
+    delete classificationOwnership.files[addPath];
+    delete classificationOwnership.files[adoptPath];
+    rmSync(path.join(classificationDir, addPath));
+    writeFile(classificationDir, 'legacy-managed.md', 'retired upstream file\n');
+    classificationOwnership.files['legacy-managed.md'] = {
+      module: 'retired-module',
+      sourceVersion: '1.0.0',
+      sha256: sha256File(path.join(classificationDir, 'legacy-managed.md')),
+    };
+    writeFile(classificationDir, OWNERSHIP_PATH, `${JSON.stringify(classificationOwnership, null, 2)}\n`);
+    const oldProfile = readJsonFile(path.join(classificationDir, '.harness/profile.json'));
+    oldProfile.manifestSchemaVersion = 0;
+    oldProfile.productVersion = 0;
+    oldProfile.modules = [];
+    oldProfile.capabilities = [];
+    writeFile(classificationDir, '.harness/profile.json', `${JSON.stringify(oldProfile, null, 2)}\n`);
+    const classificationPlan = planManagedUpgrade({ sourceDir: repoRoot, targetDir: classificationDir });
+    assert.deepEqual(classificationPlan.profile.modules, ['core']);
+    assert.equal(classificationPlan.items.find((item) => item.path === addPath).classification, 'add');
+    assert.equal(classificationPlan.items.find((item) => item.path === adoptPath).classification, 'adopt');
+    assert.equal(classificationPlan.items.find((item) => item.path === 'legacy-managed.md').classification, 'stale');
+    const classificationApply = applyManagedUpgrade({
+      sourceDir: repoRoot,
+      targetDir: classificationDir,
+      backupId: 'classification-coverage',
+    });
+    assert.equal(classificationApply.status, 'success');
+    assert.ok(existsSync(path.join(classificationDir, addPath)));
+    assert.ok(existsSync(path.join(classificationDir, 'legacy-managed.md')));
+    assert.ok(!Object.hasOwn(readOwnershipRecord(classificationDir, { allowMissing: false }).files, 'legacy-managed.md'));
+    assert.equal(readJsonFile(path.join(classificationDir, '.harness/profile.json')).productVersion, capabilityManifest.productVersion);
+    const idempotentPlan = planManagedUpgrade({ sourceDir: repoRoot, targetDir: classificationDir });
+    assert.equal(idempotentPlan.summary.update, 0);
+    assert.equal(idempotentPlan.summary.add, 0);
+    assert.equal(idempotentPlan.summary.conflict, 0);
+    assert.equal(idempotentPlan.summary.stale, 0);
+
+    const rollbackDir = path.join(tempDir, 'rollback');
+    initGitProject(rollbackDir);
+    await harnessInstall.main(['--core-only'], { targetDir: rollbackDir, stdinIsTTY: false });
+    const beforeAgents = readFileSync(path.join(rollbackDir, 'AGENTS.md'), 'utf8');
+    const beforeOwnership = readFileSync(path.join(rollbackDir, OWNERSHIP_PATH), 'utf8');
+    assert.throws(() => applyManagedUpgrade({
+      sourceDir,
+      targetDir: rollbackDir,
+      backupId: 'fault-rollback',
+      faultInjector: ({ phase }) => { if (phase === 'after-write') throw new Error('injected failure'); },
+    }), /automatically restored/);
+    assert.equal(readFileSync(path.join(rollbackDir, 'AGENTS.md'), 'utf8'), beforeAgents);
+    assert.equal(readFileSync(path.join(rollbackDir, OWNERSHIP_PATH), 'utf8'), beforeOwnership);
+    assert.ok(existsSync(path.join(rollbackDir, '.harness/backups/fault-rollback/manifest.json')));
+
+    const invalidOwnership = JSON.parse(beforeOwnership);
+    invalidOwnership.files['AGENTS.md'].sha256 = 'not-a-hash';
+    assert.ok(validateOwnershipRecord(invalidOwnership).some((issue) => /sha256/.test(issue)));
+    writeFile(rollbackDir, OWNERSHIP_PATH, `${JSON.stringify(invalidOwnership)}\n`);
+    assert.throws(() => planManagedUpgrade({ sourceDir, targetDir: rollbackDir }), /invalid sha256/);
+    writeFile(rollbackDir, OWNERSHIP_PATH, beforeOwnership);
+    rmSync(path.join(sourceDir, 'CLAUDE.md'));
+    assert.throws(() => planManagedUpgrade({ sourceDir, targetDir: rollbackDir }), /Required file is missing: CLAUDE\.md/);
+    writeFile(sourceDir, 'CLAUDE.md', readFileSync(path.join(repoRoot, 'CLAUDE.md'), 'utf8'));
+
+    if (process.platform !== 'win32') {
+      const outside = path.join(tempDir, 'outside.md');
+      writeFileSync(outside, 'outside\n');
+      rmSync(path.join(rollbackDir, 'AGENTS.md'));
+      symlinkSync(outside, path.join(rollbackDir, 'AGENTS.md'));
+      assert.throws(() => planManagedUpgrade({ sourceDir, targetDir: rollbackDir }), /symbolic link/);
+      assert.equal(readFileSync(outside, 'utf8'), 'outside\n');
+    }
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 async function testReqCliLifecycle() {
   const tempDir = createTempDir('harness-req-check');
   const previousCwd = process.cwd();
@@ -592,7 +999,8 @@ async function testHarnessInstallArtifacts() {
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/req-check.js'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/scope-guard.mjs'));
     assert.ok(harnessInstall.modules.hook.files.includes('scripts/write-target-policy.mjs'));
-    assert.ok(harnessInstall.modules.hook.files.includes('scripts/event-store.mjs'));
+    assert.ok(!harnessInstall.modules.hook.files.includes('scripts/event-store.mjs'));
+    assert.ok(DEFAULT_WITH_HOOK_TARGET_ASSETS.includes('scripts/event-store.mjs'));
 
     writeFile(
       tempDir,
@@ -699,10 +1107,10 @@ async function testInstallerDeclaredSourcesExistAndArgsAreStrict() {
   assert.equal(packageJson.engines?.node, '>=20');
   assert.equal(packageJson.bin?.['harness-install'], 'scripts/harness-install.mjs');
   assert.ok(Array.isArray(packageJson.files));
-  for (const relPath of REQUIRED_PUBLISHED_ASSETS) {
+  for (const relPath of PUBLISHED_ASSETS) {
     assert.ok(packageJson.files.includes(relPath), `published contract must include: ${relPath}`);
   }
-  for (const scriptName of REQUIRED_TARGET_SCRIPTS) {
+  for (const scriptName of TARGET_SCRIPT_NAMES) {
     assert.equal(
       typeof harnessInstall.modules.cli.packageScripts[scriptName],
       'string',
@@ -741,6 +1149,16 @@ async function testInstallerDeclaredSourcesExistAndArgsAreStrict() {
   assert.throws(
     () => harnessInstall.parseInstallerArgs(['--core-only', '--package-dir', 'app']),
     /require a profile that installs the CLI/
+  );
+  assert.equal(harnessInstall.parseInstallerArgs(['--upgrade', '--dry-run']).upgrade, true);
+  assert.equal(harnessInstall.parseInstallerArgs(['--restore', 'backup-1']).restore, 'backup-1');
+  assert.throws(
+    () => harnessInstall.parseInstallerArgs(['--upgrade', '--defaults']),
+    /cannot be combined/
+  );
+  assert.throws(
+    () => harnessInstall.parseInstallerArgs(['--restore', 'backup-1', '--source', '.']),
+    /does not accept --source/
   );
 
   for (const relPath of [
@@ -791,9 +1209,10 @@ async function testPublishedTarballAndPackedBinFreshInstall() {
 
     assert.equal(packInfo.name, 'harness-lab');
     assert.ok(packedPaths.has('scripts/harness-install.mjs'));
+    assert.ok(packedPaths.has('scripts/managed-upgrade.mjs'));
     assert.ok(packedPaths.has('.agents/skills/source-command-harness-setup/SKILL.md'));
     assert.ok(!packedPaths.has('requirements/INDEX.md'), 'dogfood INDEX history must not be published');
-    for (const relPath of REQUIRED_PUBLISHED_ASSETS) {
+    for (const relPath of PUBLISHED_ASSETS) {
       assert.ok(packedPaths.has(relPath), `published tarball contract must include: ${relPath}`);
     }
     for (const packedPath of packedPaths) {
@@ -861,18 +1280,60 @@ async function testPublishedTarballAndPackedBinFreshInstall() {
     assert.doesNotMatch(report, /> 此文件由 harness-install 创建/);
 
     const targetPackage = readJsonFile(path.join(targetDir, 'package.json'));
-    for (const scriptName of REQUIRED_TARGET_SCRIPTS) {
+    for (const scriptName of TARGET_SCRIPT_NAMES) {
       assert.equal(typeof targetPackage.scripts[scriptName], 'string', `target script should exist: ${scriptName}`);
     }
-    for (const relPath of REQUIRED_DEFAULT_TARGET_ASSETS) {
+    for (const relPath of DEFAULT_WITH_HOOK_TARGET_ASSETS) {
       assert.ok(existsSync(path.join(targetDir, relPath)), `default install contract must include: ${relPath}`);
     }
-    for (const moduleDefinition of Object.values(harnessInstall.modules)) {
+    for (const moduleId of resolveInstallProfile('default', { overlays: ['basic-hooks'] })) {
+      const moduleDefinition = harnessInstall.modules[moduleId];
       for (const relPath of moduleDefinition.files) {
         assert.ok(existsSync(path.join(targetDir, relPath)), `installed target asset should exist: ${relPath}`);
       }
     }
     assert.ok(existsSync(path.join(targetDir, 'requirements', 'INDEX.md')));
+    assert.ok(existsSync(path.join(targetDir, OWNERSHIP_PATH)));
+    assert.equal(readOwnershipRecord(targetDir, { allowMissing: false }).lastCompleteVersion, packInfo.version);
+
+    const upgradeDryOutput = execFileSync(
+      binPath,
+      ['--upgrade', '--dry-run'],
+      { cwd: targetDir, env: npmEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    assert.match(upgradeDryOutput, /安全升级计划/);
+    assert.ok(!existsSync(path.join(targetDir, '.harness', 'backups')));
+    const upgradeOutput = execFileSync(
+      binPath,
+      ['--upgrade'],
+      { cwd: targetDir, env: npmEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    assert.match(upgradeOutput, /安全升级结果/);
+    const packedUpgradeReport = readJsonFile(path.join(targetDir, UPGRADE_REPORT_JSON_PATH));
+    assert.equal(packedUpgradeReport.status, 'success');
+    assert.equal(packedUpgradeReport.summary.conflict, 0);
+    const restoreDryOutput = execFileSync(
+      binPath,
+      ['--restore', packedUpgradeReport.backupId, '--dry-run'],
+      { cwd: targetDir, env: npmEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    assert.match(restoreDryOutput, /恢复计划/);
+    execFileSync(
+      binPath,
+      ['--restore', packedUpgradeReport.backupId],
+      { cwd: targetDir, env: npmEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    assert.ok(!existsSync(path.join(targetDir, UPGRADE_REPORT_JSON_PATH)));
+
+    // README requires the reviewed installation diff to become a separate
+    // baseline before the first business REQ, so docs impact is attributable.
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: targetDir });
+    execFileSync('git', ['config', 'user.name', 'Harness Test'], { cwd: targetDir });
+    execFileSync('git', ['add', '.'], { cwd: targetDir });
+    execFileSync('git', ['commit', '-m', 'harness setup baseline'], {
+      cwd: targetDir,
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
 
     const runPackedNpmScript = (scriptName, args = []) => execFileSync(
       npmExecutable,
@@ -881,11 +1342,24 @@ async function testPublishedTarballAndPackedBinFreshInstall() {
     );
     const statusOutput = runPackedNpmScript('req:status', ['--json']);
     assert.equal(JSON.parse(statusOutput).active_req, null);
+    const directStatusOutput = execFileSync(
+      process.execPath,
+      ['scripts/req-cli.mjs', 'status', '--json'],
+      { cwd: targetDir, env: npmEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    assert.equal(JSON.parse(directStatusOutput).active_req, null);
     const doctorOutput = runPackedNpmScript('harness:doctor', ['--json']);
-    assert.ok(Array.isArray(JSON.parse(doctorOutput)));
+    const doctorReport = JSON.parse(doctorOutput);
+    assert.equal(doctorReport.profile.id, 'default');
+    assert.deepEqual(doctorReport.profile.overlays, ['basic-hooks']);
+    assert.equal(doctorReport.summary.fail, 0);
 
-    runPackedNpmScript('req:create', ['--title', 'Packed lifecycle', '--slug', 'packed-lifecycle', '--id', 'REQ-2099-001']);
-    const reqPath = path.join(targetDir, 'requirements', 'in-progress', 'REQ-2099-001-packed-lifecycle.md');
+    execFileSync(
+      process.execPath,
+      ['scripts/req-cli.mjs', 'create', '--title', '首个中文需求', '--id', 'REQ-2099-001'],
+      { cwd: targetDir, env: npmEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    const reqPath = path.join(targetDir, 'requirements', 'in-progress', 'REQ-2099-001-requirement.md');
     writeFileSync(
       reqPath,
       readFileSync(reqPath, 'utf8')
@@ -951,6 +1425,11 @@ async function testPublishedTarballAndPackedBinFreshInstall() {
 `
     );
     runPackedNpmScript('req:start', ['--id', 'REQ-2099-001', '--phase', 'implementation']);
+    assert.match(runPackedNpmScript('req:status'), /REQ-2099-001/);
+    assert.equal(
+      JSON.parse(runPackedNpmScript('req:status', ['--json', '--id', 'REQ-2099-001'])).req.title,
+      '首个中文需求'
+    );
     assert.match(
       runPackedNpmScript('req:reflect', ['--id', 'REQ-2099-001']),
       /元反思/
@@ -965,6 +1444,7 @@ async function testPublishedTarballAndPackedBinFreshInstall() {
     ]);
     runPackedNpmScript('req:start', ['--id', 'REQ-2099-001', '--phase', 'implementation']);
     runPackedNpmScript('req:experience', ['--id', 'REQ-2099-001']);
+    assert.ok(existsSync(path.join(targetDir, 'context', 'experience', 'REQ-2099-001-experience.md')));
     writeFile(
       targetDir,
       'requirements/reports/REQ-2099-001-code-review.md',
@@ -975,8 +1455,8 @@ async function testPublishedTarballAndPackedBinFreshInstall() {
       'requirements/reports/REQ-2099-001-qa.md',
       '# QA\n\n## 状态\n\n- ✅ 通过\n\n## 验证证据\n\n| 类型 | 项目 | 结果 | 摘要 |\n|------|------|------|------|\n| 命令 | packed lifecycle | PASS | local tarball |\n| 人工/浏览器 | 无 | N/A | fixture |\n'
     );
-    runPackedNpmScript('req:complete', ['--id', 'REQ-2099-001', '--phase', 'qa', '--no-docs-gate']);
-    assert.ok(existsSync(path.join(targetDir, 'requirements', 'completed', 'REQ-2099-001-packed-lifecycle.md')));
+    runPackedNpmScript('req:complete', ['--id', 'REQ-2099-001']);
+    assert.ok(existsSync(path.join(targetDir, 'requirements', 'completed', 'REQ-2099-001-requirement.md')));
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -1092,7 +1572,7 @@ async function testInstallerCoreOnlyProfileBoundary() {
     assert.equal(hookResult.exitCode, 0);
     assert.ok(existsSync(path.join(hookDir, 'scripts', 'req-cli.mjs')));
     const hookPackage = readJsonFile(path.join(hookDir, 'package.json'));
-    for (const scriptName of REQUIRED_TARGET_SCRIPTS) {
+    for (const scriptName of TARGET_SCRIPT_NAMES) {
       assert.equal(typeof hookPackage.scripts[scriptName], 'string');
     }
     const settings = readJsonFile(path.join(hookDir, '.claude', 'settings.local.json'));
@@ -1401,6 +1881,88 @@ Last updated: 2026-06-05
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
+}
+
+async function testReqCreateSupportsChineseTitlesAndStrictSlugs() {
+  const previousCwd = process.cwd();
+  const roots = [];
+
+  try {
+    const chineseRoot = createTempDir('req-create-chinese-title');
+    roots.push(chineseRoot);
+    setupReqFixture(chineseRoot);
+    process.chdir(chineseRoot);
+    const chineseCli = await importFreshModule('scripts/req-cli.mjs');
+    chineseCli.createCommand({ title: '修复登录问题', id: 'REQ-2099-010' });
+
+    const reqPath = path.join(chineseRoot, 'requirements', 'in-progress', 'REQ-2099-010-requirement.md');
+    assert.ok(existsSync(reqPath));
+    assert.match(readFileSync(reqPath, 'utf8'), /^# REQ-2099-010: 修复登录问题$/m);
+    chineseCli.experienceCommand({ id: 'REQ-2099-010' });
+    assert.ok(existsSync(path.join(chineseRoot, 'context', 'experience', 'REQ-2099-010-experience.md')));
+
+    const explicitRoot = createTempDir('req-create-explicit-slug');
+    roots.push(explicitRoot);
+    setupReqFixture(explicitRoot);
+    process.chdir(explicitRoot);
+    const explicitCli = await importFreshModule('scripts/req-cli.mjs');
+    explicitCli.createCommand({ title: '中文标题', slug: 'login-fix-2', id: 'REQ-2099-011' });
+    assert.ok(existsSync(path.join(explicitRoot, 'requirements', 'in-progress', 'REQ-2099-011-login-fix-2.md')));
+
+    for (const [index, invalidSlug] of ['../escape', 'two words', 'Upper-Case', '中文', 'double--dash'].entries()) {
+      const invalidRoot = createTempDir(`req-create-invalid-slug-${index}`);
+      roots.push(invalidRoot);
+      setupReqFixture(invalidRoot);
+      process.chdir(invalidRoot);
+      const invalidCli = await importFreshModule('scripts/req-cli.mjs');
+      const result = captureCommandFailure(() => invalidCli.createCommand({
+        title: 'Invalid slug fixture',
+        slug: invalidSlug,
+        id: `REQ-2099-02${index}`,
+      }));
+      assert.equal(result.exitCode, 1, `invalid slug must fail: ${invalidSlug}`);
+      assert.match(result.stderr, /lowercase ASCII kebab-case/);
+      assert.deepEqual(readdirSync(path.join(invalidRoot, 'requirements', 'in-progress')), []);
+    }
+  } finally {
+    process.chdir(previousCwd);
+    for (const root of roots) rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function testExecutableUserDocsStayAligned() {
+  const readme = readFileSync(path.join(repoRoot, 'README.md'), 'utf8');
+  const firstReq = readFileSync(
+    path.join(repoRoot, '.agents', 'skills', 'source-command-first-req', 'SKILL.md'),
+    'utf8'
+  );
+  const reqTemplate = readFileSync(path.join(repoRoot, 'requirements', 'REQ_TEMPLATE.md'), 'utf8');
+  const testingStrategy = readFileSync(path.join(repoRoot, 'context', 'tech', 'testing-strategy.md'), 'utf8');
+  const reqCliSource = readFileSync(path.join(repoRoot, 'scripts', 'req-cli.mjs'), 'utf8');
+
+  assert.match(readme, /npm exec|npx --yes --package=harness-lab harness-install/);
+  assert.match(readme, /req:block[^\n]*--reason[^\n]*--condition[^\n]*--next/);
+  assert.match(readme, /req:start -- --id REQ-YYYY-NNN --phase implementation/);
+  assert.match(readme, /纯中文|非 ASCII/);
+  assert.match(readme, /hook-policy\.mjs[^\n]*完整矩阵/);
+  assert.match(readme, /\.harness\/profile\.json[^\n]*安装了什么/);
+  assert.match(readme, /`req-check`[^\n]*不读取 mode/);
+  assert.match(readme, /`scope-guard`[^\n]*阻断/);
+  assert.match(readme, /`deploy-guard`[^\n]*高级 Hook/);
+  assert.match(readme, /`review-gatekeeper`[^\n]*高级 Hook/);
+
+  assert.match(firstReq, /node scripts\/req-cli\.mjs create/);
+  assert.match(firstReq, /npm run req:create/);
+  assert.match(firstReq, /requirement/);
+  assert.match(firstReq, /不得把 `npm test`、`pytest`、`go test \.\/\.\.\.` 或 `cargo test` 当作默认事实/);
+
+  assert.match(reqTemplate, /只填写目标项目中已存在且实际执行过的命令/);
+  assert.match(testingStrategy, /package\.json/);
+  assert.match(testingStrategy, /pyproject\.toml/);
+  assert.match(testingStrategy, /go\.mod/);
+  assert.match(testingStrategy, /Cargo\.toml/);
+  assert.match(testingStrategy, /无命令时明确记录缺口/);
+  assert.doesNotMatch(reqCliSource, /计划执行的命令：`npm test/);
 }
 
 function runScopeGuard(root, relPath, toolName = 'Write') {
@@ -2870,8 +3432,8 @@ async function testReqStatusAllReadsWorktreeAggregation() {
       encoding: 'utf8',
     });
     assert.match(statusOutput, /Worktree statuses \(2\)/);
-    assert.match(statusOutput, /feature-a: REQ-2026-401 \(implementation\)/);
-    assert.match(statusOutput, /feature-b: REQ-2026-402 \(qa\)/);
+    assert.match(statusOutput, /feature-a: active=REQ-2026-401 \(implementation\), suspended=none/);
+    assert.match(statusOutput, /feature-b: active=REQ-2026-402 \(qa\), suspended=none/);
 
     const jsonOutput = execFileSync('node', [path.join(repoRoot, 'scripts/req-cli.mjs'), 'status', '--all', '--json'], {
       cwd: tempDir,
@@ -2888,6 +3450,146 @@ async function testReqStatusAllReadsWorktreeAggregation() {
     );
     assert.deepEqual(parsed.conflicts, []);
   } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+function testRepositoryStateSemanticsExcludeExamplesTemplatesAndDuplicates() {
+  const root = createTempDir('repository-state-semantics');
+  try {
+    writeFile(root, 'requirements/in-progress/REQ-2099-001-active.md', '# REQ\n\n## 状态\n- 当前状态：in-progress\n- 当前阶段：implementation\n');
+    writeFile(root, 'requirements/in-progress/REQ-2099-002-draft.md', '# REQ\n\n## 状态\n- 当前状态：draft\n- 当前阶段：design\n');
+    writeFile(root, 'requirements/in-progress/REQ-2099-003-blocked.md', '# REQ\n\n## 状态\n- 当前状态：blocked\n- 当前阶段：review\n');
+    writeFile(root, 'requirements/in-progress/REQ-2099-004-suspended.md', '# REQ\n\n## 状态\n- 当前状态：suspended\n- 当前阶段：design\n');
+    writeFile(root, 'requirements/in-progress/REQ-2099-900-example.md', '# REQ\n\n> 公开脱敏示例。\n\n## 状态\n- 当前状态：suspended\n- 当前阶段：design\n');
+    writeFile(root, 'requirements/completed/REQ-2099-005-completed.md', '# REQ\n\n## 状态\n- 当前状态：completed\n- 当前阶段：ship\n');
+    writeFile(root, 'context/invariants/TEMPLATE.md', '---\nid: INV-NNN\nstatus: draft\n---\n');
+    writeFile(root, 'context/invariants/INV-001.md', '---\nid: INV-001\ntitle: One\nstatus: active\n---\n来源: experience/a.md\n');
+    writeFile(root, 'context/invariants/INV-002.md', '---\nid: INV-002\ntitle: Same source\nstatus: draft\n---\n来源: experience/a.md\n');
+    writeFile(root, 'context/invariants/INV-003.md', '---\nid: INV-003\ntitle: Three\nstatus: draft\n---\n来源: experience/b.md\n');
+    writeFile(root, 'context/invariants/INV-003-copy.md', '---\nid: INV-003\ntitle: ID collision\nstatus: deprecated\n---\n来源: experience/c.md\n');
+
+    const state = buildRepositoryState(root);
+    assert.deepEqual({
+      active: state.requirements.active,
+      draft: state.requirements.draft,
+      suspended: state.requirements.suspended,
+      completed: state.requirements.completed,
+      examples: state.requirements.examples,
+    }, { active: 1, draft: 1, suspended: 2, completed: 1, examples: 1 });
+    assert.equal(state.invariants.total_files, 5);
+    assert.equal(state.invariants.templates, 1);
+    assert.equal(state.invariants.duplicate_files, 2);
+    assert.equal(state.invariants.unique, 2);
+    assert.ok(state.invariants.duplicate_groups.some((group) => group.field === 'source' && group.value === 'experience/a.md'));
+    assert.ok(state.invariants.duplicate_groups.some((group) => group.field === 'id' && group.value === 'INV-003'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+async function testRealGitWorktreeLifecycleAggregationAndStateParity() {
+  const tempDir = createTempDir('real-worktree-state');
+  const mainRoot = path.join(tempDir, 'main');
+  const worktreeA = path.join(tempDir, 'state-a');
+  const worktreeB = path.join(tempDir, 'state-b');
+  const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+  const reqCliPath = path.join(repoRoot, 'scripts', 'req-cli.mjs');
+  const sessionStartPath = path.join(repoRoot, 'scripts', 'session-start.js');
+  const runReq = (cwd, args) => execFileSync(process.execPath, [reqCliPath, ...args], {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const removeWorktree = (worktreePath) => {
+    if (!existsSync(worktreePath)) return;
+    execFileSync('git', ['worktree', 'remove', '--force', worktreePath], {
+      cwd: mainRoot,
+      stdio: ['ignore', 'ignore', 'ignore'],
+    });
+  };
+
+  try {
+    initGitProject(mainRoot);
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: mainRoot });
+    execFileSync('git', ['config', 'user.name', 'Harness Test'], { cwd: mainRoot });
+    const install = await harnessInstall.main(['--core-only'], { targetDir: mainRoot, stdinIsTTY: false });
+    assert.equal(install.status, 'success');
+    execFileSync('git', ['add', '.'], { cwd: mainRoot });
+    execFileSync('git', ['commit', '-m', 'state baseline'], { cwd: mainRoot, stdio: ['ignore', 'ignore', 'ignore'] });
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'state-a', worktreeA], { cwd: mainRoot });
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'state-b', worktreeB], { cwd: mainRoot });
+
+    const identityA = getWorktreeIdentity(worktreeA);
+    const identityB = getWorktreeIdentity(worktreeB);
+    assert.equal(identityA.isMain, false);
+    assert.equal(identityB.isMain, false);
+    assert.notEqual(identityA.id, identityB.id);
+    const topologyBranches = listGitWorktrees(mainRoot).map((item) => item.branch);
+    assert.equal(topologyBranches.length, 3);
+    assert.ok(topologyBranches.includes('state-a'));
+    assert.ok(topologyBranches.includes('state-b'));
+
+    for (const [cwd, title] of [[worktreeA, 'Worktree A'], [worktreeB, 'Worktree B']]) {
+      runReq(cwd, ['create', '--id', 'REQ-2099-095', '--title', title, '--slug', 'shared-id']);
+    }
+    assert.ok(existsSync(path.join(worktreeA, '.claude/worktrees', identityA.id, 'events', 'session-main.jsonl')));
+    assert.ok(existsSync(path.join(worktreeB, '.claude/worktrees', identityB.id, 'events', 'session-main.jsonl')));
+    assert.ok(!existsSync(path.join(worktreeA, '.claude/worktrees/main/events/session-main.jsonl')));
+    assert.ok(!existsSync(path.join(worktreeB, '.claude/worktrees/main/events/session-main.jsonl')));
+
+    const localA = JSON.parse(runReq(worktreeA, ['status', '--json']));
+    const localB = JSON.parse(runReq(worktreeB, ['status', '--json']));
+    assert.equal(localA.active_req.req_id, 'REQ-2099-095');
+    assert.equal(localB.active_req.req_id, 'REQ-2099-095');
+
+    const duplicated = buildWorktreeProgressProjections({ rootDir: mainRoot });
+    assert.deepEqual(duplicated.worktrees.map((item) => item.worktree), [identityA.id, identityB.id].sort());
+    assert.deepEqual(new Set(duplicated.worktrees.map((item) => realpathSync(item.root))), new Set([realpathSync(worktreeA), realpathSync(worktreeB)]));
+    assert.deepEqual(duplicated.conflicts, [{
+      type: 'duplicate_active_req',
+      reqId: 'REQ-2099-095',
+      worktrees: [identityA.id, identityB.id].sort(),
+    }]);
+    const allFromCli = JSON.parse(runReq(mainRoot, ['status', '--all', '--json']));
+    assert.equal(allFromCli.worktrees.length, 2);
+    assert.equal(allFromCli.conflicts.length, 1);
+
+    runReq(worktreeB, [
+      'block', '--id', 'REQ-2099-095', '--reason', 'waiting for state dependency',
+      '--condition', 'dependency ready', '--next', 'resume design', '--phase', 'design',
+    ]);
+    const blockedStatus = JSON.parse(runReq(worktreeB, ['status', '--json']));
+    assert.equal(blockedStatus.active_req, null);
+    assert.deepEqual(blockedStatus.suspended_reqs.map((item) => item.reqId), ['REQ-2099-095']);
+    const afterBlock = buildWorktreeProgressProjections({ rootDir: mainRoot });
+    assert.deepEqual(afterBlock.conflicts, []);
+    const projectedB = afterBlock.worktrees.find((item) => item.worktree === identityB.id).projection;
+    assert.equal(projectedB.activeReq, 'none');
+    assert.equal(projectedB.suspendedReqs[0].reason, 'waiting for state dependency');
+
+    const sessionOutput = execFileSync(process.execPath, [sessionStartPath], {
+      cwd: worktreeB,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    assert.match(sessionOutput, /搁置中的 REQ/);
+    assert.match(sessionOutput, /REQ-2099-095/);
+    const health = buildHealthReport(worktreeB);
+    assert.equal(health.req_counts.active, 0);
+    assert.equal(health.req_counts.suspended, 1);
+    assert.equal(health.req_counts.examples, 0);
+    const doctor = runDoctor({ rootDir: worktreeB });
+    assert.equal(doctor.summary.fail, 0);
+    assert.match(doctor.checks.find((check) => check.name === 'Repository state').detail, /suspended=1/);
+
+    removeWorktree(worktreeB);
+    const converged = buildWorktreeProgressProjections({ rootDir: mainRoot });
+    assert.deepEqual(converged.worktrees.map((item) => item.worktree), [identityA.id]);
+    assert.deepEqual(converged.conflicts, []);
+  } finally {
+    try { removeWorktree(worktreeB); } catch {}
+    try { removeWorktree(worktreeA); } catch {}
     rmSync(tempDir, { recursive: true, force: true });
   }
 }
@@ -2974,6 +3676,135 @@ async function testHookConfigConsistencyBetweenCodexAndSettings() {
   }
 }
 
+async function testRepresentativeCiAndClaudeMatcherContracts() {
+  const workflow = readFileSync(path.join(repoRoot, '.github', 'workflows', 'governance.yml'), 'utf8');
+  for (const runner of capabilityManifest.verification.runnerOs) {
+    assert.match(workflow, new RegExp(runner.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  assert.match(workflow, /fail-fast:\s*false/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /node:\s*\[20\]/);
+  assert.match(workflow, /npm run ci:verify -- --require-node-major \$\{\{ matrix\.node \}\}/);
+  assert.match(workflow, /actions\/upload-artifact@v4/);
+  assert.match(workflow, /if:\s*always\(\)/);
+  assert.match(workflow, /contents:\s*read/);
+
+  const plan = buildCiPlan();
+  assert.deepEqual(Object.keys(plan), capabilityManifest.verification.stages);
+  assert.deepEqual(plan.tests.map(({ label }) => label), capabilityManifest.verification.testFiles.map((file) => `test:${file}`));
+  assert.equal(targetPackageScripts['ci:verify'], 'node scripts/ci-verify.mjs');
+  assert.equal(targetPackageScripts['harness:matcher-smoke'], 'node scripts/claude-matcher-smoke.mjs');
+
+  for (const tool of EXPECTED_MATCHES) assert.equal(matcherMatchesTool(CANONICAL_WRITE_MATCHER, tool), true, tool);
+  for (const tool of EXPECTED_MISSES) assert.equal(matcherMatchesTool(CANONICAL_WRITE_MATCHER, tool), false, tool);
+
+  for (const file of ['.claude/settings.example.json', '.claude/settings.local.json', '.codex/hooks.json']) {
+    const entry = findCanonicalPreToolEntry(readJsonFile(path.join(repoRoot, file)));
+    assert.equal(entry.matcher, CANONICAL_WRITE_MATCHER);
+  }
+
+  const root = createTempDir('claude-matcher-contract');
+  try {
+    const harnessInstall = await importFreshModule('scripts/harness-install.mjs');
+    writeFile(root, 'package.json', JSON.stringify({ name: 'matcher-fixture', private: true, scripts: {} }, null, 2));
+    harnessInstall.copyFiles(repoRoot, root, ['core', 'cli', 'hook']);
+    harnessInstall.configureHook(root);
+    const installed = findCanonicalPreToolEntry(readJsonFile(path.join(root, '.claude', 'settings.local.json')));
+    assert.equal(installed.matcher, CANONICAL_WRITE_MATCHER);
+
+    const fixture = prepareInteractiveFixture(path.join(root, 'interactive'));
+    const smokeSettings = readJsonFile(fixture.settingsPath);
+    assert.equal(smokeSettings.hooks.PreToolUse[0].matcher, CANONICAL_WRITE_MATCHER);
+    const validEvidence = [
+      JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'pwd' } }),
+      '',
+    ].join('\n');
+    assert.deepEqual(validateMatcherEvidence(validEvidence), { eventCount: 1, matchedTool: 'Bash' });
+    assert.throws(() => validateMatcherEvidence(`${validEvidence}${JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Read' })}\n`), /Read unexpectedly matched/);
+    assert.throws(() => validateMatcherEvidence(''), /empty/);
+
+    const mismatchEvidence = path.join(root, 'node-major-mismatch.json');
+    const impossibleMajor = Number(process.versions.node.split('.')[0]) + 1;
+    assert.throws(() => runCiVerification({ stages: [], requireNodeMajor: impossibleMajor, evidenceOutput: mismatchEvidence }), /Node major mismatch/);
+    const mismatch = readJsonFile(mismatchEvidence);
+    assert.equal(mismatch.status, 'fail');
+    assert.equal(mismatch.nodeMajorEnforced, true);
+    assert.equal(mismatch.nodeMajorMatches, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function buildCompletePilotEvents() {
+  return [
+    { event: 'pilot_started', occurredAt: '2026-07-01T00:00:00Z', pilotId: 'pilot-js-01', projectType: 'javascript', baselineRef: 'a1b2c3d' },
+    { event: 'first_req_ready', occurredAt: '2026-07-01T01:00:00Z', reqId: 'REQ-2026-001', elapsedMinutes: 60 },
+    { event: 'cycle_started', occurredAt: '2026-07-01T02:00:00Z', reqId: 'REQ-2026-001' },
+    { event: 'exemption_used', occurredAt: '2026-07-01T03:00:00Z', reqId: 'REQ-2026-001', reasonCode: 'scope-gap' },
+    { event: 'recovery_started', occurredAt: '2026-07-01T04:00:00Z', reqId: 'REQ-2026-001' },
+    { event: 'recovery_completed', occurredAt: '2026-07-01T04:05:00Z', reqId: 'REQ-2026-001', elapsedSeconds: 300, outcome: 'correct' },
+    { event: 'cycle_completed', occurredAt: '2026-07-02T00:00:00Z', reqId: 'REQ-2026-001', verificationResult: 'pass' },
+    { event: 'cycle_started', occurredAt: '2026-07-03T00:00:00Z', reqId: 'REQ-2026-002' },
+    { event: 'recovery_started', occurredAt: '2026-07-04T00:00:00Z', reqId: 'REQ-2026-002' },
+    { event: 'recovery_completed', occurredAt: '2026-07-04T00:02:00Z', reqId: 'REQ-2026-002', elapsedSeconds: 120, outcome: 'correct' },
+    { event: 'incident', occurredAt: '2026-07-04T01:00:00Z', reqId: 'REQ-2026-002', classification: 'false-block', severity: 'low' },
+    { event: 'cycle_completed', occurredAt: '2026-07-05T00:00:00Z', reqId: 'REQ-2026-002', verificationResult: 'pass' },
+    { event: 'repeat_use', occurredAt: '2026-07-15T00:00:00Z', intent: 'intentional-reuse' },
+    { event: 'pilot_closed', occurredAt: '2026-07-15T01:00:00Z', outcome: 'completed' },
+  ];
+}
+
+function testPilotObservationProtocolRejectsFakeCompletion() {
+  const events = buildCompletePilotEvents();
+  assert.deepEqual(validateObservation(events, { requireComplete: true, asOf: '2026-07-15T02:00:00Z' }), {
+    complete: true,
+    completedCycles: 2,
+    totalCycles: 2,
+  });
+  const summary = summarizeObservation(events, { asOf: '2026-07-15T02:00:00Z' });
+  assert.equal(summary.cycles.completedVerified, 2);
+  assert.equal(summary.firstReqMinutes, 60);
+  assert.deepEqual(summary.recovery, { count: 2, medianSeconds: 120, p90Seconds: 300 });
+  assert.equal(summary.incidents['false-block'], 1);
+  assert.equal(summary.exemptions.cycleRate, 0.5);
+  assert.equal(summary.exemptions.perCompletedCycle, 0.5);
+  assert.equal(summary.repeatUse, 'intentional-reuse');
+  assert.ok(!JSON.stringify(summary).includes('/Users/'));
+
+  const tooShort = structuredClone(events);
+  tooShort.at(-2).occurredAt = '2026-07-10T00:00:00Z';
+  tooShort.at(-1).occurredAt = '2026-07-10T01:00:00Z';
+  assert.throws(() => validateObservation(tooShort, { requireComplete: true, asOf: '2026-07-15T02:00:00Z' }), /14-28 days/);
+  assert.throws(() => validateObservation(events.slice(0, 7), { requireComplete: true, asOf: '2026-07-15T02:00:00Z' }), /pilot_closed/);
+  const fakeRecovery = structuredClone(events);
+  fakeRecovery[5].elapsedSeconds = 1;
+  assert.throws(() => validateObservation(fakeRecovery, { asOf: '2026-07-15T02:00:00Z' }), /does not match timestamps/);
+  const earlyReuse = structuredClone(events);
+  earlyReuse.at(-2).occurredAt = '2026-07-10T00:00:00Z';
+  assert.throws(() => validateObservation(earlyReuse, { requireComplete: true, asOf: '2026-07-15T02:00:00Z' }), /on or after day 14/);
+  assert.throws(() => validatePilotEventShape({ ...events[0], sourcePath: '/secret/project' }), /fields must be exactly/);
+
+  const reversed = structuredClone(events);
+  reversed[2].occurredAt = '2026-06-30T23:00:00Z';
+  assert.throws(() => validateObservation(reversed, { asOf: '2026-07-15T02:00:00Z' }), /non-decreasing/);
+  assert.throws(() => parseObservation('{"event":"unknown"}\n'), /Unknown pilot event/);
+
+  const root = createTempDir('pilot-observation-cli');
+  const previousCwd = process.cwd();
+  try {
+    process.chdir(root);
+    pilotObservationMain(['init', '--pilot-id', 'pilot-py-01', '--project-type', 'python', '--baseline-ref', 'abcdef1', '--at', '2026-07-01T00:00:00Z', '--output', '.harness/pilot/observation.jsonl']);
+    pilotObservationMain(['record', '--input', '.harness/pilot/observation.jsonl', '--event', 'cycle_started', '--req-id', 'REQ-2026-001', '--at', '2026-07-01T01:00:00Z', '--as-of', '2026-07-15T00:00:00Z']);
+    const recorded = parseObservation(readFileSync(path.join(root, '.harness/pilot/observation.jsonl'), 'utf8'));
+    assert.equal(recorded.length, 2);
+    assert.throws(() => pilotObservationMain(['record', '--input', '.harness/pilot/observation.jsonl', '--event', 'cycle_started', '--req-id', 'REQ-2026-002', '--at', '2026-07-01T02:00:00Z', '--source-path', '/secret']), /Unknown option/);
+    assert.throws(() => pilotObservationMain(['summary', '--input', '../escape.jsonl']), /under \.harness\/pilot/);
+  } finally {
+    process.chdir(previousCwd);
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 // OPT-1B: README declares the three unenforceable gaps.
 function testReadmeDeclaresUnenforceableGaps() {
   const readme = readFileSync(path.join(repoRoot, 'README.md'), 'utf8');
@@ -2985,20 +3816,17 @@ function testReadmeDeclaresUnenforceableGaps() {
 
 // OPT-1B: harness-doctor includes the three OPT-1 checks and they appear in --json output.
 function testDoctorIncludesOpt1Checks() {
-  const src = readFileSync(path.join(repoRoot, 'scripts', 'harness-doctor.mjs'), 'utf8');
-  assert.match(src, /checkPreToolUseBashMatcher/);
-  assert.match(src, /checkReqCheckStdinSelfTest/);
-  assert.match(src, /checkPlatformGaps/);
-
   const json = execFileSync(process.execPath, [path.join(repoRoot, 'scripts/harness-doctor.mjs'), '--json'], {
     cwd: repoRoot,
     encoding: 'utf8',
   });
-  const results = JSON.parse(json);
-  const names = results.map((r) => r.name);
-  assert.ok(names.some((n) => /Bash 覆盖/.test(n)), 'doctor should report PreToolUse Bash coverage');
+  const report = JSON.parse(json);
+  const names = report.checks.map((check) => check.name);
+  assert.ok(names.some((name) => /基础 Hook/.test(name)), 'doctor should report basic Hook coverage');
   assert.ok(names.some((n) => /stdin 契约/.test(n)), 'doctor should report req-check stdin self-test');
   assert.ok(names.some((n) => /不可强制边界/.test(n)), 'doctor should report platform gaps');
+  assert.equal(report.summary.fail, 0);
+  assert.equal(report.exitCode, 0);
 }
 
 // OPT-3: experience auto-draft aggregates REQ/git/reports/events, complete does not block AUTO-DRAFT.
@@ -3103,6 +3931,7 @@ async function testHarnessInstallGitignoreAndDoctor() {
     const gitignore = readFileSync(path.join(tempDir, '.gitignore'), 'utf8');
     assert.match(gitignore, /Harness Lab 运行时状态/);
     assert.match(gitignore, /\.claude\/\.req-exempt/);
+    assert.match(gitignore, /\.harness\/pilot\//);
 
     // T3: scripts/ ships harness-doctor.mjs
     assert.ok(existsSync(path.join(tempDir, 'scripts', 'harness-doctor.mjs')), 'doctor should be installed');
@@ -3121,11 +3950,18 @@ async function testHarnessInstallGitignoreAndDoctor() {
 
 const tests = [
   ['docs verify passes on the repository', testDocsVerifyPasses],
+  ['capability manifest is canonical, validated, and package-syncable', testCapabilityManifestIsCanonicalAndSyncable],
+  ['hook policy matrix is complete and consumed centrally', testHookPolicyMatrixAndConsumers],
+  ['installer profiles are deterministic and doctor is profile-aware', testInstallerProfilesAndProfileAwareDoctor],
+  ['managed upgrade preserves user changes and supports dry-run/restore', testManagedUpgradeProtectsUserChangesAndRestores],
+  ['managed upgrade handles legacy, rollback, invalid records, and path safety', testManagedUpgradeLegacyRollbackAndPathSafety],
   ['req-cli lifecycle works in a fixture repository', testReqCliLifecycle],
   ['session-start writes event ledger entry', testSessionStartWritesEvent],
   ['session-start reads progress projection without progress.txt', testSessionStartReadsProgressProjectionWithoutProgressFile],
   ['req:status reads progress projection without progress.txt', testReqStatusReadsProgressProjectionWithoutProgressFile],
   ['req:status --all reads worktree aggregation', testReqStatusAllReadsWorktreeAggregation],
+  ['repository state semantics exclude examples, templates, and duplicate invariants', testRepositoryStateSemanticsExcludeExamplesTemplatesAndDuplicates],
+  ['real git worktrees isolate lifecycle state and aggregate read-only', testRealGitWorktreeLifecycleAggregationAndStateParity],
   ['req validation detects template placeholders and draft status', testReqValidationDetectsTemplateAndDraftIssues],
   ['harness-install copies governance files and writes hook config', testHarnessInstallArtifacts],
   ['installer declared sources exist and CLI args are strict', testInstallerDeclaredSourcesExistAndArgsAreStrict],
@@ -3139,6 +3975,8 @@ const tests = [
   ['invalid package scripts fail before installer writes', testInvalidPackageScriptsFailPreflight],
   ['installer preflight and failure terminal states are truthful', testInstallerPreflightAndFailureTerminalStates],
   ['req-check accepts slugged active REQ files', testReqCheckAcceptsSluggedActiveReq],
+  ['req:create supports Chinese titles and strict explicit slugs', testReqCreateSupportsChineseTitlesAndStrictSlugs],
+  ['executable user docs stay aligned with public commands and runtime facts', testExecutableUserDocsStayAligned],
   ['write-target policy classifies all supported targets', testWriteTargetPolicyClassifiesAllSupportedTargets],
   ['canonical write targets handle traversal prefixes and symlinks', testCanonicalWriteTargetsHandleTraversalPrefixesAndSymlinks],
   ['req-check governance whitelist requires every canonical target', testReqCheckCanonicalGovernanceWhitelistRequiresEveryTarget],
@@ -3173,6 +4011,8 @@ const tests = [
   ['risk-tracker calls git rev-parse exactly once', testRiskTrackerCallsGitRevParseOnce],
   ['permissions table is clean and within limits', testPermissionsTableIsClean],
   ['hook config is consistent between .codex/hooks.json and settings.local.json', testHookConfigConsistencyBetweenCodexAndSettings],
+  ['representative CI and Claude matcher contracts are executable', testRepresentativeCiAndClaudeMatcherContracts],
+  ['pilot observation protocol rejects fake completion and private payloads', testPilotObservationProtocolRejectsFakeCompletion],
   ['README declares unenforceable REQ-gate gaps (OPT-1B)', testReadmeDeclaresUnenforceableGaps],
   ['harness-doctor includes OPT-1 self-checks (OPT-1B)', testDoctorIncludesOpt1Checks],
   ['experience auto-draft aggregates sources and complete does not block AUTO-DRAFT (OPT-3)', testExperienceAutoDraftFlow],

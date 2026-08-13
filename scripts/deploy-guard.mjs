@@ -17,6 +17,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import { getHookPolicy, readHarnessMode } from './hook-policy.mjs';
 
 const DANGEROUS_PATTERNS = [
   { pattern: /rm\s+(-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|--recursive\s+--force)/, label: '递归强制删除 (rm -rf)', severity: 'critical' },
@@ -43,15 +44,6 @@ function getRootDir() {
     return execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
   } catch {
     return null;
-  }
-}
-
-function getHarnessMode(rootDir) {
-  const modeFile = path.join(rootDir, '.claude', 'harness-mode');
-  try {
-    return fs.readFileSync(modeFile, 'utf-8').trim() || 'collaborative';
-  } catch {
-    return 'collaborative';
   }
 }
 
@@ -90,9 +82,10 @@ async function main() {
   const match = DANGEROUS_PATTERNS.find(p => p.pattern.test(command));
   if (!match) return; // Safe command, allow
 
-  const mode = getHarnessMode(rootDir);
+  const { mode } = readHarnessMode(rootDir);
+  const policy = getHookPolicy('deploy.dangerous', mode);
 
-  if (mode === 'collaborative') {
+  if (policy.action === 'warn') {
     // 提醒不阻断
     console.log(JSON.stringify({
       decision: 'allow',

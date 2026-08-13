@@ -1,6 +1,7 @@
 name: Governance
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
 
@@ -9,7 +10,13 @@ permissions:
 
 jobs:
   governance:
-    runs-on: ubuntu-latest
+    name: Verify (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [20]
 
     steps:
       - name: Checkout repository
@@ -18,13 +25,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
 
-      - name: Run repository tests
-        run: npm test
+      - name: Run representative verification
+        run: npm run ci:verify -- --require-node-major ${{ matrix.node }}
+        env:
+          HARNESS_CI_EVIDENCE: ${{ runner.temp }}/harness-ci-evidence.json
 
-      - name: Verify docs contract
-        run: npm run docs:verify
-
-      - name: Verify governance contract
-        run: npm run check:governance
+      - name: Upload platform evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: governance-${{ matrix.os }}-node-${{ matrix.node }}
+          path: ${{ runner.temp }}/harness-ci-evidence.json
+          if-no-files-found: error
