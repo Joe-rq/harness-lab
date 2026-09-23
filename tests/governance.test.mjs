@@ -2306,6 +2306,94 @@ function testScopeGuardHonorsWorktreeExemption() {
   }
 }
 
+// REQ-2026-100：豁免文件是人闸载体，必须能在活跃 REQ 范围之外创建（否则自举死锁）
+function testScopeGuardAllowsExemptionFileBootstrap() {
+  const root = createTempDir('scope-guard-exempt-bootstrap');
+  try {
+    initGitProject(root);
+    writeScopedReqFixture(root);
+
+    assert.equal(
+      runScopeGuardRaw(root, {
+        tool_name: 'Bash',
+        tool_input: { command: 'touch .claude/.req-exempt' },
+      }),
+      '',
+      '全局豁免文件必须可写，否则无法创建豁免、也无法修订范围'
+    );
+    assert.equal(
+      runScopeGuardRaw(root, {
+        tool_name: 'Bash',
+        tool_input: { command: 'touch .claude/worktrees/wt-1/.req-exempt' },
+      }),
+      '',
+      'worktree-local 豁免文件同样免检'
+    );
+    assert.equal(
+      runScopeGuardRaw(root, {
+        tool_name: 'Bash',
+        tool_input: { command: 'rm .claude/.req-exempt' },
+      }),
+      '',
+      '豁免文件删除（用完清理）同样必须放行'
+    );
+    assert.notEqual(
+      runScopeGuardRaw(root, {
+        tool_name: 'Bash',
+        tool_input: { command: 'echo x > .claude/progress.txt' },
+      }),
+      '',
+      '免检范围仅限豁免文件本身，不得放宽到其他 .claude 文件'
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+// REQ-2026-100：活跃 REQ 的约定交付物（自身/报告/经验/设计稿）自动 allow，且不放宽其他目标
+function testScopeGuardAllowsActiveReqDeliverables() {
+  const root = createTempDir('scope-guard-deliverables');
+  try {
+    initGitProject(root);
+    writeScopedReqFixture(root);
+
+    for (const relPath of [
+      'requirements/in-progress/REQ-2026-951-scope-note.md',
+      'requirements/reports/REQ-2026-951-qa.md',
+      'context/experience/REQ-2026-951-p0.md',
+      'docs/plans/REQ-2026-951-design.md',
+    ]) {
+      assert.equal(
+        runScopeGuardRaw(root, {
+          tool_name: 'Bash',
+          tool_input: { command: `echo x > ${relPath}` },
+        }),
+        '',
+        `活跃 REQ 的约定交付物应自动 allow: ${relPath}`
+      );
+    }
+
+    assert.notEqual(
+      runScopeGuardRaw(root, {
+        tool_name: 'Bash',
+        tool_input: { command: 'echo x > scripts/blocked/deliverable-bypass.txt' },
+      }),
+      '',
+      '自动 allow 不得放宽到范围外源码'
+    );
+    assert.notEqual(
+      runScopeGuardRaw(root, {
+        tool_name: 'Bash',
+        tool_input: { command: 'echo x > requirements/reports/REQ-2026-952-qa.md' },
+      }),
+      '',
+      '自动 allow 只针对活跃 REQ 自己的交付物，不覆盖其他 REQ'
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 function testScopeGuardBlocksReadOnlyReqWrites() {
   const tempDir = createTempDir('scope-guard-readonly');
   try {
@@ -3993,6 +4081,8 @@ const tests = [
   ['req-check governance whitelist requires every canonical target', testReqCheckCanonicalGovernanceWhitelistRequiresEveryTarget],
   ['scope-guard checks every canonical target and global exemption', testScopeGuardChecksEveryCanonicalTargetAndExemption],
   ['scope-guard honors worktree-local exemption', testScopeGuardHonorsWorktreeExemption],
+  ['scope-guard allows exemption file bootstrap (REQ-2026-100)', testScopeGuardAllowsExemptionFileBootstrap],
+  ['scope-guard allows active REQ deliverables (REQ-2026-100)', testScopeGuardAllowsActiveReqDeliverables],
   ['scope-guard blocks write attempts under read-only REQs', testScopeGuardBlocksReadOnlyReqWrites],
   ['scope-guard allows legacy REQs without scope declarations', testScopeGuardAllowsLegacyReqWithoutScope],
   ['req-check blocks Bash writes without a REQ (OPT-1A)', testReqCheckBlocksBashWriteWithoutReq],

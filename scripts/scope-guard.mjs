@@ -240,6 +240,29 @@ function matchGlob(filePath, pattern) {
 }
 
 /**
+ * 豁免文件是人闸载体：它必须能在活跃 REQ 的范围之外被创建（以及用完删除），
+ * 否则 scope 检查会自锁——创建豁免要过 scope，而豁免正是用来绕过 scope 的。
+ * 仅豁免文件本身免检，不含 .claude 下其他文件。
+ */
+function isExemptionFileTarget(relativePath) {
+  return relativePath === '.claude/.req-exempt'
+    || /^\.claude\/worktrees\/[^/]+\/\.req-exempt$/.test(relativePath);
+}
+
+/**
+ * 活跃 REQ 的约定交付物：REQ 自身、报告、经验文档、设计稿。
+ * 每个 REQ 都必然要写这四类文件，漏声明会让收尾阶段不可写（REQ-2026-100）。
+ */
+function conventionalDeliverablePatterns(reqId) {
+  return [
+    `requirements/in-progress/${reqId}-*.md`,
+    `requirements/reports/${reqId}-*.md`,
+    `context/experience/${reqId}-*.md`,
+    `docs/plans/${reqId}-*.md`,
+  ];
+}
+
+/**
  * Check if a file path matches any of the scope patterns.
  */
 function evaluateRange(filePath, patterns, { failClosed = false } = {}) {
@@ -375,6 +398,13 @@ async function main() {
   const { patterns, readOnly } = buildEffectivePatterns(reqContent, extractedPatterns);
   if (patterns.length === 0 && !readOnly) return; // No scope declaration = backward compatible, allow
 
+  // 4b. 活跃 REQ 的约定交付物自动 allow（只读边界 REQ 不注入，保持其"只写 reports"语义）
+  if (!readOnly) {
+    for (const pattern of conventionalDeliverablePatterns(reqId)) {
+      addPattern(patterns, pattern, 'allow');
+    }
+  }
+
   // 5. Check every canonical target. One valid target cannot hide a later
   // out-of-scope target. Unresolved writes fail closed only once scope exists.
   const failures = [];
@@ -387,6 +417,7 @@ async function main() {
       failures.push({ path: target.raw, reason: 'target resolves outside the repository' });
       continue;
     }
+    if (isExemptionFileTarget(target.relativePath)) continue;
     const range = evaluateRange(target.relativePath, patterns, { failClosed: readOnly });
     if (!range.allowed) failures.push({ path: target.relativePath, reason: range.reason });
   }

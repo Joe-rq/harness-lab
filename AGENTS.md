@@ -117,6 +117,13 @@ touch .claude/.req-exempt
 rm .claude/.req-exempt
 ```
 
+**范围声明的解析规则**（`scripts/scope-guard.mjs`，2026-09-23 起）：
+
+- `## 范围` 段内的**反引号路径会被解析为作用域声明**，出现在否定句或说明句里一样算数：在 `**禁止（CANNOT）**` 段写 `` `tests/foo.mjs` `` 会把该路径解析为 **deny**（哪怕那句话的意思是"只允许改它"），而在豁免项说明里顺手提到一个路径会把它解析为 **allow**。
+- "目录级禁止 + 单文件例外"请写在 `**允许（CAN）**` 段里显式列举，不要用 CANNOT 表达例外。
+- **豁免文件写入免检**：`.claude/.req-exempt` 与 `.claude/worktrees/<id>/.req-exempt` 永远可写——它是人闸载体，否则"创建豁免"本身会被 scope 检查拦住，REQ 范围再也改不动（自举死锁）。
+- **活跃 REQ 的约定交付物自动 allow**：`requirements/in-progress/<reqId>-*`、`requirements/reports/<reqId>-*`、`context/experience/<reqId>-*`、`docs/plans/<reqId>-*`。这四类每个 REQ 都必须写，不再要求逐条声明；只读边界 REQ 不适用（仍只允许 reports）。
+
 ### 3. 高级 Hooks（PostToolUse / PreCompact / Stop / SessionEnd）
 
 | Hook 类型 | 脚本 | 用途 |

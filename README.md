@@ -319,6 +319,8 @@ PreToolUse 的 Bash 判断由共享 `write-target-policy.mjs` 提供：明确支
 
 对已识别但含变量、glob 或缺失 operand 的写命令，策略会标记为 unresolved：有显式 scope 或只读边界时 scope-guard 阻断，无 scope 的历史 REQ 保持兼容。确需执行时应使用有审计记录的 `.claude/.req-exempt`，而不是依赖第一个合法目标绕过后续目标。
 
+豁免文件本身免检：`.claude/.req-exempt` 与 `.claude/worktrees/<id>/.req-exempt` 的创建与删除不受 scope 约束——否则"创建豁免"会被 scope 检查拦住，REQ 范围再也改不动。活跃 REQ 的约定交付物同样自动允许写入：`requirements/in-progress/<reqId>-*`、`requirements/reports/<reqId>-*`、`context/experience/<reqId>-*`、`docs/plans/<reqId>-*`（只读边界 REQ 不适用，仍只允许 reports）。注意 `## 范围` 段内的反引号路径一律参与解析：写在 `**禁止（CANNOT）**` 里是 deny、写在说明句里是 allow；"目录禁止 + 单文件例外"应写进 `**允许（CAN）**` 显式列举。
+
 ### 高级治理机制
 
 以下机制在模板仓库中完整运行，目标项目按需启用。
