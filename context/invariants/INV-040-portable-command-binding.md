@@ -1,7 +1,7 @@
 ---
 id: INV-040
 title: 2026-03-29 Portable Command Binding
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

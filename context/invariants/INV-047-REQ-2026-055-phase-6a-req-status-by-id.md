@@ -1,7 +1,7 @@
 ---
 id: INV-047
 title: 2026-05-01 Phase 6a: req:status --id 按 REQ ID 查询状态
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

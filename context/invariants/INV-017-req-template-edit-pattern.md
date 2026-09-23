@@ -36,7 +36,7 @@ new_string = """## 阻塞 / 搁置说明（可选）
 - 下一步：无
 """
 /**"
-status: draft
+status: deprecated
 severity: medium
 confidence: medium
 message: |

@@ -5,7 +5,7 @@ triggers:
   - glob: "context/experience/**"
   - glob: "requirements/in-progress/**"
   - glob: "requirements/reports/**"
-status: draft
+status: deprecated
 severity: medium
 confidence: medium
 message: |

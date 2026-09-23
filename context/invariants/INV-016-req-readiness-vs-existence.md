@@ -3,7 +3,7 @@ id: INV-016
 title: REQ Ready != REQ Exists
 triggers:
   - glob: "scripts/**"
-status: draft
+status: deprecated
 severity: medium
 confidence: medium
 message: |

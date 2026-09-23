@@ -1,7 +1,7 @@
 ---
 id: INV-062
 title: REQ-2026-074 Stage 2 退出确认经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/in-progress/**"

@@ -1,7 +1,7 @@
 ---
 id: INV-057
 title: REQ-2026-066 独立 verifier Stage 1 经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/in-progress/**"

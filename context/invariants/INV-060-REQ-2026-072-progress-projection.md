@@ -1,7 +1,7 @@
 ---
 id: INV-060
 title: REQ-2026-072 progress projection 经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/in-progress/**"

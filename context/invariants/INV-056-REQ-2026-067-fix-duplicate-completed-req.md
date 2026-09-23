@@ -1,7 +1,7 @@
 ---
 id: INV-056
 title: REQ-2026-067 duplicate completed REQ ID 修复经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/in-progress/**"

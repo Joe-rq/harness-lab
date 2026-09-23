@@ -1,7 +1,7 @@
 ---
 id: INV-050
 title: REQ-2026-062 治理框架审计与安装器安全化经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "scripts/**"

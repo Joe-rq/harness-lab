@@ -1,7 +1,7 @@
 ---
 id: INV-066
 title: REQ-2026-078 S3-CP1 observation window kickoff 经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

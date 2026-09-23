@@ -56,7 +56,7 @@ MODIFIED_COUNT=$(git status --porcelain=v1 | grep -E '^\s*[MADRC]' | grep -vE 'r
 ╠══════════════════════════════════════════════════════════════╣
 
   Modified 5 files (excluding requirements/**"
-status: draft
+status: deprecated
 severity: medium
 confidence: medium
 message: |

@@ -10,7 +10,7 @@ triggers:
   - glob: "docs/plans/**"
   - glob: "requirements/reports/**"
   - glob: "requirements/completed/**"
-status: draft
+status: deprecated
 severity: medium
 confidence: medium
 message: |

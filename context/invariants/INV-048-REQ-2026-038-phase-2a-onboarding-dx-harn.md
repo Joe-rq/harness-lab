@@ -1,7 +1,7 @@
 ---
 id: INV-048
 title: 2026-04-25 Phase 2A: Onboarding DX — harness-doctor and firs
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

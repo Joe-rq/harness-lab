@@ -1,7 +1,7 @@
 ---
 id: INV-051
 title: 2026-03-23 Template Dogfooding
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

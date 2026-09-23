@@ -1,7 +1,7 @@
 ---
 id: INV-064
 title: 2026-06-04 Worktree 事件路径命名空间隔离
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: ".claude/**"

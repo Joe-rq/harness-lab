@@ -1,7 +1,7 @@
 ---
 id: INV-065
 title: REQ-2026-077 verifier 默认值与 envelope 只读边界经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

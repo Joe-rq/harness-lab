@@ -1,7 +1,7 @@
 ---
 id: INV-041
 title: 2026-04-06 4 实体规则的轻量级实现（深度思考案例）
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "scripts/**"

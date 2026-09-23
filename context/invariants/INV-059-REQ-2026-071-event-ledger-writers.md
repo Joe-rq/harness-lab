@@ -1,7 +1,7 @@
 ---
 id: INV-059
 title: REQ-2026-071 event ledger 高频写入点经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/in-progress/**"

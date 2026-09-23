@@ -1,7 +1,7 @@
 ---
 id: INV-078
 title: 2026-05-01 Phase 6a: req status --json + external mappings
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

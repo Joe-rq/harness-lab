@@ -1,7 +1,7 @@
 ---
 id: INV-042
 title: 2026-04-06 元反思与对齐机制的引入
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

@@ -1,7 +1,7 @@
 ---
 id: INV-073
 title: 2026-07-11 风险策略、事件协议与安装事实应分层
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

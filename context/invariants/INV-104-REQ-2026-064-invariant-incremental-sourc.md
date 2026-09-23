@@ -1,7 +1,7 @@
 ---
 id: INV-104
 title: REQ-2026-064 invariant incremental 来源去重经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "context/experience/**"

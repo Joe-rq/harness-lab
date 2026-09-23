@@ -1,7 +1,7 @@
 ---
 id: INV-068
 title: 2026-06-10 Governance safety hardening
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

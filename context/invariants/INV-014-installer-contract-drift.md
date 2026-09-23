@@ -4,7 +4,7 @@ title: Installer Contract Drift Needs Tests
 triggers:
   - glob: " / /**"
   - glob: "/harness-setup/**"
-status: draft
+status: deprecated
 severity: medium
 confidence: medium
 message: |

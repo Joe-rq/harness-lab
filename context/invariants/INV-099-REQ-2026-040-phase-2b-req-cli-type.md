@@ -1,7 +1,7 @@
 ---
 id: INV-099
 title: 2026-04-25 Phase 2B 补充：req-cli --type 参数化
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/in-progress/**"

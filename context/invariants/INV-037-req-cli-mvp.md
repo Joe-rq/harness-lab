@@ -1,7 +1,7 @@
 ---
 id: INV-037
 title: 2026-03-23 REQ CLI MVP
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

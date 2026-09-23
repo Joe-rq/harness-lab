@@ -1,7 +1,7 @@
 ---
 id: INV-043
 title: 2026-04-13 错误分类器：结构化治理错误与恢复策略
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

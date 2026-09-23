@@ -1,7 +1,7 @@
 ---
 id: INV-052
 title: 2026-05-19 Phase 2 清理 sh 引用残留：显式声明不动历史
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "scripts/**"

@@ -1,7 +1,7 @@
 ---
 id: INV-049
 title: {DATE} {TITLE}
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

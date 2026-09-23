@@ -1,7 +1,7 @@
 ---
 id: INV-039
 title: 2026-04-25 Phase 1: invariant quality gate, lifecycle, and i
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

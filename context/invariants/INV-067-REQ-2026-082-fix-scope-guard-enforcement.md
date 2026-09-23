@@ -1,7 +1,7 @@
 ---
 id: INV-067
 title: 2026-06-10 Fix scope guard enforcement and hook installation
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: ".claude/**"

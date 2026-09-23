@@ -1,7 +1,7 @@
 ---
 id: INV-058
 title: REQ-2026-070 event schema + append API 经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/in-progress/**"

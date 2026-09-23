@@ -1,7 +1,7 @@
 ---
 id: INV-090
 title: 2026-05-11 feat: harness setup execution optimization
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "app/**"

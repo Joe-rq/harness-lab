@@ -1,7 +1,7 @@
 ---
 id: INV-051
 title: 2026-05-19 删除 sh/js 双入口：从模板源头消除命令漂移
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "scripts/**"

@@ -1,7 +1,7 @@
 ---
 id: INV-049
 title: 2026-05-12 feat: Claude Code worktree REQ guidance
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

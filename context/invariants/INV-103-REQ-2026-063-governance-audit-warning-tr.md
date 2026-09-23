@@ -1,7 +1,7 @@
 ---
 id: INV-103
 title: REQ-2026-063 治理审计 warning 摘要经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

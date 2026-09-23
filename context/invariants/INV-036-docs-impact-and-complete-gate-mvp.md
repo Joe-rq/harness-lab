@@ -1,7 +1,7 @@
 ---
 id: INV-036
 title: 2026-03-23 Docs Impact And Complete Gate MVP
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

@@ -1,7 +1,7 @@
 ---
 id: INV-063
 title: 2026-06-04 Stage 3 §7 评估表口径定义 + event-store schema 扩展
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

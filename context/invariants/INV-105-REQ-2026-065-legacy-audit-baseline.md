@@ -1,7 +1,7 @@
 ---
 id: INV-105
 title: REQ-2026-065 legacy audit baseline 经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/**"

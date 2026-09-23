@@ -1,7 +1,7 @@
 ---
 id: INV-061
 title: REQ-2026-073 worktree 事件聚合经验
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/in-progress/**"

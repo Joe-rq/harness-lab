@@ -1,7 +1,7 @@
 ---
 id: INV-038
 title: 2026-03-23 Structured Docs Impact Output MVP
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/completed/**"

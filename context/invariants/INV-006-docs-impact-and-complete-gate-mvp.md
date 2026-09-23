@@ -8,7 +8,7 @@ triggers:
   - glob: " 时，agent 很容易在实现结束后才第一次知道“还要补文档”
 - 如果 complete 阶段不接 gate，REQ 可能在文档义务未清理时就被移入 completed
 - 如果 impact / verify /**"
-status: draft
+status: deprecated
 severity: medium
 confidence: medium
 message: |

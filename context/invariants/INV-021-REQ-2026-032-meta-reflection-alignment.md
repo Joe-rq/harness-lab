@@ -18,7 +18,7 @@ triggers:
 
 - **决策 1：固化到模板而非仅口头建议**
   不是写文档说"记得元反思"，而是在 /**"
-status: draft
+status: deprecated
 severity: medium
 confidence: medium
 message: |

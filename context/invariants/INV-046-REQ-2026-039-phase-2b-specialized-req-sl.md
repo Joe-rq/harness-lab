@@ -1,7 +1,7 @@
 ---
 id: INV-046
 title: 2026-04-25 Phase 2B: specialized REQ slash commands (bugfix/
-status: draft
+status: deprecated
 severity: medium
 triggers:
   - glob: "requirements/in-progress/**"
