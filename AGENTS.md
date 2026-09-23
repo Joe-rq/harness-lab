@@ -79,6 +79,14 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 2. 确保 `scripts/session-start.js` 可执行（Windows 下无需 chmod）
 3. 新会话开始时会自动显示当前 REQ 状态
 
+**状态语义契约（唯一真相源）**：
+
+- **机器状态的唯一真相源是事件账本**（`.claude/events/*.jsonl`、`.claude/worktrees/*/events/*.jsonl`）。会话启动只渲染 `buildProgressProjection()` 的投影结果，不解析任何手写文件来推导状态。
+- **`Current phase` 只有一个语义**：当前活跃 REQ 所处的阶段。无活跃 REQ 即 `idle`；"被阻塞"由搁置列表（`suspendedReqs`）表达，不复用 `phase`。
+- **`Last updated` 只由工作事件更新**。`session_started` / `session_ended` 只表示会话开关，不改变它——打开会话不等于有进展。
+- **"最近事件"是流水窗口**（最近 8 条 / 共 N 条），只说明最近发生了什么，不等于当前状态。
+- **`.claude/progress.txt` 不参与状态判定**：CLI 会在 create/start/block/complete 时改写其头部字段，其余内容是人的笔记。会话启动把该文件原文照登（含其 `Current phase:` 等行），仅供人阅读，不作为机器状态。
+
 ### 2. PreToolUse Hook
 
 在 Write/Edit/NotebookEdit 操作与 Bash 写命令前强制检查 REQ 状态与写入范围：

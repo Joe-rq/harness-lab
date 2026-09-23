@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -10,6 +11,7 @@ import {
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   appendEvent,
   buildProgressProjection,
@@ -334,7 +336,11 @@ function testBuildProgressProjectionHandlesBlockedAndCompleted() {
   const blockedProjection = buildProgressProjection({ events });
   assert.equal(blockedProjection.activeReq, 'none');
   assert.equal(blockedProjection.phase, 'idle');
-  assert.deepEqual(blockedProjection.blockers, []);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(blockedProjection, 'blockers'),
+    false,
+    'blockers 死字段已删除，搁置原因见 suspendedReqs[].reason'
+  );
   assert.deepEqual(blockedProjection.suspendedReqs, [{
     reqId: 'REQ-2026-072',
     status: 'blocked',
@@ -359,7 +365,11 @@ function testBuildProgressProjectionHandlesBlockedAndCompleted() {
   });
   assert.equal(completedProjection.activeReq, 'none');
   assert.equal(completedProjection.phase, 'idle');
-  assert.deepEqual(completedProjection.blockers, []);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(completedProjection, 'blockers'),
+    false,
+    'blockers 死字段已删除，搁置原因见 suspendedReqs[].reason'
+  );
   assert.deepEqual(completedProjection.suspendedReqs, []);
 }
 
@@ -779,6 +789,180 @@ function testLegacyEventsWithoutVersionAreTolerated() {
   }
 }
 
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+// ── REQ-2026-098: 状态交接单一真相源（投影语义 + 渲染分区）──
+
+function testProjectionLastUpdatedIgnoresSessionEvents() {
+  const projection = buildProgressProjection({
+    events: [
+      {
+        id: 'evt_work',
+        ts: '2026-07-10T00:00:02.000Z',
+        type: 'req_started',
+        source: 'cli',
+        sessionId: 'session-098',
+        worktree: 'main',
+        reqId: 'REQ-2026-098',
+        phase: 'implementation',
+        payload: {},
+      },
+      {
+        id: 'evt_open',
+        ts: '2026-08-13T00:00:03.000Z',
+        type: 'session_started',
+        source: 'hook',
+        sessionId: 'session-098',
+        worktree: 'main',
+        payload: { progressFound: true, activeReq: 'REQ-2026-098', phase: 'implementation' },
+      },
+    ],
+  });
+  assert.equal(projection.lastUpdated, '2026-07-10', '打开会话不得改变“最后工作时间”');
+}
+
+function testProjectionDropsDeadBlockersField() {
+  const projection = buildProgressProjection({
+    events: [
+      {
+        id: 'evt_blocked',
+        ts: '2026-05-31T00:00:02.000Z',
+        type: 'req_blocked',
+        source: 'cli',
+        sessionId: 'session-098',
+        worktree: 'main',
+        reqId: 'REQ-2026-072',
+        phase: 'blocked',
+        payload: { reason: 'waiting for review' },
+      },
+    ],
+  });
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(projection, 'blockers'),
+    false,
+    'blockers 是死字段，原因应由 suspendedReqs[].reason 承载'
+  );
+  assert.equal(projection.suspendedReqs[0].reason, 'waiting for review');
+}
+
+const HUMAN_NOTE_SENTINEL = '- fixture-human-note-REQ098';
+
+function writeSessionStartFixture(root, { suspendedIndexIds = [] } = {}) {
+  mkdirSync(path.join(root, '.claude', 'events'), { recursive: true });
+  mkdirSync(path.join(root, 'requirements'), { recursive: true });
+  writeFileSync(
+    path.join(root, '.claude', 'progress.txt'),
+    [
+      'Current active REQ: none',
+      'Current phase: blocked',
+      'Last updated: 2026-07-12',
+      '',
+      'Summary:',
+      '- 人写摘要，不得被当作机器状态',
+      '',
+      'Next steps:',
+      HUMAN_NOTE_SENTINEL,
+      '',
+      'Open questions:',
+      '- 人写的开放问题',
+      '',
+      'Blockers:',
+      '- None.',
+      '',
+    ].join('\n'),
+    'utf8'
+  );
+  writeFileSync(
+    path.join(root, 'requirements', 'INDEX.md'),
+    [
+      '# REQUIREMENTS INDEX',
+      '',
+      '## 当前活跃 REQ',
+      '',
+      '- 无',
+      '',
+      '## 当前搁置 REQ',
+      '',
+      ...suspendedIndexIds.map((id) => `- \`${id}.md\`（fixture）`),
+      '',
+      '## 最近完成 REQ',
+      '',
+      '- 无',
+      '',
+    ].join('\n'),
+    'utf8'
+  );
+  const events = [
+    { id: 'evt_f1', ts: '2026-07-10T00:00:01.000Z', type: 'req_created', source: 'cli', sessionId: 's', worktree: 'main', reqId: 'REQ-2099-001', payload: { title: 'fixture' } },
+    { id: 'evt_f2', ts: '2026-07-10T00:00:02.000Z', type: 'req_started', source: 'cli', sessionId: 's', worktree: 'main', reqId: 'REQ-2099-001', phase: 'implementation', payload: {} },
+    { id: 'evt_f3', ts: '2026-07-10T00:00:03.000Z', type: 'req_completed', source: 'cli', sessionId: 's', worktree: 'main', reqId: 'REQ-2099-001', payload: {} },
+    { id: 'evt_f4', ts: '2026-07-11T00:00:04.000Z', type: 'req_blocked', source: 'cli', sessionId: 's', worktree: 'main', reqId: 'REQ-2099-002', phase: 'implementation', payload: { reason: 'fixture blocker reason' } },
+  ];
+  writeFileSync(
+    path.join(root, '.claude', 'events', 'session-fixture.jsonl'),
+    `${events.map((event) => JSON.stringify({ version: '1.0', ...event })).join('\n')}\n`,
+    'utf8'
+  );
+}
+
+function runSessionStart(root) {
+  return execFileSync(process.execPath, [path.join(repoRoot, 'scripts', 'session-start.js')], {
+    cwd: root,
+    encoding: 'utf8',
+    // 非 git 目录下 getGitRoot() 的 git rev-parse 会把 "fatal:" 噪声写到 stderr
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+}
+
+function testSessionStartRendersMachineStateRecentEventsAndHumanNotes() {
+  const root = tempDir('session-start-098');
+  try {
+    writeSessionStartFixture(root);
+    const output = runSessionStart(root);
+
+    assert.ok(output.includes('机器状态'), '缺少「机器状态」区');
+    assert.ok(output.includes('最近事件'), '缺少「最近事件」区（原 Summary 标签语义不符）');
+    assert.ok(output.includes('人的笔记'), '缺少「人的笔记」区');
+
+    const machineAndEvents = output.split('人的笔记')[0];
+    assert.equal(
+      machineAndEvents.includes('Summary:'),
+      false,
+      '机器状态/最近事件区不得再用 Summary 标签（人的笔记区原文照登，不受此限制）'
+    );
+
+    const machineSection = output.split('机器状态')[1]?.split('最近事件')[0] || '';
+    assert.ok(machineSection.includes('Current phase: idle'), '机器状态区应采用事件投影的 phase');
+    assert.equal(
+      machineSection.includes('Current phase: blocked'),
+      false,
+      'progress.txt 的 Current phase 不得影响机器状态区（它只表述“项目被阻塞”这一不同语义）'
+    );
+
+    const notesSection = output.split('人的笔记')[1] || '';
+    assert.ok(notesSection.includes(HUMAN_NOTE_SENTINEL), 'progress.txt 的人写内容必须原文照登，不得丢弃');
+    assert.ok(notesSection.includes('- 人写的开放问题'), '人写的开放问题必须出现在人的笔记区');
+    assert.ok(output.includes('fixture blocker reason'), '搁置原因应由 suspendedReqs[].reason 渲染');
+  } finally {
+    cleanup(root);
+  }
+}
+
+function testSessionStartKeepsAllSuspendedIndexItems() {
+  const root = tempDir('session-start-index-098');
+  try {
+    writeSessionStartFixture(root, {
+      suspendedIndexIds: ['REQ-2099-101', 'REQ-2099-102', 'REQ-2099-103'],
+    });
+    const output = runSessionStart(root);
+    for (const id of ['REQ-2099-101', 'REQ-2099-102', 'REQ-2099-103']) {
+      assert.ok(output.includes(id), `INDEX 搁置列表缺少 ${id}（首项被正则吞掉的缺陷）`);
+    }
+  } finally {
+    cleanup(root);
+  }
+}
+
 testVersionFieldAutoInjected();
 testVersionRequiredInValidation();
 testTypeSchemaValidationPassesAndFails();
@@ -787,9 +971,13 @@ testRotationMovesFileWhenLimitExceeded();
 testRotationDoesNotDuplicateWhenArchiveAlreadyExists();
 // testComputeEvaluationMetricsOutputsSixDimensions is async, await below
 testLegacyEventsWithoutVersionAreTolerated();
+testProjectionLastUpdatedIgnoresSessionEvents();
+testProjectionDropsDeadBlockersField();
+testSessionStartRendersMachineStateRecentEventsAndHumanNotes();
+testSessionStartKeepsAllSuspendedIndexItems();
 
 // 跑 async 那个
 (async () => {
   await testComputeEvaluationMetricsOutputsSixDimensions();
-  console.log('All event-store tests passed (21).');
+  console.log('All event-store tests passed (25).');
 })();

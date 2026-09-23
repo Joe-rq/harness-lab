@@ -42,43 +42,12 @@ function readProgressFile(rootDir) {
   return fs.readFileSync(progressPath, 'utf-8');
 }
 
-function parseProgress(content) {
-  const lines = content.split('\n');
-  const result = {
-    activeReq: 'none',
-    phase: 'idle',
-    lastUpdated: '',
-    summary: [],
-    nextSteps: [],
-    blockers: [],
-  };
-
-  let currentSection = null;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Parse key-value pairs
-    if (trimmed.startsWith('Current active REQ:')) {
-      result.activeReq = trimmed.split(':')[1]?.trim() || 'none';
-    } else if (trimmed.startsWith('Current phase:')) {
-      result.phase = trimmed.split(':')[1]?.trim() || 'idle';
-    } else if (trimmed.startsWith('Last updated:')) {
-      result.lastUpdated = trimmed.split(':')[1]?.trim() || '';
-    } else if (trimmed === 'Summary:') {
-      currentSection = 'summary';
-    } else if (trimmed === 'Next steps:') {
-      currentSection = 'nextSteps';
-    } else if (trimmed === 'Blockers:') {
-      currentSection = 'blockers';
-    } else if (trimmed.startsWith('- ') && currentSection) {
-      result[currentSection].push(trimmed.slice(2));
-    } else if (trimmed === '' || trimmed.startsWith('#')) {
-      currentSection = null;
-    }
+function readProgressMtime(progressPath) {
+  try {
+    return fs.statSync(progressPath).mtime.toISOString().slice(0, 10);
+  } catch {
+    return 'unknown';
   }
-
-  return result;
 }
 
 function printBanner() {
@@ -87,33 +56,74 @@ function printBanner() {
   log('════════════════════════════════════════════════════════════', 'cyan');
 }
 
-function printProgress(progress) {
-  log('\n📋 当前进度：', 'yellow');
-  log(`Current active REQ: ${progress.activeReq}`, 'gray');
-  log(`Current phase: ${progress.phase}`, 'gray');
-  if (progress.lastUpdated) {
-    log(`Last updated: ${progress.lastUpdated}`, 'gray');
+// 机器状态：唯一真相源是事件账本投影（.claude/**/events/*.jsonl）。
+function printMachineState(projection) {
+  log('\n📊 机器状态（唯一真相源：事件账本投影）', 'yellow');
+  if (!projection) {
+    log('Current active REQ: none', 'gray');
+    log('Current phase: idle', 'gray');
+    log('（无事件记录：新项目或事件账本为空）', 'gray');
+    return;
   }
 
-  if (progress.summary.length > 0) {
-    log('\nSummary:', 'yellow');
-    progress.summary.forEach(item => log(`  - ${item}`, 'gray'));
+  log(`Current active REQ: ${projection.activeReq}`, 'gray');
+  log(`Current phase: ${projection.phase}`, 'gray');
+  if (projection.lastUpdated) {
+    log(`Last updated: ${projection.lastUpdated}`, 'gray');
   }
 
-  if (progress.nextSteps.length > 0) {
+  if (projection.nextSteps.length > 0) {
     log('\nNext steps:', 'yellow');
-    progress.nextSteps.forEach(item => log(`  - ${item}`, 'gray'));
+    projection.nextSteps.forEach(item => log(`  - ${item}`, 'gray'));
   }
 
-  if (progress.blockers.length > 0 && progress.blockers[0] !== 'None.') {
-    log('\n⚠️ Blockers:', 'red');
-    progress.blockers.forEach(item => log(`  - ${item}`, 'red'));
-  }
-
-  if (progress.suspendedReqs?.length > 0) {
+  if (projection.suspendedReqs?.length > 0) {
     log('\n⏸️ 搁置中的 REQ：', 'yellow');
-    progress.suspendedReqs.forEach((item) => log(`  - ${item.reqId} (${item.status} / ${item.phase}): ${item.reason}`, 'yellow'));
+    projection.suspendedReqs.forEach((item) => log(`  - ${item.reqId} (${item.status} / ${item.phase}): ${item.reason}`, 'yellow'));
   }
+}
+
+// 事件流水窗口：只是“最近发生了什么”，不是当前状态。
+function printRecentEvents(projection) {
+  if (!projection || projection.summary.length === 0) {
+    return;
+  }
+  log(`\n🕘 最近事件（显示 ${projection.summary.length} 条 / 共 ${projection.eventCount} 条）`, 'yellow');
+  projection.summary.forEach(item => log(`  - ${item}`, 'gray'));
+}
+
+// 人的笔记：progress.txt 原文照登，不参与状态判定，也不做结构化改写。
+function printHumanNotes(content, progressPath) {
+  log('\n📝 人的笔记（.claude/progress.txt 原文，不参与状态判定）', 'yellow');
+  if (!content) {
+    log('（无 progress.txt）', 'gray');
+    return;
+  }
+  log(`最后修改：${readProgressMtime(progressPath)} ｜ CLI 会在 create/start/block/complete 时改写头部字段`, 'gray');
+  content.trimEnd().split('\n').forEach(line => log(line, 'gray'));
+}
+
+function isEmptyIndexItem(item) {
+  const content = item.replace(/^-\s*/, '').replace(/[`。\s]/g, '');
+  return content === '' || content === '无';
+}
+
+function readIndexSection(lines, heading) {
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start === -1) {
+    return [];
+  }
+  const items = [];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith('## ')) {
+      break;
+    }
+    if (trimmed.startsWith('- ')) {
+      items.push(trimmed);
+    }
+  }
+  return items.filter((item) => !isEmptyIndexItem(item));
 }
 
 function printReqIndex(rootDir) {
@@ -122,30 +132,21 @@ function printReqIndex(rootDir) {
     return;
   }
 
-  const content = fs.readFileSync(indexPath, 'utf-8');
+  const lines = fs.readFileSync(indexPath, 'utf-8').split('\n');
 
-  // 提取当前活跃 REQ（允许多个）
-  const activeMatch = content.match(/## 当前活跃 REQ\s*\n([\s\S]*?)(?=\n## |$)/);
-  if (activeMatch) {
-    const activeLines = activeMatch[1].split('\n').filter(l => l.trim().startsWith('- ') && !l.includes('无'));
-    if (activeLines.length > 0) {
-      log('\n📌 需求索引：', 'yellow');
-      log(`## 当前活跃 REQ`, 'gray');
-      for (const line of activeLines) {
-        log(line.trim(), 'green');
-      }
-    }
+  // 逐行扫描章节内的 `- ` 条目：正则捕获组会把列表首项吃进捕获组，导致首项被丢弃。
+  const activeItems = readIndexSection(lines, '## 当前活跃 REQ');
+  const suspendedItems = readIndexSection(lines, '## 当前搁置 REQ');
+
+  if (activeItems.length > 0) {
+    log('\n📌 需求索引：', 'yellow');
+    log('## 当前活跃 REQ', 'gray');
+    activeItems.forEach((item) => log(item, 'green'));
   }
 
-  // 提取搁置 REQ
-  const blockedMatch = content.match(/## 当前搁置 REQ\s*\n\s*- (.+)/s);
-  if (blockedMatch && blockedMatch[1] && !blockedMatch[1].includes('无')) {
-    const blockedSection = blockedMatch[1].split('##')[0];
-    if (blockedSection.trim()) {
-      log(`\n## 当前搁置 REQ`, 'gray');
-      const lines = blockedSection.split('\n').filter(l => l.trim().startsWith('-'));
-      lines.forEach(line => log(line, 'yellow'));
-    }
+  if (suspendedItems.length > 0) {
+    log('\n## 当前搁置 REQ', 'gray');
+    suspendedItems.forEach((item) => log(item, 'yellow'));
   }
 }
 
@@ -175,6 +176,7 @@ function main() {
   printBanner();
 
   const rootDir = getGitRoot();
+  const progressPath = getProgressPath(rootDir);
   const progressContent = readProgressFile(rootDir);
   let projection = null;
 
@@ -191,9 +193,10 @@ function main() {
     return;
   }
 
-  const progress = projection || parseProgress(progressContent);
-  recordSessionStarted(rootDir, progress, Boolean(progressContent));
-  printProgress(progress);
+  recordSessionStarted(rootDir, projection, Boolean(progressContent));
+  printMachineState(projection);
+  printRecentEvents(projection);
+  printHumanNotes(progressContent, progressPath);
   printReqIndex(rootDir);
 
   log('\n════════════════════════════════════════════════════════════', 'green');

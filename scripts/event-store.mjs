@@ -463,6 +463,9 @@ function formatReqLabel(event) {
   return `${event.reqId || 'unknown'}${title}`;
 }
 
+// 会话事件只表示“打开了/关闭了会话”，不是工作进展：它们不得影响 lastUpdated。
+const SESSION_EVENT_TYPES = new Set(['session_started', 'session_ended']);
+
 export function buildProgressProjection(options = {}) {
   const currentSource = !options.events && !options.eventsDir && !options.files && options.rootDir
     ? getCurrentWorktreeEventSource(options) : null;
@@ -477,26 +480,25 @@ export function buildProgressProjection(options = {}) {
     lastUpdated: '',
     summary: [],
     nextSteps: [],
-    blockers: [],
     suspendedReqs: [],
     source: 'events',
     eventCount: events.length,
   };
 
   for (const event of events) {
-    progress.lastUpdated = event.ts ? event.ts.slice(0, 10) : progress.lastUpdated;
+    if (!SESSION_EVENT_TYPES.has(event.type)) {
+      progress.lastUpdated = event.ts ? event.ts.slice(0, 10) : progress.lastUpdated;
+    }
 
     if (event.type === 'req_created') {
       progress.activeReq = event.reqId || progress.activeReq;
       progress.phase = event.phase || 'design';
-      progress.blockers = [];
       progress.summary.push(`REQ created: ${formatReqLabel(event)}`);
       progress.nextSteps = event.reqId ? [`Start REQ: ${event.reqId}`] : [];
     } else if (event.type === 'req_started') {
       const phase = event.phase || event.payload?.phase || 'implementation';
       progress.activeReq = event.reqId || progress.activeReq;
       progress.phase = phase;
-      progress.blockers = [];
       progress.summary.push(`Active REQ: ${event.reqId || 'unknown'} (${phase})`);
       progress.nextSteps = event.reqId ? [`Continue active REQ: ${event.reqId}`] : [];
       progress.suspendedReqs = progress.suspendedReqs.filter((item) => item.reqId !== event.reqId);
@@ -505,7 +507,6 @@ export function buildProgressProjection(options = {}) {
       if (!event.reqId || event.reqId === progress.activeReq) {
         progress.activeReq = 'none';
         progress.phase = 'idle';
-        progress.blockers = [];
       }
       if (event.reqId) {
         progress.suspendedReqs = progress.suspendedReqs.filter((item) => item.reqId !== event.reqId);
@@ -518,7 +519,6 @@ export function buildProgressProjection(options = {}) {
       if (!event.reqId || event.reqId === progress.activeReq) {
         progress.activeReq = 'none';
         progress.phase = 'idle';
-        progress.blockers = [];
         progress.nextSteps = ['Select next REQ'];
       }
       progress.suspendedReqs = progress.suspendedReqs.filter((item) => item.reqId !== event.reqId);
