@@ -18,6 +18,7 @@ import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { getExemptPath, getProgressPath } from './worktree-utils.mjs';
+import { validateReqDocument, formatReqIssue } from './req-validation.mjs';
 import { analyzeHookWrite, allTargetsAreGovernanceWrites } from './write-target-policy.mjs';
 
 const colors = {
@@ -116,22 +117,12 @@ function printBlockMessage(activeReq) {
     if (reqPath && fs.existsSync(reqPath)) {
       const content = fs.readFileSync(reqPath, 'utf-8');
 
-      // Check for template placeholders
-      const placeholders = [
-        { pattern: /说明为什么要做这件事。/, text: '背景 still contains template placeholder' },
-        { pattern: /- 目标 1/, text: '目标 still contains template placeholder' },
-        { pattern: /- 目标 2/, text: '目标 still contains template placeholder' },
-        { pattern: /- 标准 1/, text: '验收标准 still contains template placeholder' },
-        { pattern: /- 标准 2/, text: '验收标准 still contains template placeholder' },
-      ];
-
-      placeholders.forEach(({ pattern, text }) => {
-        if (pattern.test(content)) {
-          log(`║  - ${text}`, 'yellow');
-        }
+      // 与 req:start 共用同一份判定与同一条渲染（REQ-2026-102）：缺章节 / 空章节 / 占位符 / draft
+      const validation = validateReqDocument(content, { allowDraftStatus: true });
+      validation.issues.forEach((issue) => {
+        log(`║  ${formatReqIssue(issue)}`, 'yellow');
       });
 
-      // Check status
       if (content.includes('当前状态：draft')) {
         log('║  - REQ status is "draft" (run req:start first)', 'yellow');
       }
@@ -183,18 +174,11 @@ function enforceReqOrBlock(rootDir) {
     if (reqPath && fs.existsSync(reqPath)) {
       const reqContent = fs.readFileSync(reqPath, 'utf-8');
 
-      // Check for draft status
+      // Check for draft status, then reuse the shared validator so PreToolUse and
+      // req:start judge REQ readiness with one implementation (REQ-2026-102).
       if (!reqContent.includes('当前状态：draft')) {
-        // Check for template placeholders
-        const hasPlaceholders =
-          reqContent.includes('说明为什么要做这件事。') ||
-          reqContent.includes('- 目标 1') ||
-          reqContent.includes('- 目标 2') ||
-          reqContent.includes('- 标准 1') ||
-          reqContent.includes('- 标准 2');
-
-        if (!hasPlaceholders) {
-          // REQ is valid and ready
+        const validation = validateReqDocument(reqContent, { allowDraftStatus: true });
+        if (validation.issues.length === 0) {
           process.exit(0);
         }
       }

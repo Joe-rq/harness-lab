@@ -16,7 +16,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { verifyDocs } from '../scripts/docs-verify.mjs';
-import { validateReqDocument, validateDesignDocument } from '../scripts/req-validation.mjs';
+import { validateReqDocument, validateDesignDocument, findReqTemplateIssues } from '../scripts/req-validation.mjs';
 import {
   ErrorTypes,
   formatErrorBlock,
@@ -2534,6 +2534,73 @@ Last updated: 2026-06-10
 }
 
 // OPT-1A: Bash write without a REQ must be blocked (closes the bypass).
+// REQ-2026-102：必需章节 fail-closed（缺章节 / 空章节 / 非模板标题），且占位符只在行首算未填
+function testReqValidationRequiresRealSections() {
+  const codes = (content) => findReqTemplateIssues(content).map((issue) => `${issue.code}:${issue.section}`);
+
+  // 缺章节：标题不存在 → missing-section（修复前返回 []）
+  assert.deepEqual(
+    codes('# REQ-2099-901: 缺两节\n\n## 目标\n- 真目标\n'),
+    ['missing-section:背景', 'missing-section:验收标准']
+  );
+
+  // 非模板标题（英文）同样算缺章节，而不是静默放行
+  assert.deepEqual(
+    codes('# REQ-2099-902\n\n## Background\n真背景。\n\n## Goals\n- 真目标\n\n## Acceptance Criteria\n- [x] 真标准\n'),
+    ['missing-section:背景', 'missing-section:目标', 'missing-section:验收标准']
+  );
+
+  // 空章节：标题在、内容为空或只有 HTML 注释
+  assert.deepEqual(
+    codes('# REQ-2099-903\n\n## 背景\n\n## 目标\n<!-- 待补 -->\n\n## 验收标准\n'),
+    ['empty-section:背景', 'empty-section:目标', 'empty-section:验收标准']
+  );
+
+  // 占位符：行首（去掉列表标记后）打头才算未填
+  assert.deepEqual(
+    codes('# REQ-2099-904\n\n## 背景\n说明为什么要做这件事。\n\n## 目标\n- 目标 1\n\n## 验收标准\n- [ ] 标准 1\n'),
+    ['template-placeholder:背景', 'template-placeholder:目标', 'template-placeholder:验收标准']
+  );
+  assert.deepEqual(
+    codes('# REQ-2099-905\n\n## 背景\n真背景。\n\n## 目标\n- 目标 1（待补充细节）\n\n## 验收标准\n- [x] 真标准\n'),
+    ['template-placeholder:目标']
+  );
+
+  // 引用不算未填：占位符出现在句中（含反引号包裹）必须放行
+  assert.deepEqual(
+    codes('# REQ-2099-906\n\n## 背景\n校验器的占位符表里有 `说明为什么要做这件事。` 这一条。\n\n## 目标\n- 真目标\n\n## 验收标准\n- [x] 真标准\n'),
+    []
+  );
+
+  // 写实但简短不误报
+  assert.deepEqual(codes('# REQ-2099-907\n\n## 背景\n因为 X。\n\n## 目标\n- 能跑\n\n## 验收标准\n- [x] 跑通\n'), []);
+
+  // 标题在文件末尾（无正文）算空章节，而不是缺章节
+  assert.deepEqual(codes('# REQ-2099-908\n\n## 背景\n真背景。\n\n## 目标\n- 真目标\n\n## 验收标准'), ['empty-section:验收标准']);
+}
+
+// REQ-2026-102：PreToolUse 与 req:start 共用同一份判定——缺章节的活跃 REQ 不能放行写入
+function testReqCheckBlocksIncompleteActiveReq() {
+  const tempDir = createTempDir('req-check-incomplete-req');
+  try {
+    setupReqFixture(tempDir);
+    writeFile(
+      tempDir,
+      'requirements/in-progress/REQ-2099-910-incomplete.md',
+      '# REQ-2099-910: 缺验收标准\n\n## 状态\n- 当前状态：in-progress\n- 当前阶段：implementation\n\n## 背景\n真背景。\n\n## 目标\n- 真目标\n'
+    );
+    writeFile(tempDir, '.claude/progress.txt', 'Current active REQ: REQ-2099-910\nCurrent phase: implementation\nLast updated: 2026-09-23\n');
+
+    const failure = captureExecFailure(() =>
+      runReqCheck(tempDir, 'Write', { file_path: 'src/feature.js', content: 'x' })
+    );
+    assert.equal(failure.status, 2, '缺必需章节的活跃 REQ 不得放行写入');
+    assert.match(String(failure.stdout || '') + String(failure.stderr || ''), /验收标准/);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 function testReqCheckBlocksBashWriteWithoutReq() {
   const tempDir = createTempDir('req-check-bash-write');
   try {
@@ -4120,6 +4187,8 @@ const tests = [
   ['scope-guard blocks write attempts under read-only REQs', testScopeGuardBlocksReadOnlyReqWrites],
   ['scope-guard allows legacy REQs without scope declarations', testScopeGuardAllowsLegacyReqWithoutScope],
   ['req-check blocks Bash writes without a REQ (OPT-1A)', testReqCheckBlocksBashWriteWithoutReq],
+  ['req validation requires real required sections (REQ-2026-102)', testReqValidationRequiresRealSections],
+  ['req-check blocks incomplete active REQ (REQ-2026-102)', testReqCheckBlocksIncompleteActiveReq],
   ['req-check allows Bash pure reads without a REQ (OPT-1A)', testReqCheckAllowsBashPureReadWithoutReq],
   ['req-check whitelist restores governance-dir writes (OPT-1A)', testReqCheckWhitelistRestoresGovernanceWrites],
   ['scope-guard judges Bash write targets against REQ scope (OPT-1A)', testScopeGuardJudgesBashWriteScope],

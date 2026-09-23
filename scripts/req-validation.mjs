@@ -26,7 +26,8 @@ function escapeRegExp(value) {
 }
 
 function getSection(text, heading) {
-  const pattern = new RegExp(`${escapeRegExp(heading)}\\n+([\\s\\S]*?)(?=\\n## |$)`);
+  // 标题后只吃一个换行：`\n+` 会把标题与正文之间的空行吃掉，导致"空章节"把下一个标题吞进正文
+  const pattern = new RegExp(`(?:^|\\n)${escapeRegExp(heading)}[ \\t]*\\n([\\s\\S]*?)(?=\\n## |[ \\t]*$)`);
   const match = text.match(pattern);
   return match ? match[1].trimEnd() : '';
 }
@@ -36,13 +37,51 @@ function parseReqStatus(content) {
   return match ? match[1].trim() : null;
 }
 
+// 标题是否存在（与"标题在但内容为空"区分开：getSection 两种情况都返回空串）
+function hasHeading(text, heading) {
+  return new RegExp(`(?:^|\\n)${escapeRegExp(heading)}\\s*(?:\\n|$)`).test(text);
+}
+
+function isSectionEmpty(section) {
+  return section.replace(/<!--[\s\S]*?-->/g, '').trim() === '';
+}
+
+// 去掉行首列表标记与复选框，便于按"行首内容"比较（占位符与正文两侧用同一归一化）
+function normalizeBullet(text) {
+  return text.trim().replace(/^[-*]\s*(?:\[[ xX]\]\s*)?/, '');
+}
+
+// 占位符只在行首（去掉列表标记与复选框后）出现才算未填：
+// 正文里引用占位符（如反引号包裹、句中提及）不算——判定必须区分"内容"与"提及"（REQ-2026-102）。
+function hasLeadingPlaceholder(section, placeholder) {
+  const target = normalizeBullet(placeholder);
+  return section.split('\n').some((line) => normalizeBullet(line).startsWith(target));
+}
+
 export function findReqTemplateIssues(content) {
   const issues = [];
 
   for (const check of reqTemplateChecks) {
+    if (!hasHeading(content, check.heading)) {
+      issues.push({
+        code: 'missing-section',
+        section: check.label,
+        heading: check.heading,
+      });
+      continue;
+    }
+
     const section = getSection(content, check.heading);
+    if (isSectionEmpty(section)) {
+      issues.push({
+        code: 'empty-section',
+        section: check.label,
+      });
+      continue;
+    }
+
     for (const placeholder of check.placeholders) {
-      if (section.includes(placeholder)) {
+      if (hasLeadingPlaceholder(section, placeholder)) {
         issues.push({
           code: 'template-placeholder',
           section: check.label,
@@ -73,7 +112,19 @@ export function validateReqDocument(content, options = {}) {
   };
 }
 
+export function formatReqIssue(issue) {
+  return renderIssue(issue);
+}
+
 function renderIssue(issue) {
+  if (issue.code === 'missing-section') {
+    return `- missing required section: ${issue.section} (expected heading: ${issue.heading})`;
+  }
+
+  if (issue.code === 'empty-section') {
+    return `- required section is empty: ${issue.section}`;
+  }
+
   if (issue.code === 'template-placeholder') {
     return `- ${issue.section} still contains template placeholder: ${issue.placeholder}`;
   }
@@ -89,7 +140,8 @@ function renderIssue(issue) {
  * 确定错误类型
  */
 function classifyValidationIssues(validation) {
-  const hasTemplateIssues = validation.issues.some((issue) => issue.code === 'template-placeholder');
+  const templateCodes = new Set(['template-placeholder', 'missing-section', 'empty-section']);
+  const hasTemplateIssues = validation.issues.some((issue) => templateCodes.has(issue.code));
   const hasDraftStatus = validation.issues.some((issue) => issue.code === 'draft-status');
 
   if (hasDraftStatus && hasTemplateIssues) {

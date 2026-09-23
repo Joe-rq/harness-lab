@@ -372,6 +372,7 @@ PreToolUse 的 Bash 判断由共享 `write-target-policy.mjs` 提供：明确支
 
 这些名称是安装器在 `package.json` 项目中的候选 alias，不是所有技术栈的强制接口。业务项目必须使用自己的真实验证链路；Harness Lab 只负责帮你复用、补齐或显式标出缺口，不替你决定应该怎么构建和测试。多技术栈条件示例见 `context/tech/testing-strategy.md`。
 同样地，Harness Lab 会帮你创建 REQ 骨架，但不会替你填写真实需求内容；空模板 REQ 既不能通过 `PreToolUse`，也不能执行 `req:start`。
+必需章节（`## 背景` / `## 目标` / `## 验收标准`）按"缺失、空内容、模板占位符"三类判定，`PreToolUse` 与 `req:start` 共用同一份校验（`scripts/req-validation.mjs`），标题不被支持（例如英文标题）会按"缺少必需章节"拒绝并给出期望标题。占位符只在**行首**（去掉列表标记与复选框后）出现时才判为未替换——正文里引用占位符（如反引号包裹、句中提及）不算，因为判定要区分"内容"与"提及"。
 
 ### 人类维护者最短路径
 
