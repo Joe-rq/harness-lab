@@ -25,6 +25,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-101-p0-heredoc-bodies-excluded-from-write-target-scan.md`（真实整改：P0 heredoc 正文不参与写目标解析）
 - `REQ-2026-100-p0-scope-guard-bootstrap-and-deliverables-allowance.md`（真实整改：P0 门禁自举——豁免文件免检与 REQ 交付物自动 allow）
 - `REQ-2026-099-p0-commitment-convergence-personal-route.md`（真实整改：P0 对外承诺收敛（个人路线））
 - `REQ-2026-098-p0-state-handoff-single-truth-source.md`（真实整改：P0 状态交接单一真相源（投影与渲染契约））

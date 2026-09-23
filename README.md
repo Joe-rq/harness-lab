@@ -408,6 +408,7 @@ PreToolUse 的 Bash 判断由共享 `write-target-policy.mjs` 提供：明确支
   - subagent 工具调用不触发 PreToolUse（claude-code #21460 / #34692）
   - `claude -p` 非交互模式不触发（#40506）
   - `perl -e` / `python -c` 等任意解释器写文件（理论不可封；共享策略只覆盖明确列出的高频 shell 写模式，不求值变量、command substitution 或任意脚本代码）
+  - heredoc 正文不参与写目标扫描：`bash <<EOF` 这类"把正文喂给解释器"的写法与上面同类。剥离正文是刻意的——否则 `git commit -F - <<'MSG'` 之类正常命令会因正文里的 `>` 或 `<` 被误判为写操作而阻断（REQ-2026-101）
   - 剩余缺口建议 OS 级兜底：文件权限（只读 checkout）、容器化隔离、CI 侧独立校验
 
 **worktree 支持**：

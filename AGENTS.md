@@ -102,7 +102,7 @@ Harness Lab 是一个 `研发治理层模板`，不是业务运行时框架。
 行为：硬阻断，必须先创建并填写 REQ 或使用豁免机制
 ```
 
-**不可强制边界**（上游平台限制，`npm run harness:doctor` 会提示）：subagent 工具调用不触发 PreToolUse（claude-code #21460 / #34692）、`claude -p` 非交互不触发（#40506）、`perl -e` / `python -c` 等解释器写（理论不可封）。剩余缺口靠 OS 级兜底（文件权限、容器化、CI 侧校验），详见 README「已知限制」。
+**不可强制边界**（上游平台限制，`npm run harness:doctor` 会提示）：subagent 工具调用不触发 PreToolUse（claude-code #21460 / #34692）、`claude -p` 非交互不触发（#40506）、`perl -e` / `python -c` 等解释器写（理论不可封）。**heredoc 正文不参与写目标扫描**：`bash <<EOF` 这类"正文喂解释器"的写法与解释器写同类，故正文被整段剥离——否则 `git commit -F - <<'MSG' … MSG` 之类正常命令会因正文里的 `>` / `<` 被判为写操作而阻断（REQ-2026-101）。剩余缺口靠 OS 级兜底（文件权限、容器化、CI 侧校验），详见 README「已知限制」。
 
 **补充说明**：
 - `req:create` 只负责创建骨架，不代表 REQ 已可实施

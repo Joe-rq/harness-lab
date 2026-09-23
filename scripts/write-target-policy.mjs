@@ -34,11 +34,90 @@ function readOperator(command, index, buffer, tokens) {
 }
 
 /**
+ * 找出一行里声明的 heredoc 定界符（跳过引号与 here-string `<<<`）。
+ * 返回 [{ token, stripTabs }]，按出现顺序排列。
+ */
+function findHeredocDelimiters(line) {
+  const delimiters = [];
+  let quote = null;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    if (quote) {
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === '\\') {
+      index += 1;
+      continue;
+    }
+    if (char !== '<' || line[index + 1] !== '<') continue;
+    if (line[index + 2] === '<') { // here-string, 不是 heredoc
+      index += 2;
+      continue;
+    }
+    let cursor = index + 2;
+    let stripTabs = false;
+    if (line[cursor] === '-') {
+      stripTabs = true;
+      cursor += 1;
+    }
+    while (line[cursor] === ' ' || line[cursor] === '\t') cursor += 1;
+    let token = '';
+    const first = line[cursor];
+    if (first === '"' || first === "'") {
+      const end = line.indexOf(first, cursor + 1);
+      if (end === -1) return delimiters; // 引号未闭合：交给 tokenizer 报错
+      token = line.slice(cursor + 1, end);
+      cursor = end + 1;
+    } else {
+      while (cursor < line.length && !/[\s;|&<>()]/.test(line[cursor])) {
+        token += line[cursor];
+        cursor += 1;
+      }
+    }
+    if (token !== '') delimiters.push({ token, stripTabs });
+    index = cursor - 1;
+  }
+  return delimiters;
+}
+
+/**
+ * heredoc 正文是数据，不是命令文本：把它整段剥离后再分词，
+ * 否则正文里的 `>` 会被误判成写重定向（REQ-2026-101）。
+ * 只保留头部行与终止行之后的内容；未闭合时按 bash 语义吞到末尾。
+ */
+function stripHeredocBodies(command) {
+  const lines = command.split('\n');
+  const kept = [];
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+    kept.push(line);
+    const delimiters = findHeredocDelimiters(line);
+    index += 1;
+    for (const { token, stripTabs } of delimiters) {
+      while (index < lines.length) {
+        const candidate = stripTabs ? lines[index].replace(/^\t+/, '') : lines[index];
+        const isTerminator = candidate === token;
+        index += 1;
+        if (isTerminator) break;
+      }
+    }
+  }
+  return kept.join('\n');
+}
+
+/**
  * Small, non-evaluating shell tokenizer for the explicitly supported write patterns.
  * It preserves Windows-style backslashes unless they escape shell syntax.
  */
 export function tokenizeShell(command) {
   if (typeof command !== 'string' || command.trim() === '') return [];
+  command = stripHeredocBodies(command);
   const tokens = [];
   const buffer = { value: '', dynamic: false };
   let quote = null;

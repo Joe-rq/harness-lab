@@ -2007,6 +2007,39 @@ function runScopeGuardRaw(root, event) {
   });
 }
 
+// REQ-2026-101：heredoc 正文是数据不是命令文本，不参与写目标解析
+function testWriteTargetPolicyIgnoresHeredocBodies() {
+  const raws = (command) => classifyBashWrites(command).targets.map((target) => target.raw);
+
+  // 复现原始缺陷：提交信息正文里的 <reqId>-* 曾让整条命令被判为写操作
+  const commit = classifyBashWrites("git commit -F - <<'MSG'\n交付物：in-progress/reports 的 <reqId>-* 模式\nMSG");
+  assert.equal(commit.writes, false, 'heredoc 正文不得产生写操作');
+  assert.equal(commit.unresolved, false, 'heredoc 正文不得置 unresolved');
+  assert.deepEqual(commit.targets, []);
+
+  // 正文里的重定向与危险命令同样不算数（正文喂解释器属已声明的不可封边界）
+  assert.equal(classifyBashWrites("bash <<'EOF'\necho x > inside.txt\nEOF").writes, false);
+  assert.deepEqual(raws("cat <<'EOF'\nrm -rf a.txt > b.txt\nEOF"), []);
+
+  // 头部之外的真写入仍然识别
+  assert.deepEqual(raws("cat > out.txt <<'EOF'\nbody with > fake.txt\nEOF"), ['out.txt']);
+  assert.deepEqual(raws("echo x > real.txt <<'EOF'\ninner > inner.txt\nEOF"), ['real.txt']);
+  assert.deepEqual(raws("cat <<'EOF'\nbody\nEOF\necho x > after.txt"), ['after.txt']);
+
+  // 定界符形态：双引号、tab 缩进（<<-）、无引号
+  assert.equal(classifyBashWrites('cat <<"EOF"\n> quoted.txt\nEOF').writes, false);
+  assert.equal(classifyBashWrites('cat <<-EOF\n\t> tabbed.txt\n\tEOF').writes, false);
+  assert.equal(classifyBashWrites('cat <<EOF\n> bare.txt\nEOF').writes, false);
+
+  // 未闭合 heredoc 吞到末尾，不抛错
+  const unterminated = classifyBashWrites("cat <<'EOF'\n> dangling.txt");
+  assert.equal(unterminated.writes, false);
+  assert.equal(unterminated.unresolved, false);
+
+  // here-string 不是 heredoc：不吞后续行
+  assert.deepEqual(raws('cat <<< "x > not-a-target.txt"\necho ok > next.txt'), ['next.txt']);
+}
+
 function testWriteTargetPolicyClassifiesAllSupportedTargets() {
   const raws = (command) => classifyBashWrites(command).targets.map((target) => target.raw);
 
@@ -4077,6 +4110,7 @@ const tests = [
   ['req:create supports Chinese titles and strict explicit slugs', testReqCreateSupportsChineseTitlesAndStrictSlugs],
   ['executable user docs stay aligned with public commands and runtime facts', testExecutableUserDocsStayAligned],
   ['write-target policy classifies all supported targets', testWriteTargetPolicyClassifiesAllSupportedTargets],
+  ['write-target policy ignores heredoc bodies (REQ-2026-101)', testWriteTargetPolicyIgnoresHeredocBodies],
   ['canonical write targets handle traversal prefixes and symlinks', testCanonicalWriteTargetsHandleTraversalPrefixesAndSymlinks],
   ['req-check governance whitelist requires every canonical target', testReqCheckCanonicalGovernanceWhitelistRequiresEveryTarget],
   ['scope-guard checks every canonical target and global exemption', testScopeGuardChecksEveryCanonicalTargetAndExemption],
