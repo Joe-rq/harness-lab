@@ -22,7 +22,7 @@ Summary:
 
 Next steps:
 - 【Day 0–30 · 个人路线】对外承诺收敛：README 撤 npm 入口（`npx --package=harness-lab`）与三平台/最小 Node 承诺；REQ-2026-096 转 suspended、REQ-2026-097 重写为两个自有项目的轻量观察 —— 待开 REQ
-- 【Day 0–30】D2：REQ 必填章节 fail-closed（`scripts/req-validation.mjs:28-32` 缺章节返回空串，占位词检查恒空转）—— 待开 REQ
+- ✅ 2026-09-23 REQ-2026-102 已完成：D2 必需章节 fail-closed（缺章节/空章节/非模板标题三类拒绝；占位符改行首匹配，正文引用不再误报；`req-check` 与 `req:start` 判定单点）。governance 72→74，已推送
 - 【Day 0–30】两个自有项目各两个真实任务 + 逐任务记录首个 REQ 用时/恢复耗时/误拦漏拦/豁免/放弃；失败任务同样计为完整观察
 - 用户在 academic-paper-workflow 跑 hook 实测清单（6 项，`requirements/observations/2026-06-22-second-project-experiment.md` §"hook 误杀实测清单"）—— 实效层的唯一来源
 - 已定但未开 REQ：① Windows CI 两个可本机验证的失败（`spawnSync npm.cmd EINVAL`；路线决策已撤下三平台承诺，此项现定位为 CI 卫生）② invariant autoDeprecate 改造为显式命令 + 排除模板文件 ③ 把"投影 active+suspended ↔ INDEX 活跃/搁置"做成会失败的检查（REQ-098 预留的编号 099 已被承诺收敛占用，本项目由计数器重新分配）④ 事件层补 `req_suspended`（否则 096/097 在会话启动输出里仍显示 blocked）
