@@ -1169,10 +1169,20 @@ async function testInstallerDeclaredSourcesExistAndArgsAreStrict() {
     const content = readFileSync(path.join(repoRoot, relPath), 'utf8');
     assert.match(
       content,
-      /npx --yes --package=harness-lab harness-install --defaults/,
-      `${relPath} must publish the verified package/bin mapping`
+      /node \/path\/to\/harness-lab\/scripts\/harness-install\.mjs --defaults/,
+      `${relPath} must publish the source-directory install form`
+    );
+    assert.match(
+      content,
+      /npm exec --yes --package=\.\/harness-lab-<version>\.tgz -- harness-install --defaults/,
+      `${relPath} must publish the verified package/bin mapping (same form as the packed-install fixture)`
     );
     assert.doesNotMatch(content, /npx harness-install --defaults/);
+    assert.doesNotMatch(
+      content,
+      /npx --yes --package=harness-lab/,
+      `${relPath} must not promise a registry entry this repository does not publish`
+    );
   }
 }
 
@@ -2652,7 +2662,7 @@ function testHarnessSetupCommandSkillAndBinStayAligned() {
     'scripts/session-start.js',
     'scripts/req-check.js',
     'node /path/to/harness-lab/scripts/harness-install.mjs --defaults',
-    'npx --yes --package=harness-lab harness-install --defaults',
+    'npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --defaults',
     '--package-dir app',
     '默认安装是治理引导，不是完整镜像',
     'req:create` 只会生成骨架',
@@ -2672,6 +2682,7 @@ function testHarnessSetupCommandSkillAndBinStayAligned() {
     '取消安装',
     '`AGENTS.md` - 会话入口协议',
     'npx harness-install --defaults',
+    'npx --yes --package=harness-lab',
   ];
 
   for (const phrase of forbiddenPhrases) {

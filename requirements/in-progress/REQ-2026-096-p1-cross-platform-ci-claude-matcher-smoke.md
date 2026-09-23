@@ -1,7 +1,7 @@
 # REQ-2026-096: P1 跨平台 CI 与 Claude Matcher Smoke
 
 ## 状态
-- 当前状态：blocked
+- 当前状态：suspended
 - 当前阶段：qa
 
 ## 背景
@@ -88,9 +88,12 @@ P1 只要求代表性矩阵，不做 OS × agent × worktree 全组合。真实 
 - [ ] 验收标准对齐：所有验收标准是否满足？
 
 ## 阻塞 / 搁置说明（可选）
-- 原因：Claude Code 未登录，GitHub CLI token 失效且 API 不通
-- 恢复条件：完成 Claude 与 GitHub 认证并允许触发 hosted Actions
-- 下一步：执行 interactive matcher smoke 和三平台 workflow_dispatch，核验 artifacts
+- 状态变更：2026-09-23 由 `blocked` 转 `suspended`（依据 `docs/plans/2026-09-23-route-decision-personal-slim-tool.md`）
+- 原因：个人路线暂停三平台与真实 matcher 的对外承诺（2026-07-16 报告 §5 矩阵 B 的 P12）。原阻塞条件已部分解除——Actions 现在随 push 触发，真实证据已取得：run `35858281776`、`31672675613` 均为 ubuntu ✓ / macos ✓ / **windows ✗**（4 项失败：`spawnSync npm.cmd EINVAL`×2、`spawn claude ENOENT`×1、真实 worktree deep-equal×1）。"未验证"从"没有证据"变成"有失败证据"，本 REQ 不再作为待补欠账推进
+- 恢复条件：
+  - 转回公共脚手架路线时（需先满足路线决策文件的"翻转条件"）；或
+  - 本机/CI 卫生需要单独修 Windows 那几项失败时，另开 REQ（不与本 REQ 的承诺绑定）
+- 下一步：实现与产物保留在源码（`scripts/ci-verify.mjs`、`scripts/claude-matcher-smoke.mjs`、三平台 workflow、capability manifest），不删除；未勾选的验收项保留原文不再更新
 
 ## 临时实现与债务
 - 无
@@ -105,5 +108,6 @@ P1 只要求代表性矩阵，不做 OS × agent × worktree 全组合。真实 
 - 2026-07-12：三平台共享同一 CI runner；workflow 只编排 matrix，不复制门禁列表。
 - 2026-07-12：matcher 证据分三层：纯函数契约、Claude doctor 配置、真实交互 dispatch；不使用 `claude -p`。
 - 2026-07-12：配置存在不等于 runner 通过，远端结果必须有 run identity。
+- 2026-09-23：转 `suspended`——个人路线暂停三平台与真实 matcher 承诺（路线决策 §5 P12）；实现保留，未勾选验收项原文保留。
 
 <!-- Source file: REQ-2026-096-p1-cross-platform-ci-claude-matcher-smoke.md -->

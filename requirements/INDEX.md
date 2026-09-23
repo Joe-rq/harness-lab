@@ -25,6 +25,7 @@ requirements/{status}/REQ-{YYYY}-{NNN}-{brief-desc}.md
 
 ## 最近完成 REQ
 
+- `REQ-2026-099-p0-commitment-convergence-personal-route.md`（真实整改：P0 对外承诺收敛（个人路线））
 - `REQ-2026-098-p0-state-handoff-single-truth-source.md`（真实整改：P0 状态交接单一真相源（投影与渲染契约））
 - `REQ-2026-095-p1-state-semantics-real-worktree.md`（真实整改：P1 状态语义与真实 worktree）
 - `REQ-2026-094-p1-safe-upgrade-v1.md`（真实整改：P1 安全升级 v1）

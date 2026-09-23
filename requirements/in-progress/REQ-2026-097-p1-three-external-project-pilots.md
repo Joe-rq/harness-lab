@@ -1,7 +1,7 @@
 # REQ-2026-097: P1 三类外部项目 Pilot
 
 ## 状态
-- 当前状态：blocked
+- 当前状态：suspended
 - 当前阶段：implementation
 
 ## 背景
@@ -89,9 +89,11 @@ Harness Lab 的内部 dogfooding 很强，但不能证明外部采用。P1 要�
 - [ ] 验收标准对齐：所有验收标准是否满足？
 
 ## 阻塞 / 搁置说明（可选）
-- 原因：三个外部项目尚未逐项授权，六个真实业务任务未确认，且观察窗至少 14 天
-- 恢复条件：确认三个项目与每项目两个真实待办并授权写入
-- 下一步：逐项目 dry-run、baseline、observation init，完成两轮 REQ 后观察 14-28 天
+- 状态变更：2026-09-23 由 `blocked` 转 `suspended`（依据 `docs/plans/2026-09-23-route-decision-personal-slim-tool.md`）
+- 原因：个人路线下原方案非必须（2026-07-16 报告 §2.4）——"三技术栈 × 两周期 × 14–28 天 + 独立用户复用"是为公共路线的 stable 门槛设计的；个人路线要的是"两个自有项目、四个真实任务是否发生主动复用"，不需要外部授权与三技术栈覆盖
+- 恢复条件：转回公共脚手架路线时，按"不排除失败样本的采用实验"重写本 REQ（首轮失败的项目不因缺第二次任务被排除）
+- 下一步（不依赖本 REQ，属数据任务）：两个自有项目各完成两个真实任务，逐任务记录首个 REQ 用时、跨会话恢复耗时、误拦/漏拦、豁免、放弃与 repeat-use；失败任务同样计为完整观察。观察记录走 `.claude/progress.txt` 与经验文档，不再建代码 REQ
+- 保留：协议、collector 与契约测试（`scripts/pilot-observation.mjs`、`docs/pilots/*`）保留在源码；未勾选的验收项原文保留不再更新
 
 ## 临时实现与债务
 - 无
@@ -106,5 +108,6 @@ Harness Lab 的内部 dogfooding 很强，但不能证明外部采用。P1 要�
 - 2026-07-12：同一维护者三项目是“跨技术栈适配 pilot”，不是独立用户市场验证。
 - 2026-07-12：两轮必须是真实业务 REQ；安装验证、文档自测、fixture 不计入 2 cycles。
 - 2026-07-12：raw observation 留在各项目，Harness Lab 只接收脱敏 summary 与必要证据引用。
+- 2026-09-23：转 `suspended`——个人路线下改用"两个自有项目 × 四个真实任务"轻量观察（数据任务），原三技术栈方案保留给公共路线恢复时重写。
 
 <!-- Source file: REQ-2026-097-p1-three-external-project-pilots.md -->

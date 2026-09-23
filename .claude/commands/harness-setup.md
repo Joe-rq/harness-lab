@@ -43,11 +43,14 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 如果 harness-lab 以 npm 包形式安装，`package.json` 暴露 `harness-install` bin 后，也可以使用：
 
 ```bash
-npx --yes --package=harness-lab harness-install --defaults
-npx --yes --package=harness-lab harness-install --defaults --dry-run
-npx --yes --package=harness-lab harness-install --defaults --package-dir app
-npx --yes --package=harness-lab harness-install --defaults --with-hook
+# 源码目录脚本（推荐）
+node /path/to/harness-lab/scripts/harness-install.mjs --defaults
+# 或本地 tarball（npm pack 打印的文件名为准）
+npm pack
+npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --defaults
 ```
+
+本仓库不发布到公开 registry；`--dry-run`、`--package-dir app`、`--with-hook` 等参数同上，追加即可。
 
 ## 模块
 

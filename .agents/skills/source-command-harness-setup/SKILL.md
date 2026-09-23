@@ -47,14 +47,16 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --package-dir a
 node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 ```
 
-如果 harness-lab 以 npm 包形式安装，`package.json` 暴露 `harness-install` bin 后，也可以使用：
+如果 harness-lab 以本地 tarball 分发，`package.json` 暴露 `harness-install` bin，可用（`npm pack` 打印的文件名为准）：
 
 ```bash
-npx --yes --package=harness-lab harness-install --defaults
-npx --yes --package=harness-lab harness-install --defaults --dry-run
-npx --yes --package=harness-lab harness-install --defaults --package-dir app
-npx --yes --package=harness-lab harness-install --defaults --with-hook
+npm pack
+npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --defaults
+npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --defaults --dry-run
+npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --defaults --with-hook
 ```
+
+本仓库不发布到公开 registry，因此没有 `npx --package=harness-lab` 这类可用入口。
 
 ## 模块
 

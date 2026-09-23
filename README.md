@@ -54,18 +54,19 @@ node /path/to/harness-lab/scripts/harness-install.mjs --defaults --with-hook
 # PreToolUse 为硬阻断：无活跃 REQ 或 REQ scope 越界时禁止 Write/Edit
 ```
 
-如果通过包分发方式安装，`package.json` 已暴露 `harness-install` bin，可使用：
+**本仓库不发布到公开 registry**（registry 上的同名包属于其他项目，且不含 `harness-install` bin）。只提供两条本地路径：源码目录脚本，或本地 tarball：
 
 ```bash
-npx --yes --package=harness-lab harness-install --defaults
-npx --yes --package=harness-lab harness-install --defaults --dry-run
-npx --yes --package=harness-lab harness-install --defaults --package-dir app
-npx --yes --package=harness-lab harness-install --defaults --with-hook
+# 本地 tarball：npm pack 后会打印文件名，以该文件名为准
+npm pack
+npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --defaults
+npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --defaults --dry-run
+npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --defaults --with-hook
 ```
 
-这里显式区分 npm 包名 `harness-lab` 与 bin 名 `harness-install`，避免 `npx` 把 bin 名误当成另一个包名。发布前回归会从本地 tarball 执行同一个 bin，不依赖源码目录或 registry 缓存。
+`--package=<tarball>` 与 `--` 后的 bin 名 `harness-install` 必须分开写，避免把 bin 名误当成另一个包名。该形式与 `tests/governance.test.mjs` 的 packed-install fixture 一致（每次 `npm test` 都从真实 tarball 执行同一 bin，且把 registry 指向不可达端口以证明不依赖网络）。
 
-默认安装是治理引导，不是完整镜像；`watchdog`、`risk-tracker` 等高级 Hook 会随 npm 包发布，便于按 profile 选择，但不在默认安装清单中；测试、CI 和 `.claude/commands/` 也不会复制到目标项目。
+默认安装是治理引导，不是完整镜像；`watchdog`、`risk-tracker` 等高级 Hook 随包发布并由 `scripts/capability-manifest.mjs` 声明，便于按 profile 选择，但不在默认安装清单中；测试、CI 和 `.claude/commands/` 也不会复制到目标项目。
 默认 CLI 清单包含 status / experience / reflect / align / doctor / invariant 及 `worktree-utils.mjs` 等运行依赖。安装器回归测试会从真实 npm tarball 的 bin 完成安装并执行 REQ 生命周期，避免源码可运行却发布包不可运行。
 安装器会写入无时间戳的 `.harness/profile.json`，记录 core/default/custom、实际模块、overlay 与 capability；同一 profile 重复安装时该记录字节稳定。重复安装会保留已有 `.claude/progress.txt` 和自定义 settings；只有复制与安装后验证全部成功时才返回 0 并显示“安装完成”，partial/failed 结果会保留诊断报告并返回非零。
 
@@ -74,8 +75,9 @@ npx --yes --package=harness-lab harness-install --defaults --with-hook
 模块文件、目标 package scripts、core/default profile、基础 Hook overlay、doctor 基础期望和 npm 发布文件均以 `scripts/capability-manifest.mjs` 为单一事实源。`package.json.files` 是 npm 要求的 checked-in 派生字段：修改能力后运行 `npm run capabilities:sync` 生成，再用 `npm run capabilities:check` 验证；installer、doctor 和契约测试不再各自维护完整 command/file map。测试仍保留少量独立语义能力 ID，避免 manifest 与消费者一起漏项时自证绿灯。
 
 **平台支持与证据**：
-- 目标支持 Windows、macOS、Linux，最低 Node.js 20；Windows 路径使用 Node.js 脚本，不要求 Bash。
-- GitHub Actions 已配置 `ubuntu-latest / macos-latest / windows-latest × Node 20` 代表性矩阵，三格共用 `npm run ci:verify -- --require-node-major 20`，且 `fail-fast: false`。
+- **已实测环境**：macOS + 本机 Node（开发主环境）；GitHub Actions 上 `ubuntu-latest` ✓、`macos-latest` ✓（Node 20）。
+- **Windows 未验证，不作承诺**：`windows-latest` 格长期失败，最近两次提交（run [35858281776](https://github.com/Joe-rq/harness-lab/actions/runs/35858281776)、[31672675613](https://github.com/Joe-rq/harness-lab/actions/runs/31672675613)）报同一组 4 项：`spawnSync npm.cmd EINVAL`×2、`spawn claude ENOENT`（runner 无 Claude CLI）×1、真实 worktree deep-equal 不一致×1。代码里保留 Windows 路径处理（Node 脚本、不要求 Bash），但**没有可引用的通过证据**；按 `docs/plans/2026-09-23-route-decision-personal-slim-tool.md`，三平台承诺已撤下。
+- `package.json` 仍声明 `engines.node >= 20`；Node 20 只在 CI 的 ubuntu/macos 两格上验证过。
 - “workflow 已配置”不等于“平台已验证”。只有对应 Actions matrix run 成功且上传 `harness-ci-evidence.json` 后，才把该平台标记为通过；本地其他 Node 版本的成功结果只证明本机兼容，不替代 Node 20 runner 证据。
 
 ### 手动接入
@@ -128,8 +130,8 @@ npx --yes --package=harness-lab harness-install --defaults --with-hook
 升级必须显式执行。建议先看零写入计划，再应用：
 
 ```bash
-npx --yes --package=harness-lab harness-install --upgrade --dry-run
-npx --yes --package=harness-lab harness-install --upgrade
+npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --upgrade --dry-run
+npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --upgrade
 ```
 
 升级只替换相对 ownership baseline 未修改的受管文件，并安全加入新文件；用户修改、无可信 baseline 的旧文件和已删除的 owned 文件都会保留并进入冲突报告。它不修改目标 `package.json`、`.claude/settings.local.json`、progress/events/session、业务文件或历史 REQ，也不会自动删除上游已移除文件。
@@ -139,8 +141,8 @@ npx --yes --package=harness-lab harness-install --upgrade
 实际写入前会在 `.harness/backups/<backup-id>/` 保存旧字节，结果写入 `.harness/upgrade-report.json` 与 `requirements/reports/harness-upgrade-report.md`。有冲突时安全项仍可升级，但 complete version 不推进；按报告处理后再运行 dry-run。恢复同样可先预览：
 
 ```bash
-npx --yes --package=harness-lab harness-install --restore <backup-id> --dry-run
-npx --yes --package=harness-lab harness-install --restore <backup-id>
+npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --restore <backup-id> --dry-run
+npm exec --yes --package=./harness-lab-<version>.tgz -- harness-install --restore <backup-id>
 ```
 
 旧项目没有 ownership 时会采用保守模式：与新 source 完全一致的文件可认领，缺失的新文件可加入，其他已有文件一律保留为冲突。这是基于 hash 的三方分类，不是自动内容合并。
