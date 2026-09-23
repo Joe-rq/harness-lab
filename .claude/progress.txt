@@ -3,6 +3,9 @@ Current phase: idle
 Last updated: 2026-09-23
 
 Summary:
+- ✅ 2026-09-23 路线决策落盘：**个人精简工具为主线**（依据 2026-07-16 报告 §9 五问逐条为否），新观察窗 2026-09-23 → 2026-12-22。见 `docs/plans/2026-09-23-route-decision-personal-slim-tool.md`
+- ✅ REQ-2026-098 已完成（P0 状态交接单一真相源）：事件账本为唯一真相源；`lastUpdated` 只由工作事件推进；删 `blockers` 死字段；SessionStart 分「机器状态 / 最近事件 / 人的笔记」三区；修 INDEX 搁置列表吞首项。117 测试、四道门禁全绿，已推送
+- ✅ 2026-09-23 接受 invariant 批量废弃：63 条 90 天未触发的 draft 转 deprecated（mtime 判据由 `req:complete` 隐式触发，现场记录见 observations）
 - ✅ Stage 3 / S3-CP3 决策完成（2026-06-22）：选择**修订路线**，不开任务图。依据：§7.3 第 5 条命中（痛点=治理工具摩擦非并行协作）+ 第二项目实验（academic-paper-workflow）证实接入摩擦
 - REQ-2026-088 已完成：第二项目实验 3 缺陷修复（标题宽松 + .gitignore + doctor 传播）
 - REQ-2026-087 已完成：OPT-3 experience 自动草稿（聚合 commit/报告/事件账本）
@@ -18,11 +21,16 @@ Summary:
 - ✅ 2026-06-22 第二项目实验报告落盘：requirements/observations/2026-06-22-second-project-experiment.md
 
 Next steps:
-- 用户在 academic-paper-workflow 的 claude session 跑 hook 实测清单（6 项，见 `requirements/observations/2026-06-22-second-project-experiment.md` §"hook 误杀实测清单"）—— OPT-1A/1B 在真实场景的唯一闭环验证
+- 【Day 0–30 · 个人路线】对外承诺收敛：README 撤 npm 入口（`npx --package=harness-lab`）与三平台/最小 Node 承诺；REQ-2026-096 转 suspended、REQ-2026-097 重写为两个自有项目的轻量观察 —— 待开 REQ
+- 【Day 0–30】D2：REQ 必填章节 fail-closed（`scripts/req-validation.mjs:28-32` 缺章节返回空串，占位词检查恒空转）—— 待开 REQ
+- 【Day 0–30】两个自有项目各两个真实任务 + 逐任务记录首个 REQ 用时/恢复耗时/误拦漏拦/豁免/放弃；失败任务同样计为完整观察
+- 用户在 academic-paper-workflow 跑 hook 实测清单（6 项，`requirements/observations/2026-06-22-second-project-experiment.md` §"hook 误杀实测清单"）—— 实效层的唯一来源
+- 已定但未开 REQ：① scope-guard 自举死锁（豁免文件写不进去；应让 `.req-exempt` 免检并把 REQ 自身/报告/经验文档按约定自动 allow）② Windows CI 两个可本机验证的失败（`spawnSync npm.cmd EINVAL`）③ invariant autoDeprecate 改造为显式命令 + 排除模板文件 ④ REQ-2026-099：把"投影 active+suspended ↔ INDEX 活跃/搁置"做成会失败的检查
 - governance warnings=125 基线调查：另开 REQ 排查（非紧急，长期债务）
-- `package.json` 添加 `"type": "module"` 消除 MODULE_TYPELESS_PACKAGE_JSON 警告（OPT-1A 已修死代码 bug，剩余仅 stderr 噪声）—— 缓做
 
 Open questions:
+- 路线决策已落盘为个人精简工具：Q1（是否愿承担 C3）无用户明确声明，若要转公共路线需先推翻该条，见决策文件"翻转条件"
+- Windows CI 承诺已按个人路线撤下，那两个可本机验证的失败还修不修（作为 CI 卫生，而非发布阻断项）？
 - 第二项目实验 hook 测试清单何时跑？跑完数据回来开 REQ 落盘还是直接走 experience？
 - governance warnings=125 是否值得专项排查 baseline，还是接受为长期债务？
 
